@@ -32,6 +32,10 @@ updates:
     cooldown:
       default-days: 7
       semver-major-days: 14
+    # They define the pipeline's version, which the published exports record.
+    ignore:
+      - dependency-name: duckdb
+      - dependency-name: dbt-*
     groups:
       python-runtime:
         patterns:
