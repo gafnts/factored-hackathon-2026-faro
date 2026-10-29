@@ -572,7 +572,10 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 | GitHub Actions | Commit SHAs in `.github/workflows/`, with the release in a trailing comment |
 | CI tool versions | `env` blocks in `.github/workflows/` |
 
-Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens a monthly PR into `develop` for each of: Python dependencies, the web app's dependencies, hook versions, GitHub Actions and the AWS provider. It skips releases younger than a week. Python, Node, Terraform and the CI tool versions are still bumped by hand.
+Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into `develop`. Version updates come monthly, one PR for each of: Python dependencies, the web app's dependencies, hook versions, GitHub Actions and the AWS provider; they skip releases younger than a week. Security updates come as soon as an advisory covers a version we lock, one PR each for Python, the web app and GitHub Actions. Dependabot doesn't hold those back, but pnpm still refuses a release under a week old (`web/pnpm-workspace.yaml`), so a web fix that new fails the quality gates until it ages; if it holds up the rest of its group, upgrade the others by hand from a feature branch. Python, Node, Terraform and the CI tool versions are still bumped by hand.
+
+> [!IMPORTANT]
+> A security fix is done when it's promoted, not when its alert closes. Alerts follow `develop`, the default branch, so one closes as soon as its fix merges there, while `prototype` keeps the vulnerable version until the promotion deploys the fix.
 
 ### Files
 
