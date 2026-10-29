@@ -1,5 +1,6 @@
-# Monthly, one PR per ecosystem, into develop, the default branch. The cooldown
-# skips releases younger than a week; security updates ignore it. Not covered: the
+# Into develop, the default branch. Version updates come monthly, grouped by what a
+# merge touches, with majors apart so they never hold up the rest. The cooldown skips
+# releases younger than a week; security updates ignore it. Not covered: the
 # Terraform CLI, Python, Node, and the tool versions in the workflows' env blocks.
 
 version: 2
@@ -26,9 +27,24 @@ updates:
       default-days: 7
       semver-major-days: 14
     groups:
-      python:
+      python-runtime:
+        patterns:
+          - ag-ui-*
+          - bedrock-agentcore
+          - boto3*
+          - fastapi
+          - httpx
+          - jsonschema
+          - langchain*
+          - langgraph*
+          - rfc3339-validator
+        update-types: [minor, patch]
+      python-tooling:
         patterns: ["*"]
         update-types: [minor, patch]
+      python-major:
+        patterns: ["*"]
+        update-types: [major]
       python-security:
         applies-to: security-updates
         patterns: ["*"]
@@ -41,9 +57,17 @@ updates:
       default-days: 7
       semver-major-days: 14
     groups:
-      web:
+      web-app:
+        dependency-type: production
         patterns: ["*"]
         update-types: [minor, patch]
+      web-tooling:
+        dependency-type: development
+        patterns: ["*"]
+        update-types: [minor, patch]
+      web-major:
+        patterns: ["*"]
+        update-types: [major]
       web-security:
         applies-to: security-updates
         patterns: ["*"]
