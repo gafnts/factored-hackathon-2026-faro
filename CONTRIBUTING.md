@@ -572,7 +572,21 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 | GitHub Actions | Commit SHAs in `.github/workflows/`, with the release in a trailing comment |
 | CI tool versions | `env` blocks in `.github/workflows/` |
 
-Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into `develop`. Version updates come monthly, one PR for each of: Python dependencies, the web app's dependencies, hook versions, GitHub Actions and the AWS provider; they skip releases younger than a week. Security updates come as soon as an advisory covers a version we lock, one PR each for Python, the web app and GitHub Actions. Dependabot doesn't hold those back, but pnpm still refuses a release under a week old (`web/pnpm-workspace.yaml`), so a web fix that new fails the quality gates until it ages; if it holds up the rest of its group, upgrade the others by hand from a feature branch. Python, Node, Terraform and the CI tool versions are still bumped by hand.
+Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into `develop`. Version updates come monthly and skip releases younger than a week. They're grouped by what a merge touches, so each PR is taken one way, and one failing update never holds up another group:
+
+| PR | What it moves | How to take it |
+|---|---|---|
+| Python runtime | The `agent` and `tools` groups: LangGraph, LangChain, FastAPI, AgentCore, boto3 | It ships: merge on green checks, and the next promotion deploys it |
+| Python tooling | Every other Python package | Merge on green checks |
+| Web app | The web app's `dependencies` | It ships: merge on green checks, then try the site after the promotion |
+| Web tooling | Its `devDependencies` | Merge on green checks |
+| CI | GitHub Actions and the hooks, in one PR | Merge on green checks |
+| Terraform | The AWS provider | Read the plan when it's promoted |
+| Python and web majors | Every major version, one PR per ecosystem | Upgrade on purpose from a feature branch, or comment `@dependabot ignore <dependency> major version` |
+
+DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. `@types/node` stays on the Node major in `.nvmrc`.
+
+Security updates come as soon as an advisory covers a version we lock, one PR each for Python and the web app. Dependabot doesn't hold those back, but pnpm still refuses a release under a week old (`web/pnpm-workspace.yaml`), so a web fix that new fails the quality gates until it ages; if it holds up the rest of its group, upgrade the others by hand from a feature branch. Python, Node, Terraform and the CI tool versions are still bumped by hand.
 
 > [!IMPORTANT]
 > A security fix is done when it's promoted, not when its alert closes. Alerts follow `develop`, the default branch, so one closes as soon as its fix merges there, while `prototype` keeps the vulnerable version until the promotion deploys the fix.
