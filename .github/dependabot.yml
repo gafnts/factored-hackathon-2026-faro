@@ -66,6 +66,10 @@ updates:
     cooldown:
       default-days: 7
       semver-major-days: 14
+    # Its types follow the Node major in .nvmrc.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       web-app:
         dependency-type: production
