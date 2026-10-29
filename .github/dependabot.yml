@@ -5,19 +5,25 @@
 
 version: 2
 
+multi-ecosystem-groups:
+  ci:
+    schedule:
+      interval: monthly
+
 updates:
   - package-ecosystem: github-actions
     directory: /
-    schedule:
-      interval: monthly
+    patterns: ["*"]
+    multi-ecosystem-group: ci
     cooldown:
       default-days: 7
-    groups:
-      github-actions:
-        patterns: ["*"]
-      github-actions-security:
-        applies-to: security-updates
-        patterns: ["*"]
+
+  - package-ecosystem: pre-commit
+    directory: /
+    patterns: ["*"]
+    multi-ecosystem-group: ci
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: uv
     directory: /
@@ -70,16 +76,6 @@ updates:
         update-types: [major]
       web-security:
         applies-to: security-updates
-        patterns: ["*"]
-
-  - package-ecosystem: pre-commit
-    directory: /
-    schedule:
-      interval: monthly
-    cooldown:
-      default-days: 7
-    groups:
-      pre-commit:
         patterns: ["*"]
 
   - package-ecosystem: terraform
