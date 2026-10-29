@@ -1,13 +1,12 @@
-# Monthly, one PR per ecosystem, into develop. The cooldown skips releases younger
-# than a week; security updates ignore it. Not covered: the Terraform CLI, Python,
-# Node, and the tool versions in the workflows' env blocks.
+# Monthly, one PR per ecosystem, into develop, the default branch. The cooldown
+# skips releases younger than a week; security updates ignore it. Not covered: the
+# Terraform CLI, Python, Node, and the tool versions in the workflows' env blocks.
 
 version: 2
 
 updates:
   - package-ecosystem: github-actions
     directory: /
-    target-branch: develop
     schedule:
       interval: monthly
     cooldown:
@@ -18,7 +17,6 @@ updates:
 
   - package-ecosystem: uv
     directory: /
-    target-branch: develop
     schedule:
       interval: monthly
     cooldown:
@@ -31,7 +29,6 @@ updates:
 
   - package-ecosystem: npm
     directory: /web
-    target-branch: develop
     schedule:
       interval: monthly
     cooldown:
@@ -44,7 +41,6 @@ updates:
 
   - package-ecosystem: pre-commit
     directory: /
-    target-branch: develop
     schedule:
       interval: monthly
     cooldown:
@@ -55,7 +51,6 @@ updates:
 
   - package-ecosystem: terraform
     directories: [/infra, /infra/iam]
-    target-branch: develop
     schedule:
       interval: monthly
     cooldown:
