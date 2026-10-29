@@ -139,4 +139,4 @@ make check     # Every hook against every file, as CI runs them
 
 ## Contributing
 
-Feature branches merge into `develop`, which runs the quality gates and deploys nothing. `main` mirrors what is live on the prototype and only accepts merges from `develop`. Commit subjects are imperative, PRs cite the requirement IDs they cover, and a decision someone could question later gets an architecture decision record. The [contributing guide](CONTRIBUTING.md#day-to-day-workflow) has the details, and `make help` lists every command.
+Feature branches merge into `develop`, the default branch, which runs the quality gates and deploys nothing. `main` mirrors what is live on the prototype and only accepts merges from `develop`. Commit subjects are imperative, PRs cite the requirement IDs they cover, and a decision someone could question later gets an architecture decision record. The [contributing guide](CONTRIBUTING.md#day-to-day-workflow) has the details, and `make help` lists every command.
