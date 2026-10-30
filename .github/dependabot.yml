@@ -1,4 +1,4 @@
-# Into develop, the default branch. Version updates come monthly, grouped by what a
+# Into develop, the default branch. Version updates come quarterly, grouped by what a
 # merge touches, with majors apart so they never hold up the rest. The cooldown skips
 # releases younger than a week; security updates ignore it. Not covered: the
 # Terraform CLI, Python, Node, and the tool versions in the workflows' env blocks.
@@ -8,7 +8,7 @@ version: 2
 multi-ecosystem-groups:
   ci-tooling:
     schedule:
-      interval: monthly
+      interval: quarterly
 
 updates:
   - package-ecosystem: github-actions
@@ -28,7 +28,7 @@ updates:
   - package-ecosystem: uv
     directory: /
     schedule:
-      interval: monthly
+      interval: quarterly
     cooldown:
       default-days: 7
       semver-major-days: 14
@@ -74,7 +74,7 @@ updates:
   - package-ecosystem: npm
     directory: /web
     schedule:
-      interval: monthly
+      interval: quarterly
     cooldown:
       default-days: 7
       semver-major-days: 14
@@ -109,7 +109,7 @@ updates:
   - package-ecosystem: terraform
     directories: [/infra, /infra/iam]
     schedule:
-      interval: monthly
+      interval: quarterly
     cooldown:
       default-days: 7
     groups:

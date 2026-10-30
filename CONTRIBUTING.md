@@ -573,7 +573,7 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 | GitHub Actions | Commit SHAs in `.github/workflows/`, with the release in a trailing comment |
 | CI tool versions | `env` blocks in `.github/workflows/` |
 
-Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into `develop`. Version updates come monthly and skip releases younger than a week. They're grouped by what a merge touches, so each PR is taken one way, and one failing update never holds up another group:
+Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into `develop`. Version updates come quarterly and skip releases younger than a week; security updates don't wait for the schedule. Any change to `.github/dependabot.yml` on `develop` makes Dependabot check every ecosystem straight away, whatever the schedule, so config changes are best made together. They're grouped by what a merge touches, so each PR is taken one way, and one failing update never holds up another group:
 
 | PR | What it moves | How to take it |
 |---|---|---|
