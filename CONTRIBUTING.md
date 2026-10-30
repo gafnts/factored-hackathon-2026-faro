@@ -348,6 +348,8 @@ A few habits keep PRs quick to review:
 - Cite the requirement IDs from [docs/prerequisites.md](docs/prerequisites.md) (for example `SEC-05`) in the PR description and in the tests that cover them, so every change traces back to what the organizers score.
 - Mirror the package in `tests/`: the tests for `src/banking_agent/<path>/<module>.py` live in `tests/banking_agent/<path>/test_<module>.py`, and fixtures shared by a folder go in its `conftest.py`. The web app's tests mirror `web/src/` in `web/tests/` the same way (`<module>.test.ts`).
 - Add an ADR when the change makes a decision someone could reasonably question later (see [Record decisions](#record-decisions)).
+- Add a line under `Unreleased` in [CHANGELOG.md](CHANGELOG.md) when someone using the prototype, or maintaining it, would notice the change.
+- Keep work for later in [GitHub Issues](https://github.com/gafnts/factored-hackathon-2026-gafnts/issues), and close it from the PR that does it (`Closes #12`). It closes when the PR merges into `develop`, before the change is deployed; the changelog's `Unreleased` section shows what isn't yet.
 
 ### Run the quality gates
 
@@ -457,6 +459,8 @@ make relabel-agreement          # Score the filled sheet against the labels
 ### Promote to prototype
 
 When `develop` is in a state you'd be happy for judges to see, open a PR from `develop` into `main`, naming the base, since new PRs target `develop`: `gh pr create --base main`. If the batch touches `infra/` (outside `infra/iam/` and `infra/dataset/`), CI posts a sticky **Terraform Plan · `prototype`** comment for reviewers. Merging applies the change to `prototype` and deploys the site; the deployment links its URL, the one the submission gives (SUB-02). Merge with **Create a merge commit**: a squash or rebase puts commits on `main` that `develop` never gets, and the next promotion then carries the whole history again.
+
+Once the promotion's PR is open, move the changelog's `Unreleased` entries under a new `## Promotion N (#PR) - date` heading in a PR into `develop`, with a line for anything merged without one, such as Dependabot's PRs. The promotion picks it up, so `main` carries its own record.
 
 To redeploy `main` without an infrastructure change, run the workflow by hand: **Actions → Deploy · Prototype → Run workflow** with `main` picked under **Use workflow from**, or `gh workflow run deploy-prototype.yml --ref main`. Both default to `develop`, where every job skips.
 
