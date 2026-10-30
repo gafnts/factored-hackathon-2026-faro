@@ -32,10 +32,21 @@ updates:
     cooldown:
       default-days: 7
       semver-major-days: 14
-    # They define the pipeline's version, which the published exports record.
     ignore:
+      # They define the pipeline's version, which the published exports record.
       - dependency-name: duckdb
       - dependency-name: dbt-*
+      # Only the published analysis uses them, and a major can change its results.
+      - dependency-name: matplotlib
+        update-types: ["version-update:semver-major"]
+      - dependency-name: plotnine
+        update-types: ["version-update:semver-major"]
+      - dependency-name: polars
+        update-types: ["version-update:semver-major"]
+      - dependency-name: pyarrow
+        update-types: ["version-update:semver-major"]
+      - dependency-name: scikit-learn
+        update-types: ["version-update:semver-major"]
     groups:
       python-runtime:
         patterns:
