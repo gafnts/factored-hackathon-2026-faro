@@ -560,19 +560,34 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 | What | Where |
 |---|---|
 | Python 3.13 | `.python-version`, and `requires-python` in `pyproject.toml` |
-| Python dependencies | `uv.lock` |
+| uv 0.13 | `required-version` and the `uv-build` requirement in `pyproject.toml`, so every uv that touches the lock (yours, CI's latest, Dependabot's) writes it in the same format |
+| Python dependencies | `uv.lock`, and only releases a week old (`exclude-newer` in `pyproject.toml`) |
 | Node 24.21.0 | `.nvmrc`, and `engines` in `web/package.json` (pnpm won't install on another version) |
 | pnpm | `packageManager` in `web/package.json` |
 | Web dependencies | Exact versions in `web/package.json`, locked in `web/pnpm-lock.yaml`, and only releases a week old (`web/pnpm-workspace.yaml`) |
 | Dataset snapshot | `dataset.lock` |
 | Terraform 1.16.x | `.terraform-version`, and `required_version` in each root |
-| AWS provider | Exactly 6.66.0 in `infra/terraform.tf`, and `.terraform.lock.hcl` in each root (linux/amd64, darwin/amd64, darwin/arm64) |
+| AWS provider | An exact version in `infra/terraform.tf`, which Dependabot bumps, and `.terraform.lock.hcl` in each root (linux/amd64, darwin/amd64, darwin/arm64) |
 | What the Runtime and the Lambdas run | The `agent` and `tools` dependency groups in `uv.lock`, built for Linux arm64 by `make build` |
 | Hook versions | `rev` entries in `.pre-commit-config.yaml` |
 | GitHub Actions | Commit SHAs in `.github/workflows/`, with the release in a trailing comment |
 | CI tool versions | `env` blocks in `.github/workflows/` |
 
-Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into `develop`. Version updates come monthly, one PR for each of: Python dependencies, the web app's dependencies, hook versions, GitHub Actions and the AWS provider; they skip releases younger than a week. Security updates come as soon as an advisory covers a version we lock, one PR each for Python, the web app and GitHub Actions. Dependabot doesn't hold those back, but pnpm still refuses a release under a week old (`web/pnpm-workspace.yaml`), so a web fix that new fails the quality gates until it ages; if it holds up the rest of its group, upgrade the others by hand from a feature branch. Python, Node, Terraform and the CI tool versions are still bumped by hand.
+Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into `develop`. Version updates come quarterly and skip releases younger than a week; security updates don't wait for the schedule. Any change to `.github/dependabot.yml` on `develop` makes Dependabot check every ecosystem straight away, whatever the schedule, so config changes are best made together. They're grouped by what a merge touches, so each PR is taken one way, and one failing update never holds up another group:
+
+| PR | What it moves | How to take it |
+|---|---|---|
+| Python runtime | The `agent` and `tools` groups: LangGraph, LangChain, FastAPI, AgentCore, boto3 | It ships: merge on green checks, and the next promotion deploys it |
+| Python tooling | Every other Python package | Merge on green checks |
+| Web app | The web app's `dependencies` | It ships: merge on green checks, then try the site after the promotion |
+| Web tooling | Its `devDependencies` | Merge on green checks |
+| CI | GitHub Actions and the hooks, in one PR | Merge on green checks |
+| Terraform | The AWS provider | Read the plan when it's promoted |
+| Python and web majors | Every major version, one PR per ecosystem | Upgrade on purpose from a feature branch, or comment `@dependabot ignore <dependency> major version` |
+
+DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. The analysis libraries (polars, pyarrow, matplotlib, plotnine, scikit-learn) get no majors: only `src/banking_agent/analysis/` uses them, for the published reports, and a major can change their results. `@types/node` stays on the Node major in `.nvmrc`. TypeScript stays on 6: 7 replaces the compiler, and we don't plan to move. AG-UI stays below 1.0 (`@ag-ui/client` 1.0 and `@assistant-ui/react-ag-ui` 0.1, which needs it): 1.0 changes the client's types, so it moves from its own branch.
+
+Security updates come as soon as an advisory covers a version we lock, one PR each for Python and the web app. Dependabot doesn't hold those back, but uv and pnpm still refuse a release under a week old (`exclude-newer` in `pyproject.toml`, `minimumReleaseAge` in `web/pnpm-workspace.yaml`), so a fix that new waits until it ages. One that can't wait gets an exception for that package alone (`exclude-newer-package`, `minimumReleaseAgeExclude`), removed once the release is a week old. If a fix that new holds up the rest of its group, upgrade the others by hand from a feature branch. Python, Node, Terraform and the CI tool versions are still bumped by hand.
 
 > [!IMPORTANT]
 > A security fix is done when it's promoted, not when its alert closes. Alerts follow `develop`, the default branch, so one closes as soon as its fix merges there, while `prototype` keeps the vulnerable version until the promotion deploys the fix.
