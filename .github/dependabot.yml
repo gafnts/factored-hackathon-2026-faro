@@ -6,7 +6,7 @@
 version: 2
 
 multi-ecosystem-groups:
-  ci:
+  ci-tooling:
     schedule:
       interval: monthly
 
@@ -14,14 +14,14 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     patterns: ["*"]
-    multi-ecosystem-group: ci
+    multi-ecosystem-group: ci-tooling
     cooldown:
       default-days: 7
 
   - package-ecosystem: pre-commit
     directory: /
     patterns: ["*"]
-    multi-ecosystem-group: ci
+    multi-ecosystem-group: ci-tooling
     cooldown:
       default-days: 7
 
