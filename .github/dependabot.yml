@@ -60,13 +60,12 @@ updates:
           - langgraph*
           - rfc3339-validator
         update-types: [minor, patch]
+      python-tooling:
+        patterns: ["*"]
+        update-types: [minor, patch]
       python-major:
         patterns: ["*"]
         update-types: [major]
-      # Every other update type too: stubs version by date (types-jsonschema), which
-      # is neither minor nor patch. The first matching group wins, so majors go above.
-      python-tooling:
-        patterns: ["*"]
       python-security:
         applies-to: security-updates
         patterns: ["*"]
