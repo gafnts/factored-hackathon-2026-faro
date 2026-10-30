@@ -1,4 +1,4 @@
-# Into develop, the default branch. Version updates come monthly, grouped by what a
+# Into develop, the default branch. Version updates come quarterly, grouped by what a
 # merge touches, with majors apart so they never hold up the rest. The cooldown skips
 # releases younger than a week; security updates ignore it. Not covered: the
 # Terraform CLI, Python, Node, and the tool versions in the workflows' env blocks.
@@ -8,7 +8,7 @@ version: 2
 multi-ecosystem-groups:
   ci-tooling:
     schedule:
-      interval: monthly
+      interval: quarterly
 
 updates:
   - package-ecosystem: github-actions
@@ -28,14 +28,25 @@ updates:
   - package-ecosystem: uv
     directory: /
     schedule:
-      interval: monthly
+      interval: quarterly
     cooldown:
       default-days: 7
       semver-major-days: 14
-    # They define the pipeline's version, which the published exports record.
     ignore:
+      # They define the pipeline's version, which the published exports record.
       - dependency-name: duckdb
       - dependency-name: dbt-*
+      # Only the published analysis uses them, and a major can change its results.
+      - dependency-name: matplotlib
+        update-types: ["version-update:semver-major"]
+      - dependency-name: plotnine
+        update-types: ["version-update:semver-major"]
+      - dependency-name: polars
+        update-types: ["version-update:semver-major"]
+      - dependency-name: pyarrow
+        update-types: ["version-update:semver-major"]
+      - dependency-name: scikit-learn
+        update-types: ["version-update:semver-major"]
     groups:
       python-runtime:
         patterns:
@@ -49,12 +60,13 @@ updates:
           - langgraph*
           - rfc3339-validator
         update-types: [minor, patch]
-      python-tooling:
-        patterns: ["*"]
-        update-types: [minor, patch]
       python-major:
         patterns: ["*"]
         update-types: [major]
+      # Every other update type too: stubs version by date (types-jsonschema), which
+      # is neither minor nor patch. The first matching group wins, so majors go above.
+      python-tooling:
+        patterns: ["*"]
       python-security:
         applies-to: security-updates
         patterns: ["*"]
@@ -62,13 +74,16 @@ updates:
   - package-ecosystem: npm
     directory: /web
     schedule:
-      interval: monthly
+      interval: quarterly
     cooldown:
       default-days: 7
       semver-major-days: 14
     ignore:
       # Its types follow the Node major in .nvmrc.
       - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7 replaces the compiler; we stay on 6.
+      - dependency-name: typescript
         update-types: ["version-update:semver-major"]
       # AG-UI 1.0 changes the client's types, so it moves from its own branch.
       - dependency-name: "@ag-ui/client"
@@ -94,7 +109,7 @@ updates:
   - package-ecosystem: terraform
     directories: [/infra, /infra/iam]
     schedule:
-      interval: monthly
+      interval: quarterly
     cooldown:
       default-days: 7
     groups:
