@@ -566,7 +566,7 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 | Web dependencies | Exact versions in `web/package.json`, locked in `web/pnpm-lock.yaml`, and only releases a week old (`web/pnpm-workspace.yaml`) |
 | Dataset snapshot | `dataset.lock` |
 | Terraform 1.16.x | `.terraform-version`, and `required_version` in each root |
-| AWS provider | Exactly 6.66.0 in `infra/terraform.tf`, and `.terraform.lock.hcl` in each root (linux/amd64, darwin/amd64, darwin/arm64) |
+| AWS provider | An exact version in `infra/terraform.tf`, which Dependabot bumps, and `.terraform.lock.hcl` in each root (linux/amd64, darwin/amd64, darwin/arm64) |
 | What the Runtime and the Lambdas run | The `agent` and `tools` dependency groups in `uv.lock`, built for Linux arm64 by `make build` |
 | Hook versions | `rev` entries in `.pre-commit-config.yaml` |
 | GitHub Actions | Commit SHAs in `.github/workflows/`, with the release in a trailing comment |
