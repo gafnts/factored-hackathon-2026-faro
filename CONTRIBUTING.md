@@ -567,7 +567,7 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 | Web dependencies | Exact versions in `web/package.json`, locked in `web/pnpm-lock.yaml`, and only releases a week old (`web/pnpm-workspace.yaml`) |
 | Dataset snapshot | `dataset.lock` |
 | Terraform 1.16.x | `.terraform-version`, and `required_version` in each root |
-| AWS provider | Exactly 6.66.0 in `infra/terraform.tf`, and `.terraform.lock.hcl` in each root (linux/amd64, darwin/amd64, darwin/arm64) |
+| AWS provider | An exact version in `infra/terraform.tf`, which Dependabot bumps, and `.terraform.lock.hcl` in each root (linux/amd64, darwin/amd64, darwin/arm64) |
 | What the Runtime and the Lambdas run | The `agent` and `tools` dependency groups in `uv.lock`, built for Linux arm64 by `make build` |
 | Hook versions | `rev` entries in `.pre-commit-config.yaml` |
 | GitHub Actions | Commit SHAs in `.github/workflows/`, with the release in a trailing comment |
@@ -585,7 +585,7 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into
 | Terraform | The AWS provider | Read the plan when it's promoted |
 | Python and web majors | Every major version, one PR per ecosystem | Upgrade on purpose from a feature branch, or comment `@dependabot ignore <dependency> major version` |
 
-DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. `@types/node` stays on the Node major in `.nvmrc`.
+DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. `@types/node` stays on the Node major in `.nvmrc`. AG-UI stays below 1.0 (`@ag-ui/client` 1.0 and `@assistant-ui/react-ag-ui` 0.1, which needs it): 1.0 changes the client's types, so it moves from its own branch.
 
 Security updates come as soon as an advisory covers a version we lock, one PR each for Python and the web app. Dependabot doesn't hold those back, but uv and pnpm still refuse a release under a week old (`exclude-newer` in `pyproject.toml`, `minimumReleaseAge` in `web/pnpm-workspace.yaml`), so a fix that new waits until it ages. One that can't wait gets an exception for that package alone (`exclude-newer-package`, `minimumReleaseAgeExclude`), removed once the release is a week old. If a fix that new holds up the rest of its group, upgrade the others by hand from a feature branch. Python, Node, Terraform and the CI tool versions are still bumped by hand.
 
