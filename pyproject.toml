@@ -71,6 +71,7 @@ tools = [
 [tool.uv]
 required-version = ">=0.13"
 default-groups = [ "agent", "dev", "eda", "pipeline", "tools" ]
+exclude-newer = "1 week"
 
 [tool.ruff]
 src = [ "src" ]
