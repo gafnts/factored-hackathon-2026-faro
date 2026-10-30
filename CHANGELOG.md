@@ -10,6 +10,10 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 - This changelog, and a note in CONTRIBUTING on keeping it.
 
+### Changed
+
+- The repository is now `gafnts/factored-hackathon-2026-faro`; links to the old name redirect. The CI roles trust its new OIDC subject, and CONTRIBUTING says what to do after a rename.
+
 ## Promotion 9 ([#107]) - 2026-10-29
 
 ### Changed
