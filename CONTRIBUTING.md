@@ -560,7 +560,8 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 | What | Where |
 |---|---|
 | Python 3.13 | `.python-version`, and `requires-python` in `pyproject.toml` |
-| Python dependencies | `uv.lock` |
+| uv 0.13 | `required-version` and the `uv-build` requirement in `pyproject.toml`, so every uv that touches the lock (yours, CI's latest, Dependabot's) writes it in the same format |
+| Python dependencies | `uv.lock`, and only releases a week old (`exclude-newer` in `pyproject.toml`) |
 | Node 24.21.0 | `.nvmrc`, and `engines` in `web/package.json` (pnpm won't install on another version) |
 | pnpm | `packageManager` in `web/package.json` |
 | Web dependencies | Exact versions in `web/package.json`, locked in `web/pnpm-lock.yaml`, and only releases a week old (`web/pnpm-workspace.yaml`) |
@@ -586,7 +587,7 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into
 
 DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. `@types/node` stays on the Node major in `.nvmrc`.
 
-Security updates come as soon as an advisory covers a version we lock, one PR each for Python and the web app. Dependabot doesn't hold those back, but pnpm still refuses a release under a week old (`web/pnpm-workspace.yaml`), so a web fix that new fails the quality gates until it ages; if it holds up the rest of its group, upgrade the others by hand from a feature branch. Python, Node, Terraform and the CI tool versions are still bumped by hand.
+Security updates come as soon as an advisory covers a version we lock, one PR each for Python and the web app. Dependabot doesn't hold those back, but uv and pnpm still refuse a release under a week old (`exclude-newer` in `pyproject.toml`, `minimumReleaseAge` in `web/pnpm-workspace.yaml`), so a fix that new waits until it ages. One that can't wait gets an exception for that package alone (`exclude-newer-package`, `minimumReleaseAgeExclude`), removed once the release is a week old. If a fix that new holds up the rest of its group, upgrade the others by hand from a feature branch. Python, Node, Terraform and the CI tool versions are still bumped by hand.
 
 > [!IMPORTANT]
 > A security fix is done when it's promoted, not when its alert closes. Alerts follow `develop`, the default branch, so one closes as soon as its fix merges there, while `prototype` keeps the vulnerable version until the promotion deploys the fix.
