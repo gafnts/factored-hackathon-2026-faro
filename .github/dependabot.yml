@@ -66,10 +66,15 @@ updates:
     cooldown:
       default-days: 7
       semver-major-days: 14
-    # Its types follow the Node major in .nvmrc.
     ignore:
+      # Its types follow the Node major in .nvmrc.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # AG-UI 1.0 changes the client's types, so it moves from its own branch.
+      - dependency-name: "@ag-ui/client"
+        versions: [">=1.0.0"]
+      - dependency-name: "@assistant-ui/react-ag-ui"
+        versions: [">=0.1.0"]
     groups:
       web-app:
         dependency-type: production

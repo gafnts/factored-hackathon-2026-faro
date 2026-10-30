@@ -584,7 +584,7 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into
 | Terraform | The AWS provider | Read the plan when it's promoted |
 | Python and web majors | Every major version, one PR per ecosystem | Upgrade on purpose from a feature branch, or comment `@dependabot ignore <dependency> major version` |
 
-DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. `@types/node` stays on the Node major in `.nvmrc`.
+DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. `@types/node` stays on the Node major in `.nvmrc`. AG-UI stays below 1.0 (`@ag-ui/client` 1.0 and `@assistant-ui/react-ag-ui` 0.1, which needs it): 1.0 changes the client's types, so it moves from its own branch.
 
 Security updates come as soon as an advisory covers a version we lock, one PR each for Python and the web app. Dependabot doesn't hold those back, but pnpm still refuses a release under a week old (`web/pnpm-workspace.yaml`), so a web fix that new fails the quality gates until it ages; if it holds up the rest of its group, upgrade the others by hand from a feature branch. Python, Node, Terraform and the CI tool versions are still bumped by hand.
 
