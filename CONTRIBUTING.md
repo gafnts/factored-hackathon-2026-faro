@@ -190,7 +190,7 @@ This creates the state bucket (private, versioned, encrypted, with S3 native loc
 
 The bucket is named `banking-agent-tfstate-<account-id>-us-east-1-an`, in your account's [regional namespace](https://docs.aws.amazon.com/AmazonS3/latest/userguide/gpbucketnamespaces.html): only your account can own that name. The script always runs as the admin profile, whatever `AWS_PROFILE` says, and refuses the organizers' account.
 
-The OIDC subject prefix is what the CI roles trust. The script reads it from GitHub for the repository `origin` points at, and prints it; check that it names your repository. Repositories created after 2026-07-15 carry the owner and repository IDs in it (`repo:<owner>@<owner-id>/<repo>@<repo-id>`), so it can't be written from the name alone. To set it without the GitHub CLI, export `GITHUB_OIDC_SUBJECT_PREFIX` before running the script.
+The OIDC subject prefix is what the CI roles trust. The script reads it from GitHub for the repository `origin` points at, and prints it; check that it names your repository. Repositories created after 2026-07-15 carry the owner and repository IDs in it (`repo:<owner>@<owner-id>/<repo>@<repo-id>`), so it can't be written from the name alone. The names in it still follow a rename, and the roles match the whole prefix, so after renaming the repository run `make doctor`, write the prefix it prints into `iam.tfvars`, and run `make iam-apply`; until then CI can't reach AWS. To set it without the GitHub CLI, export `GITHUB_OIDC_SUBJECT_PREFIX` before running the script.
 
 > [!NOTE]
 > Deploying from a fork? The regenerated backend files name your bucket, so commit them to your fork: every clone of it then points at your state, as `make doctor` checks. CI regenerates them on its own.
@@ -489,7 +489,7 @@ Run `make doctor` first; most setup problems show up there.
 | Expired credentials | Your sign-in session ended. Run `aws login` again. |
 | `make bootstrap` can't read the OIDC subject prefix | The GitHub CLI isn't signed in, or `origin` isn't a repository you can read. Run `gh auth login`; `make doctor` shows which repository `origin` points at. |
 | Deploy workflow jobs show as skipped | The repository variables from [step 3.5](#35-connect-github) aren't set yet. |
-| CI fails with `Not authorized to perform sts:AssumeRoleWithWebIdentity` | The roles trust another repository's OIDC subject. `make doctor` compares `iam.tfvars` with your repository; fix the value, then `make iam-apply`. |
+| CI fails with `Not authorized to perform sts:AssumeRoleWithWebIdentity` | The roles trust another repository's OIDC subject, or the repository was renamed since the last `make iam-apply`. `make doctor` compares `iam.tfvars` with your repository; fix the value, then `make iam-apply`. |
 | CI's `terraform init` fails on provider checksums | The lock files lack hashes for linux/amd64. Run `make lock` and commit them. |
 | A hook passes on commit but fails in CI | Commit hooks only see changed files. Run `make check`, which runs both stages on every file, as CI does. |
 | `make data` says the source no longer matches `dataset.lock` | The organizers added, removed, or replaced files; the message lists them by table. Adopt the change deliberately with `make data ADOPT=1`, which writes a new snapshot and lock, then commit the lock in a PR of its own and run `make snapshot`. |
