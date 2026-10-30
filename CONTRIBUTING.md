@@ -560,6 +560,7 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 | What | Where |
 |---|---|
 | Python 3.13 | `.python-version`, and `requires-python` in `pyproject.toml` |
+| uv 0.13 | `required-version` and the `uv-build` requirement in `pyproject.toml`, so every uv that touches the lock (yours, CI's latest, Dependabot's) writes it in the same format |
 | Python dependencies | `uv.lock` |
 | Node 24.21.0 | `.nvmrc`, and `engines` in `web/package.json` (pnpm won't install on another version) |
 | pnpm | `packageManager` in `web/package.json` |

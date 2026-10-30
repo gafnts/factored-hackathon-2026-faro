@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "uv_build"
-requires = [ "uv-build>=0.10.7,<0.11" ]
+requires = [ "uv-build>=0.13,<0.14" ]
 
 [project]
 name = "banking-agent"
@@ -69,6 +69,7 @@ tools = [
 ]
 
 [tool.uv]
+required-version = ">=0.13"
 default-groups = [ "agent", "dev", "eda", "pipeline", "tools" ]
 
 [tool.ruff]
