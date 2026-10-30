@@ -1283,16 +1283,16 @@ wheels = [
 
 [[package]]
 name = "langgraph-checkpoint-aws"
-version = "1.2.5"
+version = "1.2.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/9f/d7035d6513a66bf299e5c2a806f22a72a87f5b4fbb141d719a1eb848faf0/langgraph_checkpoint_aws-1.2.5.tar.gz", hash = "sha256:e6b1a9908041ad480c33c61274ccce25acf3831d1ae0fe1044863defbe564a1f", size = 347114, upload-time = "2026-10-08T00:19:39.741Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/95/03/52f4a13fe7b8878fe19ae01f0fc0eff534874a7fab15dee943198a02dc95/langgraph_checkpoint_aws-1.2.6.tar.gz", hash = "sha256:882e4cb8220af0649f8a7cbe0a1f4e209829f3858c043cbd031422d7baa9d917", size = 355418, upload-time = "2026-10-23T01:06:00.321Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d0/b2/8b178d96ae66196374ea1b8b7eed86319db4309df6db2e3908fdec2ac82d/langgraph_checkpoint_aws-1.2.5-py3-none-any.whl", hash = "sha256:328493c5695c607513559cce3c17210919a60d6999ad8816470cb44b1045e463", size = 186418, upload-time = "2026-10-08T00:19:38.663Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/49/e01f7cf84febc5c8cded764efc703c91a8fae0b7bcfa99fd377311ae0c42/langgraph_checkpoint_aws-1.2.6-py3-none-any.whl", hash = "sha256:749a662c4b4eabd48ad8125c3a9e503749669217b143e666fd6790faff0fb7c5", size = 188817, upload-time = "2026-10-23T01:05:59.28Z" },
 ]
 
 [[package]]
