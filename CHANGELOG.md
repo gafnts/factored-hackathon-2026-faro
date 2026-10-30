@@ -2,7 +2,7 @@
 
 What changed in the prototype, one section per promotion from `develop` to `main`, newest first. `Unreleased` is what's merged into `develop` and not promoted yet. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-History before 2026-10-27 is in the [merged pull requests](https://github.com/gafnts/factored-hackathon-2026-gafnts/pulls?q=is%3Apr+is%3Amerged). Work we mean to do later is in [GitHub Issues](https://github.com/gafnts/factored-hackathon-2026-gafnts/issues).
+History before 2026-10-27 is in the [merged pull requests](https://github.com/gafnts/factored-hackathon-2026-faro/pulls?q=is%3Apr+is%3Amerged). Work we mean to do later is in [GitHub Issues](https://github.com/gafnts/factored-hackathon-2026-faro/issues).
 
 ## Unreleased
 
@@ -37,25 +37,25 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 - Vite 8.3.3, and in the development and analysis tools Pillow 13.0.0, virtualenv 21.14.13, filelock 4.2.4, Werkzeug 3.1.9 and opentelemetry-api 1.45.1: 67 Dependabot alerts closed. None of the Python packages ship in the Runtime or the Lambdas ([#74]).
 
-[#74]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/74
-[#75]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/75
-[#77]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/77
-[#78]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/78
-[#81]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/81
-[#82]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/82
-[#83]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/83
-[#92]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/92
-[#93]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/93
-[#94]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/94
-[#95]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/95
-[#96]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/96
-[#97]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/97
-[#98]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/98
-[#99]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/99
-[#103]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/103
-[#104]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/104
-[#105]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/105
-[#106]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/106
-[#107]: https://github.com/gafnts/factored-hackathon-2026-gafnts/pull/107
+[#74]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/74
+[#75]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/75
+[#77]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/77
+[#78]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/78
+[#81]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/81
+[#82]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/82
+[#83]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/83
+[#92]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/92
+[#93]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/93
+[#94]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/94
+[#95]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/95
+[#96]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/96
+[#97]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/97
+[#98]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/98
+[#99]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/99
+[#103]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/103
+[#104]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/104
+[#105]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/105
+[#106]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/106
+[#107]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/107
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c

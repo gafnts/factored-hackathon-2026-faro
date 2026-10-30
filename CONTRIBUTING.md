@@ -349,7 +349,7 @@ A few habits keep PRs quick to review:
 - Mirror the package in `tests/`: the tests for `src/banking_agent/<path>/<module>.py` live in `tests/banking_agent/<path>/test_<module>.py`, and fixtures shared by a folder go in its `conftest.py`. The web app's tests mirror `web/src/` in `web/tests/` the same way (`<module>.test.ts`).
 - Add an ADR when the change makes a decision someone could reasonably question later (see [Record decisions](#record-decisions)).
 - Add a line under `Unreleased` in [CHANGELOG.md](CHANGELOG.md) when someone using the prototype, or maintaining it, would notice the change.
-- Keep work for later in [GitHub Issues](https://github.com/gafnts/factored-hackathon-2026-gafnts/issues), and close it from the PR that does it (`Closes #12`). It closes when the PR merges into `develop`, before the change is deployed; the changelog's `Unreleased` section shows what isn't yet.
+- Keep work for later in [GitHub Issues](https://github.com/gafnts/factored-hackathon-2026-faro/issues), and close it from the PR that does it (`Closes #12`). It closes when the PR merges into `develop`, before the change is deployed; the changelog's `Unreleased` section shows what isn't yet.
 
 ### Run the quality gates
 
