@@ -6,9 +6,15 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+## Promotion 11 ([#130]) - 2026-10-31
+
+### Added
+
+- CONTRIBUTING's promotion steps end with fast-forwarding `develop` to `main`, so `main` holds no commit that `develop` lacks.
+
 ### Changed
 
-- The chat runs on AG-UI 1.0: `@ag-ui/client` 1.0.3 and `@assistant-ui/react-ag-ui` 0.1.0. The Runtime already spoke protocol 1.0, so only the web app changes, and Dependabot no longer holds AG-UI back.
+- The chat runs on AG-UI 1.0: `@ag-ui/client` 1.0.3 and `@assistant-ui/react-ag-ui` 0.1.0. The Runtime already spoke protocol 1.0, so only the web app changes, and Dependabot no longer holds AG-UI back ([#129]).
 
 ## Promotion 10 ([#128]) - 2026-10-31
 
@@ -83,5 +89,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 [#126]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/126
 [#127]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/127
 [#128]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/128
+[#129]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/129
+[#130]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/130
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
