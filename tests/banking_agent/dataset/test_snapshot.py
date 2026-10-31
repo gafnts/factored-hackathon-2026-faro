@@ -1,9 +1,7 @@
 """
-Copying the organizers' dataset into pinned, verified snapshots (DML-01, DML-04, SEC-03).
+Restoring the pinned snapshot from a copy, checking it, and copying it into the data bucket (DML-01, DML-04, SEC-03).
 """
 
-import hashlib
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -11,106 +9,142 @@ from mypy_boto3_s3 import S3Client
 
 from banking_agent.dataset.lock import parse, read_lock
 from banking_agent.dataset.snapshot import (
-    ORGANIZER_ACCOUNT_ID,
     SnapshotError,
-    SourceChangedError,
-    data_bucket_name,
-    download,
+    check,
+    restore,
     snapshot_dir,
     upload,
 )
+
+TRANSACTIONS = "transactions/year=2023/month=06/day=17/transactions_20230617.csv"
 
 
 def quiet(_: str) -> None:
     pass
 
 
-def test_download_pins_a_verified_copy(
-    source: S3Client, source_files: dict[str, bytes], tmp_path: Path
+def summary(messages: list[str]) -> str:
+    return next(m for m in messages if m.startswith("Copying"))
+
+
+def files_in(root: Path) -> dict[str, bytes]:
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+
+
+@pytest.fixture
+def data(copy: Path, lock_path: Path, tmp_path: Path) -> Path:
+    """
+    A data/ directory with the snapshot restored into it.
+    """
+    restore(copy, lock_path, tmp_path / "data", log=quiet)
+    return tmp_path / "data"
+
+
+def test_restore_copies_a_checked_copy(
+    copy: Path, lock_path: Path, source_files: dict[str, bytes], tmp_path: Path
 ) -> None:
-    lock_path, data = tmp_path / "dataset.lock", tmp_path / "data"
+    lock = restore(copy, lock_path, tmp_path / "data", log=quiet)
 
-    lock = download(source, lock_path, data, log=quiet)
-
-    assert read_lock(lock_path) == lock
-    assert [f.key for f in lock.files] == sorted(source_files)
-    for f in lock.files:
-        local = snapshot_dir(data, lock.snapshot_id) / f.key
-        assert local.read_bytes() == source_files[f.key]
-        assert f.sha256 == hashlib.sha256(source_files[f.key]).hexdigest()
-    assert not (data / "snapshots" / ".incoming").exists()
+    assert lock == read_lock(lock_path)
+    assert files_in(snapshot_dir(tmp_path / "data", lock.snapshot_id)) == source_files
 
 
-def test_downloading_again_transfers_nothing(source: S3Client, tmp_path: Path) -> None:
-    lock_path, data = tmp_path / "dataset.lock", tmp_path / "data"
-    first = download(source, lock_path, data, log=quiet)
+def test_restoring_again_copies_nothing(
+    copy: Path, lock_path: Path, data: Path
+) -> None:
     messages: list[str] = []
 
-    again = download(source, lock_path, data, log=messages.append)
+    restore(copy, lock_path, data, log=messages.append)
 
-    assert again == first
-    assert messages[0].startswith("Downloading 0 of 3 files")
+    assert "Copying 0 of 3 files" in summary(messages)
 
 
-def test_download_stops_when_the_source_changes(
-    source: S3Client, late_partition: Callable[[], str], tmp_path: Path
+def test_restore_refuses_a_copy_that_lacks_a_file(
+    copy: Path, lock_path: Path, tmp_path: Path
 ) -> None:
-    lock_path, data = tmp_path / "dataset.lock", tmp_path / "data"
-    download(source, lock_path, data, log=quiet)
-    pinned = lock_path.read_text()
-    key = late_partition()
+    (copy / "customers.csv").unlink()
 
-    with pytest.raises(SourceChangedError) as caught:
-        download(source, lock_path, data, log=quiet)
-
-    assert caught.value.changes.added == (key,)
-    assert lock_path.read_text() == pinned
+    with pytest.raises(SnapshotError, match=r"1 of 3 files .*nothing was copied"):
+        restore(copy, lock_path, tmp_path / "data", log=quiet)
+    assert not (tmp_path / "data").exists()
 
 
-def test_adopting_a_change_reuses_unchanged_files(
-    source: S3Client, late_partition: Callable[[], str], tmp_path: Path
+def test_a_file_that_differs_from_the_lock_is_not_copied(
+    copy: Path, lock_path: Path, source_files: dict[str, bytes], tmp_path: Path
 ) -> None:
-    lock_path, data = tmp_path / "dataset.lock", tmp_path / "data"
-    first = download(source, lock_path, data, log=quiet)
-    late_partition()
-    messages: list[str] = []
-
-    second = download(source, lock_path, data, adopt=True, log=messages.append)
-
-    assert second.snapshot_id != first.snapshot_id
-    assert read_lock(lock_path) == second
-    assert messages[0].startswith("Downloading 1 of 4 files")
-    old, new = (
-        snapshot_dir(data, lock.snapshot_id) / "customers.csv"
-        for lock in (first, second)
+    (copy / "customers.csv").write_bytes(
+        source_files["customers.csv"].replace(b"Ana", b"Eva")
     )
-    assert old.stat().st_ino == new.stat().st_ino
+
+    with pytest.raises(SnapshotError, match=r"weren't copied \(customers\.csv\)"):
+        restore(copy, lock_path, tmp_path / "data", log=quiet)
+
+    local = snapshot_dir(tmp_path / "data", read_lock(lock_path).snapshot_id)
+    assert sorted(files_in(local)) == sorted(set(source_files) - {"customers.csv"})
 
 
-def test_a_tampered_local_file_is_deleted_and_downloaded_again(
-    source: S3Client, source_files: dict[str, bytes], tmp_path: Path
+def test_restore_replaces_a_damaged_local_file(
+    copy: Path, lock_path: Path, source_files: dict[str, bytes], data: Path
 ) -> None:
-    lock_path, data = tmp_path / "dataset.lock", tmp_path / "data"
-    lock = download(source, lock_path, data, log=quiet)
-    path = snapshot_dir(data, lock.snapshot_id) / "customers.csv"
+    path = snapshot_dir(data, read_lock(lock_path).snapshot_id) / "customers.csv"
     path.write_bytes(source_files["customers.csv"].replace(b"Ana", b"Eva"))
+    messages: list[str] = []
 
-    with pytest.raises(SnapshotError, match=r"customers\.csv"):
-        download(source, lock_path, data, log=quiet)
-    assert not path.exists()
+    restore(copy, lock_path, data, log=messages.append)
 
-    download(source, lock_path, data, log=quiet)
+    assert "Copying 1 of 3 files" in summary(messages)
     assert path.read_bytes() == source_files["customers.csv"]
 
 
+def test_restore_copies_only_the_files_the_lock_lists(
+    copy: Path, lock_path: Path, source_files: dict[str, bytes], tmp_path: Path
+) -> None:
+    (copy / "._customers.csv").write_bytes(b"\x00\x05\x16\x07")
+    (copy / ".DS_Store").write_bytes(b"\x00")
+    (copy / "notes.txt").write_text("not part of the snapshot")
+
+    lock = restore(copy, lock_path, tmp_path / "data", log=quiet)
+
+    assert files_in(snapshot_dir(tmp_path / "data", lock.snapshot_id)) == source_files
+
+
+def test_check_passes_on_an_intact_copy(lock_path: Path, data: Path) -> None:
+    assert check(lock_path, data, log=quiet) == read_lock(lock_path)
+
+
+def test_check_names_missing_and_damaged_files(
+    lock_path: Path, source_files: dict[str, bytes], data: Path
+) -> None:
+    local = snapshot_dir(data, read_lock(lock_path).snapshot_id)
+    (local / "customers.csv").write_bytes(
+        source_files["customers.csv"].replace(b"Ana", b"Eva")
+    )
+    (local / TRANSACTIONS).unlink()
+
+    with pytest.raises(SnapshotError, match=r"2 of 3 files .*FROM=") as caught:
+        check(lock_path, data, log=quiet)
+    assert "customers.csv" in str(caught.value)
+    assert TRANSACTIONS in str(caught.value)
+
+
+def test_check_says_the_dataset_can_no_longer_be_downloaded(
+    lock_path: Path, tmp_path: Path
+) -> None:
+    with pytest.raises(SnapshotError, match="can no longer be downloaded"):
+        check(lock_path, tmp_path / "data", log=quiet)
+
+
 def test_upload_copies_the_snapshot_and_marks_it_complete(
-    source: S3Client,
+    lock_path: Path,
     source_files: dict[str, bytes],
     destination: tuple[S3Client, str],
-    tmp_path: Path,
+    data: Path,
 ) -> None:
-    lock_path, data = tmp_path / "dataset.lock", tmp_path / "data"
-    lock = download(source, lock_path, data, log=quiet)
+    lock = read_lock(lock_path)
     s3, bucket = destination
 
     upload(s3, bucket, lock_path, data, log=quiet)
@@ -123,10 +157,8 @@ def test_upload_copies_the_snapshot_and_marks_it_complete(
 
 
 def test_uploading_again_transfers_nothing(
-    source: S3Client, destination: tuple[S3Client, str], tmp_path: Path
+    lock_path: Path, destination: tuple[S3Client, str], data: Path
 ) -> None:
-    lock_path, data = tmp_path / "dataset.lock", tmp_path / "data"
-    download(source, lock_path, data, log=quiet)
     s3, bucket = destination
     upload(s3, bucket, lock_path, data, log=quiet)
     messages: list[str] = []
@@ -138,17 +170,15 @@ def test_uploading_again_transfers_nothing(
 
 
 def test_an_interrupted_upload_resumes(
-    source: S3Client,
+    lock_path: Path,
     source_files: dict[str, bytes],
     destination: tuple[S3Client, str],
-    tmp_path: Path,
+    data: Path,
 ) -> None:
-    lock_path, data = tmp_path / "dataset.lock", tmp_path / "data"
-    lock = download(source, lock_path, data, log=quiet)
     s3, bucket = destination
     s3.put_object(
         Bucket=bucket,
-        Key=f"snapshots/{lock.snapshot_id}/customers.csv",
+        Key=f"snapshots/{read_lock(lock_path).snapshot_id}/customers.csv",
         Body=source_files["customers.csv"],
     )
     messages: list[str] = []
@@ -159,17 +189,10 @@ def test_an_interrupted_upload_resumes(
 
 
 def test_upload_needs_the_local_copy(
-    source: S3Client, destination: tuple[S3Client, str], tmp_path: Path
+    lock_path: Path, destination: tuple[S3Client, str], data: Path
 ) -> None:
-    lock_path, data = tmp_path / "dataset.lock", tmp_path / "data"
-    lock = download(source, lock_path, data, log=quiet)
-    (snapshot_dir(data, lock.snapshot_id) / "customers.csv").unlink()
+    (snapshot_dir(data, read_lock(lock_path).snapshot_id) / "customers.csv").unlink()
     s3, bucket = destination
 
-    with pytest.raises(SnapshotError, match="run make data first"):
+    with pytest.raises(SnapshotError, match=r"customers\.csv is missing; restore it"):
         upload(s3, bucket, lock_path, data, log=quiet)
-
-
-def test_the_organizers_account_never_holds_snapshots() -> None:
-    with pytest.raises(SnapshotError, match="organizers' account"):
-        data_bucket_name(ORGANIZER_ACCOUNT_ID, "us-east-1")

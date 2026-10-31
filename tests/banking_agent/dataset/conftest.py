@@ -1,8 +1,9 @@
 """
-Moto stands in for both accounts: the organizers' bucket and this project's data bucket.
+A folder stands in for a copy of the organizers' dataset, and moto for this project's data bucket.
 """
 
-from collections.abc import Callable, Iterator
+import hashlib
+from collections.abc import Iterator
 from pathlib import Path
 
 import boto3
@@ -10,7 +11,8 @@ import pytest
 from moto import mock_aws
 from mypy_boto3_s3 import S3Client
 
-from banking_agent.dataset.snapshot import SOURCE_BUCKET, data_bucket_name
+from banking_agent.dataset.lock import LockedFile, make_lock, write_lock
+from banking_agent.dataset.snapshot import data_bucket_name
 
 MOTO_ACCOUNT_ID = "123456789012"
 
@@ -21,11 +23,10 @@ def aws(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
     Fake credentials in throwaway config files, so no test can reach a real profile.
     """
     config = tmp_path / "aws-config"
-    config.write_text("[profile factored-hackathon]\nregion = us-east-2\n")
+    config.write_text("")
     credentials = tmp_path / "aws-credentials"
     credentials.write_text(
         "[default]\naws_access_key_id = testing\naws_secret_access_key = testing\n"
-        "[factored-hackathon]\naws_access_key_id = testing\naws_secret_access_key = testing\n"
     )
     monkeypatch.setenv("AWS_CONFIG_FILE", str(config))
     monkeypatch.setenv("AWS_SHARED_CREDENTIALS_FILE", str(credentials))
@@ -35,7 +36,6 @@ def aws(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
         "AWS_SESSION_TOKEN",
-        "DATASET_SOURCE_PROFILE",
     ):
         monkeypatch.delenv(name, raising=False)
     with mock_aws():
@@ -52,31 +52,27 @@ def source_files() -> dict[str, bytes]:
 
 
 @pytest.fixture
-def source(aws: None, source_files: dict[str, bytes]) -> S3Client:
-    s3 = boto3.client("s3", region_name="us-east-2")
-    s3.create_bucket(
-        Bucket=SOURCE_BUCKET,
-        CreateBucketConfiguration={"LocationConstraint": "us-east-2"},
+def lock_path(tmp_path: Path, source_files: dict[str, bytes]) -> Path:
+    path = tmp_path / "dataset.lock"
+    files = (
+        LockedFile(key, len(body), "etag", hashlib.sha256(body).hexdigest())
+        for key, body in source_files.items()
     )
-    for key, body in source_files.items():
-        s3.put_object(Bucket=SOURCE_BUCKET, Key=f"data/{key}", Body=body)
-    return s3
+    write_lock(path, make_lock("s3://bucket/data/", files))
+    return path
 
 
 @pytest.fixture
-def late_partition(source: S3Client) -> Callable[[], str]:
+def copy(tmp_path: Path, source_files: dict[str, bytes]) -> Path:
     """
-    Publishes a partition the lock doesn't know about, as the organizers might, and returns its key.
+    A copy of the dataset, laid out like the organizers' data/ prefix.
     """
-
-    def publish() -> str:
-        key = "transactions/year=2023/month=06/day=19/transactions_20230619.csv"
-        source.put_object(
-            Bucket=SOURCE_BUCKET, Key=f"data/{key}", Body=b"transaction_id\nT3\n"
-        )
-        return key
-
-    return publish
+    root = tmp_path / "copy"
+    for key, body in source_files.items():
+        path = root / key
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(body)
+    return root
 
 
 @pytest.fixture

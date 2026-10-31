@@ -8,7 +8,6 @@ ENVS=("local" "prototype")
 
 # bootstrap.sh passes the account ID.
 ACCOUNT_ID="${1:-$(aws sts get-caller-identity --query Account --output text)}"
-assert_not_organizer "${ACCOUNT_ID}"
 BUCKET=$(state_bucket_name "${ACCOUNT_ID}")
 
 write_backend() {

@@ -11,13 +11,12 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
-from banking_agent.dataset.lock import LockError, describe
+from banking_agent.dataset.lock import LockError
 from banking_agent.dataset.snapshot import (
-    SOURCE_REGION,
     SnapshotError,
-    SourceChangedError,
+    check,
     data_bucket_name,
-    download,
+    restore,
     snapshot_dir,
     upload,
 )
@@ -31,39 +30,28 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--data-dir", type=Path, default=Path("data"))
     parser.add_argument("--workers", type=int, default=16)
     commands = parser.add_subparsers(dest="command", required=True)
-    download_parser = commands.add_parser(
-        "download",
-        help="Download the locked snapshot from the organizers' bucket into data/ and verify it",
+    commands.add_parser(
+        "check", help="Check the local copy of the locked snapshot against the lock"
     )
-    download_parser.add_argument(
-        "--adopt",
-        action="store_true",
-        help="Accept a changed source: write a new snapshot and rewrite the lock",
+    restore_parser = commands.add_parser(
+        "restore",
+        help="Copy the locked snapshot into data/ from a copy of it, checking every file",
+    )
+    restore_parser.add_argument(
+        "source",
+        type=Path,
+        help="The folder that holds the lock's files, laid out like the organizers' data/ prefix",
     )
     commands.add_parser(
         "upload", help="Copy the locked snapshot into this account's data bucket"
     )
     args = parser.parse_args(argv)
 
-    config = Config(max_pool_connections=args.workers, retries={"mode": "standard"})
     try:
-        if args.command == "download":
-            source = boto3.Session(
-                profile_name=os.environ.get(
-                    "DATASET_SOURCE_PROFILE", "factored-hackathon"
-                ),
-                region_name=SOURCE_REGION,
+        if args.command == "upload":
+            config = Config(
+                max_pool_connections=args.workers, retries={"mode": "standard"}
             )
-            lock = download(
-                source.client("s3", config=config),
-                args.lock,
-                args.data_dir,
-                adopt=args.adopt,
-                workers=args.workers,
-            )
-            local = snapshot_dir(args.data_dir, lock.snapshot_id)
-            print(f"Snapshot {lock.snapshot_id}: {len(lock.files)} files in {local}")
-        else:
             region = os.environ.get("AWS_REGION", "us-east-1")
             session = boto3.Session(region_name=region)
             account_id = session.client("sts").get_caller_identity()["Account"]
@@ -75,13 +63,17 @@ def main(argv: list[str] | None = None) -> int:
                 args.data_dir,
                 workers=args.workers,
             )
-    except SourceChangedError as error:
-        print(
-            f"The source no longer matches {args.lock}:\n{describe(error.changes)}\n\n"
-            "Review the change, then adopt it with 'make data ADOPT=1' and commit the new lock.",
-            file=sys.stderr,
-        )
-        return 1
+        else:
+            if args.command == "check":
+                lock = check(args.lock, args.data_dir, workers=args.workers)
+            else:
+                lock = restore(
+                    args.source, args.lock, args.data_dir, workers=args.workers
+                )
+            local = snapshot_dir(args.data_dir, lock.snapshot_id)
+            print(
+                f"Snapshot {lock.snapshot_id}: {len(lock.files)} files in {local} match the lock"
+            )
     except (SnapshotError, LockError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

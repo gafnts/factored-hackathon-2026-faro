@@ -112,6 +112,8 @@ The bank is synthetic, and it shows: contacts can't be tied to a workflow, no su
 
 Faro serves what this bank's data supports, and no more: recent transactions are a card's last 90 days, ten at a time, with no filter ([product brief](docs/product/brief.md#out-of-scope)). Three pieces are designed and not built: a handoff filed after a confirmation's deadline when the customer has left, claim and resolve in the console, and the AI team's page. The tools mock the bank's systems of record over a frozen snapshot ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#the-tools-as-the-seam-to-the-banks-systems)). The full account, with the remaining deployment work and risks, is in [limitations.md](docs/evaluation/limitations.md).
 
+Since late October 2026, the organizers' dataset can no longer be downloaded, and it isn't ours to share. Our results stand as recorded: every run names the exact data and code it used. But without a copy of the dataset, a fork can rerun only the checks that use our own test data, such as `make regression` ([step 2](CONTRIBUTING.md#2-restore-the-dataset)).
+
 ---
 
 ## Self-hosting
@@ -121,9 +123,9 @@ A fork stands up in an AWS account you control, with Terraform and nothing tied 
 | You want to | You need |
 |---|---|
 | Change code, tests, or docs | Only the toolchain |
-| Explore or process the organizers' dataset | The read-only keys from the dataset dictionary |
+| Explore or process the organizers' dataset | A copy of it, since it [can no longer be downloaded](CONTRIBUTING.md#2-restore-the-dataset) |
 | Run the whole stack in your own AWS account | Admin access to an AWS account, and your own fork |
-| [Check our reported numbers](CONTRIBUTING.md#reproduce-the-results) | The toolchain to start; the dataset keys and your own stack for the later checks |
+| [Check our reported numbers](CONTRIBUTING.md#reproduce-the-results) | The toolchain to start; a copy of the dataset and your own stack for the later checks |
 
 With the [toolchain](CONTRIBUTING.md#1-install-the-toolchain) installed:
 

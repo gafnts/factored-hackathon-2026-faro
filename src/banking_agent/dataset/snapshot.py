@@ -1,67 +1,40 @@
 """
-Copies the organizers' dataset into the pinned snapshot: into data/ first, then into this account's data bucket.
+Restores the pinned snapshot into data/ from a copy, checks it there, and copies it into this account's data bucket.
 """
 
 import base64
 import hashlib
-import os
 import shutil
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import ClientError
 
-from banking_agent.dataset.lock import (
-    Drift,
-    Lock,
-    LockedFile,
-    SourceObject,
-    digest_file,
-    drift,
-    make_lock,
-    matches_etag,
-    read_lock,
-    render,
-    write_lock,
-)
+from banking_agent.dataset.lock import Lock, LockedFile, digest_file, read_lock, render
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
 
-SOURCE_BUCKET = "factored-datathon-2026-s3-157725502942-us-east-2-an"
-SOURCE_PREFIX = "data/"
-SOURCE_REGION = "us-east-2"
-ORGANIZER_ACCOUNT_ID = "157725502942"
 PROJECT = "banking-agent"
 
 # Written last, so a snapshot in the bucket is complete once it exists.
 MARKER = "dataset.lock"
 
-Log = Callable[[str], None]
+# The organizers' dataset can no longer be downloaded, so a copy is the only way back.
+_RESTORE = (
+    "restore it from a copy with make data FROM=<folder> (CONTRIBUTING.md, step 2)"
+)
 
-# The workers already run in parallel; nested transfer pools would multiply the threads.
-_ONE_THREAD = TransferConfig(use_threads=False)
+Log = Callable[[str], None]
 
 
 class SnapshotError(Exception):
     pass
 
 
-class SourceChangedError(SnapshotError):
-    def __init__(self, changes: Drift) -> None:
-        super().__init__("the source no longer matches the lock")
-        self.changes = changes
-
-
 def data_bucket_name(account_id: str, region: str) -> str:
-    if account_id == ORGANIZER_ACCOUNT_ID:
-        raise SnapshotError(
-            f"these credentials belong to the organizers' account ({ORGANIZER_ACCOUNT_ID}), "
-            "not the account that holds the snapshots"
-        )
     return f"{PROJECT}-data-{account_id}-{region}-an"
 
 
@@ -69,102 +42,75 @@ def snapshot_dir(data_dir: Path, snapshot_id: str) -> Path:
     return data_dir / "snapshots" / snapshot_id
 
 
-def list_source(
-    s3: "S3Client", bucket: str = SOURCE_BUCKET, prefix: str = SOURCE_PREFIX
-) -> list[SourceObject]:
-    objects = []
-    for page in s3.get_paginator("list_objects_v2").paginate(
-        Bucket=bucket, Prefix=prefix
-    ):
-        for obj in page.get("Contents", []):
-            if not obj["Key"].endswith("/"):
-                objects.append(
-                    SourceObject(
-                        obj["Key"].removeprefix(prefix),
-                        obj["Size"],
-                        obj["ETag"].strip('"'),
-                    )
-                )
-    return objects
-
-
-def download(
-    s3: "S3Client",
-    lock_path: Path,
-    data_dir: Path,
-    *,
-    adopt: bool = False,
-    workers: int = 16,
-    log: Log = print,
-    bucket: str = SOURCE_BUCKET,
-    prefix: str = SOURCE_PREFIX,
+def check(
+    lock_path: Path, data_dir: Path, *, workers: int = 16, log: Log = print
 ) -> Lock:
-    listing = {o.key: o for o in list_source(s3, bucket, prefix)}
-    locked = read_lock(lock_path) if lock_path.exists() else None
-    changes = drift(locked, listing.values()) if locked else None
-    if changes and not adopt:
-        raise SourceChangedError(changes)
-
-    pinned = locked if locked and not changes else None
-    target = snapshot_dir(data_dir, pinned.snapshot_id if pinned else ".incoming")
-    target.mkdir(parents=True, exist_ok=True)
-    if locked and changes:
-        _link_unchanged(
-            snapshot_dir(data_dir, locked.snapshot_id), target, locked, listing
+    lock = _read(lock_path)
+    local = snapshot_dir(data_dir, lock.snapshot_id)
+    if not local.is_dir():
+        raise SnapshotError(
+            f"{local} not found; the organizers' dataset can no longer be downloaded, so {_RESTORE}"
         )
-
-    missing = [o for o in listing.values() if not _has(target / o.key, o.size)]
-    log(
-        f"Downloading {len(missing)} of {len(listing)} files from s3://{bucket}/{prefix} into {target}"
-    )
-
-    def fetch(obj: SourceObject) -> None:
-        path = target / obj.key
-        path.parent.mkdir(parents=True, exist_ok=True)
-        s3.download_file(bucket, prefix + obj.key, str(path), Config=_ONE_THREAD)
-
-    _run("downloaded", fetch, missing, workers, log)
-
-    log(f"Verifying {len(listing)} files")
-    objects = sorted(listing.values(), key=lambda o: o.key)
-    digests = dict(
-        zip(
-            objects,
+    log(f"Checking {len(lock.files)} files in {local}")
+    damaged = [
+        f.key
+        for f, intact in zip(
+            lock.files,
             _run(
-                "verified", lambda o: digest_file(target / o.key), objects, workers, log
+                "checked", lambda f: _intact(local / f.key, f), lock.files, workers, log
             ),
             strict=True,
         )
-    )
-    expected = {f.key: f.sha256 for f in pinned.files} if pinned else {}
-    corrupt = []
-    for obj, digest in digests.items():
-        etag_ok = matches_etag(digest, obj.etag)
-        if etag_ok is None:
-            log(
-                f"  can't check {obj.key} against its multipart ETag; relying on its SHA-256"
-            )
-        if etag_ok is False or expected.get(obj.key, digest.sha256) != digest.sha256:
-            (target / obj.key).unlink()
-            corrupt.append(obj.key)
-    if corrupt:
+        if not intact
+    ]
+    if damaged:
         raise SnapshotError(
-            f"{len(corrupt)} files didn't match the source or the lock and were deleted; run again to "
-            f"download them: {', '.join(corrupt[:5])}"
+            f"{len(damaged)} of {len(lock.files)} files in {local} are missing or don't match the lock "
+            f"({', '.join(damaged[:5])}); {_RESTORE}"
+        )
+    return lock
+
+
+def restore(
+    source: Path,
+    lock_path: Path,
+    data_dir: Path,
+    *,
+    workers: int = 16,
+    log: Log = print,
+) -> Lock:
+    lock = _read(lock_path)
+    if not source.is_dir():
+        raise SnapshotError(f"{source} is not a folder")
+    absent = [f.key for f in lock.files if not _has(source / f.key, f.size)]
+    if absent:
+        raise SnapshotError(
+            f"{source} doesn't hold snapshot {lock.snapshot_id}: {len(absent)} of {len(lock.files)} files are "
+            f"missing or have the wrong size ({', '.join(absent[:5])}); nothing was copied"
         )
 
-    if pinned:
-        return pinned
-    lock = make_lock(
-        f"s3://{bucket}/{prefix}",
-        (LockedFile(o.key, o.size, o.etag, d.sha256) for o, d in digests.items()),
+    local = snapshot_dir(data_dir, lock.snapshot_id)
+    pending: list[LockedFile] = list(lock.files)
+    if local.is_dir():
+        log(f"Checking the files already in {local}")
+        in_place = _run(
+            "checked", lambda f: _intact(local / f.key, f), lock.files, workers, log
+        )
+        pending = [f for f, ok in zip(lock.files, in_place, strict=True) if not ok]
+    log(f"Copying {len(pending)} of {len(lock.files)} files from {source} into {local}")
+    copied = _run(
+        "copied",
+        lambda f: _copy_checked(source / f.key, local / f.key, f.sha256),
+        pending,
+        workers,
+        log,
     )
-    final = snapshot_dir(data_dir, lock.snapshot_id)
-    if final.exists():
-        shutil.rmtree(target)
-    else:
-        target.rename(final)
-    write_lock(lock_path, lock)
+    rejected = [f.key for f, ok in zip(pending, copied, strict=True) if not ok]
+    if rejected:
+        raise SnapshotError(
+            f"{len(rejected)} files in {source} don't match the lock and weren't copied "
+            f"({', '.join(rejected[:5])})"
+        )
     return lock
 
 
@@ -177,9 +123,7 @@ def upload(
     workers: int = 16,
     log: Log = print,
 ) -> None:
-    if not lock_path.exists():
-        raise SnapshotError(f"{lock_path} not found; run make data first")
-    lock = read_lock(lock_path)
+    lock = _read(lock_path)
     local = snapshot_dir(data_dir, lock.snapshot_id)
     prefix = f"snapshots/{lock.snapshot_id}/"
     if _exists(s3, bucket, prefix + MARKER):
@@ -188,7 +132,7 @@ def upload(
 
     for f in lock.files:
         if not _has(local / f.key, f.size):
-            raise SnapshotError(f"{local / f.key} is missing; run make data first")
+            raise SnapshotError(f"{local / f.key} is missing; {_RESTORE}")
 
     present = {}
     for page in s3.get_paginator("list_objects_v2").paginate(
@@ -228,20 +172,22 @@ def upload(
     log(f"s3://{bucket}/{prefix} is complete")
 
 
-def _link_unchanged(
-    previous: Path, target: Path, locked: Lock, listing: dict[str, SourceObject]
-) -> None:
-    for f in locked.files:
-        obj = listing.get(f.key)
-        source, dest = previous / f.key, target / f.key
-        if (
-            obj
-            and (obj.size, obj.etag) == (f.size, f.etag)
-            and _has(source, f.size)
-            and not dest.exists()
-        ):
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            os.link(source, dest)
+def _read(lock_path: Path) -> Lock:
+    if not lock_path.exists():
+        raise SnapshotError(f"{lock_path} not found")
+    return read_lock(lock_path)
+
+
+def _copy_checked(source: Path, dest: Path, sha256: str) -> bool:
+    # A hidden name, so an interrupted copy is never read as part of the snapshot.
+    partial = dest.with_name(f".{dest.name}.partial")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, partial)
+    if digest_file(partial) != sha256:
+        partial.unlink()
+        return False
+    partial.replace(dest)
+    return True
 
 
 def _run[T, R](
@@ -255,6 +201,10 @@ def _run[T, R](
             if done % step == 0 or done == len(items):
                 log(f"  {label} {done}/{len(items)}")
     return results
+
+
+def _intact(path: Path, f: LockedFile) -> bool:
+    return _has(path, f.size) and digest_file(path) == f.sha256
 
 
 def _has(path: Path, size: int) -> bool:

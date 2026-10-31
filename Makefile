@@ -142,8 +142,8 @@ teardown: ## Delete the state bucket, last of all (admin; asks first)
 
 ##@ Dataset snapshot
 
-data: ## Download and verify the pinned snapshot (ADOPT=1)
-	uv run python -m banking_agent.dataset download $(if $(filter 1,$(ADOPT)),--adopt)
+data: ## Check the local snapshot, or restore it from a copy (FROM=<folder>)
+	uv run python -m banking_agent.dataset $(if $(FROM),restore "$(FROM)",check)
 
 snapshot: _check-profile data ## Copy the pinned snapshot into the data bucket
 	uv run python -m banking_agent.dataset upload
@@ -264,9 +264,9 @@ dataset-plan: ## Preview the dataset root
 dataset-apply: ## Apply the dataset root (the data bucket)
 	$(DATASET_TF) apply
 
-dataset-destroy: ## Destroy the data bucket and every snapshot in it (I_KNOW=1)
+dataset-destroy: ## Destroy the data bucket, which stops while it holds anything (I_KNOW=1)
 	@if [ "$(I_KNOW)" != "1" ]; then \
-		echo "Refusing to delete every dataset snapshot. Re-run with I_KNOW=1."; exit 1; fi
+		echo "Refusing to destroy the data bucket. Re-run with I_KNOW=1."; exit 1; fi
 	$(DATASET_TF) destroy
 
 

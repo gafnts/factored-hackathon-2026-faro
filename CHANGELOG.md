@@ -13,6 +13,12 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 ### Changed
 
 - The repository is now `gafnts/factored-hackathon-2026-faro`; links to the old name redirect. The CI roles trust its new OIDC subject, and CONTRIBUTING says what to do after a rename.
+- The organizers' dataset can no longer be downloaded, so `make data FROM=<folder>` restores the snapshot from a copy, checking every file against `dataset.lock`, and `make data` on its own checks the local copy. The docs say what a reader can still reproduce without it.
+- The data bucket outlives a teardown: Terraform no longer deletes it while it holds a snapshot or an export.
+
+### Removed
+
+- The download from the organizers' bucket, with `ADOPT=1`, `DATASET_SOURCE_PROFILE`, and the checks against the organizers' account.
 
 ## Promotion 9 ([#107]) - 2026-10-29
 
