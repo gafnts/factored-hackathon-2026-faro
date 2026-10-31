@@ -6,24 +6,26 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+## Promotion 10 ([#128]) - 2026-10-31
+
 ### Added
 
-- This changelog, and a note in CONTRIBUTING on keeping it.
+- This changelog, and a note in CONTRIBUTING on keeping it ([#110]).
 
 ### Changed
 
-- The repository is now `gafnts/factored-hackathon-2026-faro`; links to the old name redirect. The CI roles trust its new OIDC subject, and CONTRIBUTING says what to do after a rename.
-- The organizers' dataset can no longer be downloaded, so `make data FROM=<folder>` restores the snapshot from a copy, checking every file against `dataset.lock`, and `make data` on its own checks the local copy. The docs say what a reader can still reproduce without it.
-- The data bucket outlives a teardown: Terraform no longer deletes it while it holds a snapshot or an export.
-- The Python package is now `faro`; `banking_agent` was its working name. AWS resource names keep the `banking-agent` prefix. The rename gives the pipeline a new version, so the tools read export `4a1bc9e15462b739` of the same snapshot (its data matches `795ff66b819516bf`'s), and the development sets are redrawn on it.
+- The repository is now `gafnts/factored-hackathon-2026-faro`; links to the old name redirect. The CI roles trust its new OIDC subject, and CONTRIBUTING says what to do after a rename ([#122]).
+- The organizers' dataset can no longer be downloaded, so `make data FROM=<folder>` restores the snapshot from a copy, checking every file against `dataset.lock`, and `make data` on its own checks the local copy. The docs say what a reader can still reproduce without it ([#126]).
+- The data bucket outlives a teardown: Terraform no longer deletes it while it holds a snapshot or an export ([#126]).
+- The Python package is now `faro`; `banking_agent` was its working name. AWS resource names keep the `banking-agent` prefix. The rename gives the pipeline a new version, so the tools read export `4a1bc9e15462b739` of the same snapshot (its data matches `795ff66b819516bf`'s), and the development sets are redrawn on it ([#127]).
 
 ### Removed
 
-- The download from the organizers' bucket, with `ADOPT=1`, `DATASET_SOURCE_PROFILE`, and the checks against the organizers' account.
+- The download from the organizers' bucket, with `ADOPT=1`, `DATASET_SOURCE_PROFILE`, and the checks against the organizers' account ([#126]).
 
 ### Fixed
 
-- `make pipeline` with the default `DATA_DIR` wrote dbt's files under `pipeline/` and still printed "Built", so the `make export` after it failed. It now builds into `data/`, and a build that records no results fails.
+- `make pipeline` with the default `DATA_DIR` wrote dbt's files under `pipeline/` and still printed "Built", so the `make export` after it failed. It now builds into `data/`, and a build that records no results fails ([#127]).
 
 ## Promotion 9 ([#107]) - 2026-10-29
 
@@ -72,5 +74,10 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 [#105]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/105
 [#106]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/106
 [#107]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/107
+[#110]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/110
+[#122]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/122
+[#126]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/126
+[#127]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/127
+[#128]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/128
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
