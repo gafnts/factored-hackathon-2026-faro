@@ -54,7 +54,7 @@ Faro is a prototype on a frozen snapshot, deployed end to end on AWS (AgentCore 
 Each was weighed and left as it is for a solo ten-day build; none is hidden:
 
 - Both environments (`local`, `prototype`) share one AWS account, with partial tag isolation; the deploy roles carry `PowerUserAccess`; the evaluation harness's role trusts the account root.
-- The Runtime runs with `network_mode = PUBLIC`; the snapshot, runtime, and site buckets have `force_destroy`; the secrets' recovery window is zero days, so a deleted secret is gone.
+- The Runtime runs with `network_mode = PUBLIC`; the evaluation, runtime, and site buckets have `force_destroy`; the secrets' recovery window is zero days, so a deleted secret is gone.
 - CI applies Terraform with no smoke test after the apply; five trivy findings are ignored, each marked inline in the Terraform with its rule.
 - The four `*.tfbackend` files hold AWS account IDs: identifiers, not credentials, and accepted as such.
 - No single source for tool versions (Terraform's version in two places; tflint and trivy only in CI; uv unpinned); pre-commit hooks pinned by tag, not SHA; no zizmor linting of the workflows.

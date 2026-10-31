@@ -91,7 +91,7 @@ The operations that can hurt are hard to trigger by mistake:
 | One environment touching another's state | Each role is denied every other prefix in the state bucket (including the IAM and dataset roots'), and any change to the bucket itself; the roles they create are denied the bucket entirely |
 | One environment writing another's site or zips | Each deploy role, and every role it creates, is denied the other environment's buckets and CloudFront functions by name, since S3 object writes ignore tags and functions can't carry them |
 | Bootstrapping with the organizers' keys | `make bootstrap`, `make backend`, and `make teardown` refuse the organizers' account |
-| Deleting shared state | `iam-destroy` and `dataset-destroy` need `I_KNOW=1`, and `make teardown` makes you type the bucket name |
+| Deleting shared state | `iam-destroy` and `dataset-destroy` need `I_KNOW=1`, `dataset-destroy` stops while the data bucket holds anything, and `make teardown` makes you type the bucket name |
 | Secrets in commits | `gitleaks` and `detect-private-key` run on every commit, and `gitleaks-history` rescans the full history on every push and in CI |
 | The model key reaching state, plans, or CI | The IAM root creates each environment's secret empty, `make model-key` stores the key from your `.env`, and the stack only looks the secret up by name ([step 3.7](#37-verify-and-deploy-local)) |
 | The dataset changing under an evaluation | `make data` stops when the organizers' bucket drifts from `dataset.lock`, and the data bucket rejects any write that would overwrite a snapshot |
@@ -520,7 +520,7 @@ make dataset-destroy I_KNOW=1
 make teardown
 ```
 
-Everything after the local destroy runs with admin credentials: the local deploy role can't reach `prototype` state, and the prototype deploy role is only assumable from CI. The `iam-*` and `dataset-*` targets and `make teardown` switch to `AWS_ADMIN_PROFILE` on their own; the `prototype` commands need the override spelled out. `make teardown` prints what it will delete and makes you type the bucket name to confirm. It leaves the account's GitHub OIDC provider in place, since other projects may depend on it. `make iam-destroy` also deletes both environments' model key secrets, at once. `make dataset-destroy` deletes the data bucket with every dataset snapshot in it; the local copy under `data/` stays until you delete it.
+Everything after the local destroy runs with admin credentials: the local deploy role can't reach `prototype` state, and the prototype deploy role is only assumable from CI. The `iam-*` and `dataset-*` targets and `make teardown` switch to `AWS_ADMIN_PROFILE` on their own; the `prototype` commands need the override spelled out. `make teardown` prints what it will delete and makes you type the bucket name to confirm. It leaves the account's GitHub OIDC provider in place, since other projects may depend on it. `make iam-destroy` also deletes both environments' model key secrets, at once. `make dataset-destroy` deletes the data bucket only while it's empty. Once the bucket holds a snapshot or an export, it stops: the organizers' dataset can no longer be downloaded, so a snapshot can't be rebuilt ([ADR-0002](docs/adr/0002-mirror-dataset-into-pinned-snapshots.md)). Ours stays on purpose; `make teardown` then deletes its Terraform state, and the bucket outlives it. To delete a bucket that holds data, empty it yourself first, every object version included. The local copy under `data/` stays until you delete it.
 
 ---
 

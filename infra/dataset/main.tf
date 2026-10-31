@@ -7,8 +7,8 @@ resource "aws_s3_bucket" "data" {
   bucket           = "${var.project_name}-data-${data.aws_caller_identity.current.account_id}-${var.aws_region}-an"
   bucket_namespace = "account-regional"
 
-  # dataset-destroy already needs I_KNOW=1, and teardown should leave nothing behind.
-  force_destroy = true
+  # The source can no longer be downloaded, so a snapshot can't be rebuilt: a destroy stops while anything is here.
+  force_destroy = false
 }
 
 resource "aws_s3_bucket_versioning" "data" {
