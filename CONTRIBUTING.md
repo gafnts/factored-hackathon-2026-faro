@@ -300,12 +300,12 @@ No failures.
 
 ## Reproduce the results
 
-These checks rerun what our reports rest on (OPS-07). Each needs a little more than the one before it: the first runs on the toolchain alone, the next five on the snapshot from [step 2](#2-restore-the-dataset), and the last on your own stack from [step 3](#3-deploy-your-own-copy), with a model key.
+These checks rerun what our reports rest on (OPS-07). Each needs a little more than the one before it: the first runs on the toolchain alone, the next five on the snapshot from [step 2](#2-restore-the-dataset), and the last on your own stack from [step 3](#3-deploy-your-own-copy), with a model key. Since the dataset can no longer be downloaded, only the first runs without a copy of it. The rest still says exactly what our numbers rest on: `dataset.lock` pins every file by its SHA-256, and each run's manifest names its commit, snapshot, and pipeline version.
 
 | What you check | Run | What you should see |
 |---|---|---|
 | The control logic, as CI checks it | `make regression` | It passes: no safety check fails, and every finding has an open entry in the [disagreement log](docs/evaluation/disagreements.md) |
-| The four analysis reports | `make data`, then `make analysis` | The same bytes: `git status` shows no change under `docs/analysis/` |
+| The four analysis reports | `make data FROM=<folder>`, then `make analysis` | The same bytes: `git status` shows no change under `docs/analysis/` |
 | The development sets | `make pipeline`, then `make eval-sets` | The same cases: each manifest under `docs/evaluation/sets/` keeps its `sha256`, and only `versions.generator`, your commit, changes. `git restore docs/evaluation/sets/` puts ours back |
 | The held-out set | `make eval-sets HELD_OUT=600` | The 608 cases its committed manifest describes; the manifest stays as it is |
 | The deterministic baseline | `make eval-play SET=selection MODELS=baseline` | 139 of 151 cases passed, on every rerun, in about 15 seconds |

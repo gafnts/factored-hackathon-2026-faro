@@ -112,6 +112,8 @@ The bank is synthetic, and it shows: contacts can't be tied to a workflow, no su
 
 Faro serves what this bank's data supports, and no more: recent transactions are a card's last 90 days, ten at a time, with no filter ([product brief](docs/product/brief.md#out-of-scope)). Three pieces are designed and not built: a handoff filed after a confirmation's deadline when the customer has left, claim and resolve in the console, and the AI team's page. The tools mock the bank's systems of record over a frozen snapshot ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#the-tools-as-the-seam-to-the-banks-systems)). The full account, with the remaining deployment work and risks, is in [limitations.md](docs/evaluation/limitations.md).
 
+Since late October 2026, the organizers' dataset can no longer be downloaded, and it isn't ours to share. Our results stand as recorded: every run names the exact data and code it used. But without a copy of the dataset, a fork can rerun only the checks that use our own test data, such as `make regression` ([step 2](CONTRIBUTING.md#2-restore-the-dataset)).
+
 ---
 
 ## Self-hosting
