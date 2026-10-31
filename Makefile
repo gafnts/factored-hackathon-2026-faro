@@ -94,13 +94,13 @@ probe: _check-profile outputs ## Time ENV's Runtime and check what it stores and
 
 # JUDGE, not USER: make inherits USER from the shell as the login name, so it is always set.
 judges: _check-profile outputs ## Manage the judges' users in ENV's pool (WHAT=, JUDGE=)
-	uv run python -m banking_agent.judges $(or $(WHAT),create) --stack $(OUTPUTS) $(if $(JUDGE),--user $(JUDGE))
+	uv run python -m faro.judges $(or $(WHAT),create) --stack $(OUTPUTS) $(if $(JUDGE),--user $(JUDGE))
 
 
 ##@ Build
 
 build: ## Build the zips and rewrite the Gateway's tools.json
-	uv run python -m banking_agent.build
+	uv run python -m faro.build
 
 web: ## Build the web app
 	pnpm --dir web build
@@ -143,18 +143,18 @@ teardown: ## Delete the state bucket, last of all (admin; asks first)
 ##@ Dataset snapshot
 
 data: ## Check the local snapshot, or restore it from a copy (FROM=<folder>)
-	uv run python -m banking_agent.dataset $(if $(FROM),restore "$(FROM)",check)
+	uv run python -m faro.dataset $(if $(FROM),restore "$(FROM)",check)
 
 snapshot: _check-profile data ## Copy the pinned snapshot into the data bucket
-	uv run python -m banking_agent.dataset upload
+	uv run python -m faro.dataset upload
 
 ##@ Tools' data
 
 personas: ## Choose the development personas into data/personas/
-	uv run python -m banking_agent.export personas
+	uv run python -m faro.export personas
 
 tiny-export: _check-profile ## Build and upload the personas' tiny export
-	uv run python -m banking_agent.export tiny --upload
+	uv run python -m faro.export tiny --upload
 
 ##@ Pipeline
 
@@ -162,39 +162,39 @@ tiny-export: _check-profile ## Build and upload the personas' tiny export
 DATA_DIR ?= data
 
 pipeline: ## Build bronze, silver, and gold into DATA_DIR/pipeline/
-	uv run python -m banking_agent.pipeline --data-dir $(DATA_DIR) build
+	uv run python -m faro.pipeline --data-dir $(DATA_DIR) build
 
 export: _check-profile ## Export and upload the last build's gold
-	uv run python -m banking_agent.pipeline --data-dir $(DATA_DIR) export --upload
+	uv run python -m faro.pipeline --data-dir $(DATA_DIR) export --upload
 
 contracts: ## Rewrite the bronze contracts from the dictionary
-	uv run python -m banking_agent.pipeline contracts
+	uv run python -m faro.pipeline contracts
 
 ##@ Evaluation
 
 .PHONY: eval-sets eval-play eval-run eval-cleanup disagreements eval-index eval-report regression language-check
 
 eval-sets: ## Draw the development sets (HELD_OUT= adds the held-out set)
-	uv run python -m banking_agent.evaluation --data-dir $(DATA_DIR) generate $(if $(HELD_OUT),--held-out $(HELD_OUT))
+	uv run python -m faro.evaluation --data-dir $(DATA_DIR) generate $(if $(HELD_OUT),--held-out $(HELD_OUT))
 
 eval-play: ## Play and grade a set in process (SET=, MODELS=)
-	uv run python -m banking_agent.evaluation --data-dir $(DATA_DIR) play --set $(or $(SET),regression) --models $(or $(MODELS),scripted)
+	uv run python -m faro.evaluation --data-dir $(DATA_DIR) play --set $(or $(SET),regression) --models $(or $(MODELS),scripted)
 
 eval-run: _check-profile ## Play and grade a set against ENV (SET=, LIMIT=, PARALLEL=)
-	uv run python -m banking_agent.evaluation --data-dir $(DATA_DIR) run --set $(or $(SET),regression) --stack $(or $(STACK_OUTPUTS),$(OUTPUTS)) \
+	uv run python -m faro.evaluation --data-dir $(DATA_DIR) run --set $(or $(SET),regression) --stack $(or $(STACK_OUTPUTS),$(OUTPUTS)) \
 		$(foreach s,$(SITUATIONS),--situation $(s)) $(foreach l,$(LANGUAGES),--language $(l)) $(if $(LIMIT),--limit $(LIMIT)) --parallel $(or $(PARALLEL),2)
 
 eval-cleanup: _check-profile ## Delete stopped runs' test users (RUN= for one)
-	uv run python -m banking_agent.evaluation cleanup --stack $(or $(STACK_OUTPUTS),$(OUTPUTS)) $(if $(RUN),--run $(RUN))
+	uv run python -m faro.evaluation cleanup --stack $(or $(STACK_OUTPUTS),$(OUTPUTS)) $(if $(RUN),--run $(RUN))
 
 disagreements: ## Regenerate docs/evaluation/disagreements.md
-	uv run python -m banking_agent.evaluation disagreements
+	uv run python -m faro.evaluation disagreements
 
 eval-index: ## Regenerate docs/evaluation/runs.md
-	uv run python -m banking_agent.evaluation index
+	uv run python -m faro.evaluation index
 
 eval-report: ## Write results.md (RUNS=, BASELINE=, JUDGED=, AGREEMENT=, LABELS=)
-	uv run python -m banking_agent.evaluation --data-dir $(DATA_DIR) report $(foreach r,$(RUNS),--run $(r)) \
+	uv run python -m faro.evaluation --data-dir $(DATA_DIR) report $(foreach r,$(RUNS),--run $(r)) \
 		$(if $(BASELINE),--baseline $(BASELINE)) $(foreach j,$(JUDGED),--judged $(j)) $(if $(AGREEMENT),--agreement $(AGREEMENT)) \
 		$(if $(LABELS),--labels $(LABELS))
 
@@ -202,36 +202,36 @@ regression: ## Play and grade the regression set in process, as CI does
 	uv run pytest -m regression -v --tb=short
 
 language-check: ## Read the paraphrases with the real prompts (paid; FAMILIES=)
-	uv run python -m banking_agent.evaluation language --env-file $(or $(ENV_FILE),.env) $(if $(PARALLEL),--parallel $(PARALLEL)) $(foreach f,$(FAMILIES),--only $(f))
+	uv run python -m faro.evaluation language --env-file $(or $(ENV_FILE),.env) $(if $(PARALLEL),--parallel $(PARALLEL)) $(foreach f,$(FAMILIES),--only $(f))
 
 # The judge and the router comparison call models outside the system under test; ESTIMATE=1 prices a call and makes none.
 .PHONY: judge judge-sample judge-agreement relabel-sample relabel-agreement router-compare
 
 judge: ## Judge replies (paid; RUN= or ITEMS=, LIMIT=, ESTIMATE=1)
-	uv run python -m banking_agent.evaluation judge $(if $(ITEMS),--items $(ITEMS),--run $(RUN)) --env-file $(or $(ENV_FILE),.env) \
+	uv run python -m faro.evaluation judge $(if $(ITEMS),--items $(ITEMS),--run $(RUN)) --env-file $(or $(ENV_FILE),.env) \
 		$(if $(LIMIT),--limit $(LIMIT)) $(if $(filter 1,$(ESTIMATE)),--estimate)
 
 judge-sample: ## Draw the judge's blind sample and sheet (RUN=, SEEDED=)
-	uv run python -m banking_agent.evaluation judge-sample --run $(RUN) $(if $(SEEDED),--seeded $(SEEDED))
+	uv run python -m faro.evaluation judge-sample --run $(RUN) $(if $(SEEDED),--seeded $(SEEDED))
 
 judge-agreement: ## Score the judge against a filled sheet (SAMPLE=, JUDGED=)
-	uv run python -m banking_agent.evaluation judge-agreement --sample $(SAMPLE) --judged $(JUDGED)
+	uv run python -m faro.evaluation judge-agreement --sample $(SAMPLE) --judged $(JUDGED)
 
 relabel-sample: ## Draw the hand-relabel sample and sheet (ROWS=, SEED=)
-	uv run python -m banking_agent.evaluation relabel-sample $(if $(ROWS),--rows $(ROWS)) $(if $(SEED),--seed $(SEED))
+	uv run python -m faro.evaluation relabel-sample $(if $(ROWS),--rows $(ROWS)) $(if $(SEED),--seed $(SEED))
 
 relabel-agreement: ## Score the relabel sheet against the labels (SAMPLE=)
-	uv run python -m banking_agent.evaluation relabel-agreement --sample $(SAMPLE)
+	uv run python -m faro.evaluation relabel-agreement --sample $(SAMPLE)
 
 # SIDE=held_out runs only once the candidates are frozen, from a clean tree, and never with FOLDS.
 router-compare: ## Compare routers (paid; ROUTERS=, SIDE=, FOLDS=, ESTIMATE=1)
-	uv run python -m banking_agent.evaluation router $(foreach c,$(or $(ROUTERS),keyword haiku sonnet),--candidate $(c)) --side $(or $(SIDE),development) \
+	uv run python -m faro.evaluation router $(foreach c,$(or $(ROUTERS),keyword haiku sonnet),--candidate $(c)) --side $(or $(SIDE),development) \
 		--env-file $(or $(ENV_FILE),.env) $(if $(FOLDS),--folds $(FOLDS)) $(if $(PARALLEL),--parallel $(PARALLEL)) $(if $(filter 1,$(ESTIMATE)),--estimate)
 
 ##@ Analysis
 
 analysis: ## Write the four docs/analysis/ reports from the snapshot
-	uv run python -m banking_agent.analysis all
+	uv run python -m faro.analysis all
 
 ##@ IAM module
 
@@ -276,7 +276,7 @@ init: _check-profile ## Initialize ENV's backend
 	$(TF_AWS) init -reconfigure $(BACKEND)
 
 model-key: _check-profile ## Store ANTHROPIC_API_KEY from .env in ENV's secret
-	uv run python -m banking_agent.model_key --env $(ENV)
+	uv run python -m faro.model_key --env $(ENV)
 
 plan: _check-profile build ## Build, then plan ENV and save the plan
 	$(TF_AWS) plan $(VARS) -out=../$(PLAN)

@@ -150,7 +150,7 @@ With the snapshot in place, analyze it:
 make analysis
 ```
 
-It reads exactly the files in the lock, with no AWS access, and writes four reports to [docs/analysis/](docs/analysis/), stamped with the snapshot ID: the data quality profile, the workflow selection [ADR-0003](docs/adr/0003-choose-workflow-from-evidence.md) rules on, the card support analysis the policy cites, and the traffic analysis behind [ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s capacity limits. The last three read the snapshot as of the instant the profile dates and add SVG figures; the card support and traffic analyses read development customers only. Each report carries the same numbers as JSON, publishes aggregates only (row counts under 10 suppressed), and writes the same bytes on a rerun, which takes about five minutes. `uv run python -m banking_agent.analysis <profile|select|cards|traffic>` writes one report.
+It reads exactly the files in the lock, with no AWS access, and writes four reports to [docs/analysis/](docs/analysis/), stamped with the snapshot ID: the data quality profile, the workflow selection [ADR-0003](docs/adr/0003-choose-workflow-from-evidence.md) rules on, the card support analysis the policy cites, and the traffic analysis behind [ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s capacity limits. The last three read the snapshot as of the instant the profile dates and add SVG figures; the card support and traffic analyses read development customers only. Each report carries the same numbers as JSON, publishes aggregates only (row counts under 10 suppressed), and writes the same bytes on a rerun, which takes about five minutes. `uv run python -m faro.analysis <profile|select|cards|traffic>` writes one report.
 
 ### 3. Deploy your own copy
 
@@ -334,7 +334,7 @@ A few habits keep PRs quick to review:
 
 - Write commit subjects in the imperative mood, as the history does ("Add IAM bootstrap module for deploy roles").
 - Cite the requirement IDs from [docs/prerequisites.md](docs/prerequisites.md) (for example `SEC-05`) in the PR description and in the tests that cover them, so every change traces back to what the organizers score.
-- Mirror the package in `tests/`: the tests for `src/banking_agent/<path>/<module>.py` live in `tests/banking_agent/<path>/test_<module>.py`, and fixtures shared by a folder go in its `conftest.py`. The web app's tests mirror `web/src/` in `web/tests/` the same way (`<module>.test.ts`).
+- Mirror the package in `tests/`: the tests for `src/faro/<path>/<module>.py` live in `tests/faro/<path>/test_<module>.py`, and fixtures shared by a folder go in its `conftest.py`. The web app's tests mirror `web/src/` in `web/tests/` the same way (`<module>.test.ts`).
 - Add an ADR when the change makes a decision someone could reasonably question later (see [Record decisions](#record-decisions)).
 - Add a line under `Unreleased` in [CHANGELOG.md](CHANGELOG.md) when someone using the prototype, or maintaining it, would notice the change.
 - Keep work for later in [GitHub Issues](https://github.com/gafnts/factored-hackathon-2026-faro/issues), and close it from the PR that does it (`Closes #12`). It closes when the PR merges into `develop`, before the change is deployed; the changelog's `Unreleased` section shows what isn't yet.
@@ -359,7 +359,7 @@ make tf-format    # Format the Terraform files
 
 CI's quality gates are `make check` and `make regression`, so a green local run of both predicts a green PR. What each suite checks, and which test stops each attack we expect, is in [tests/README.md](tests/README.md). In an emergency, skip a single hook with `SKIP=<hook-id> git commit`; CI still runs it.
 
-Inside `web/`, each tool runs on its own: `pnpm lint`, `pnpm format`, `pnpm typecheck`, `pnpm test`, and `pnpm build`, and `pnpm vitest` watches the tests as you work. The chat's TypeScript types are generated from its contract, `src/banking_agent/contracts/chat.schema.json`: after changing the contract, run `pnpm --dir web contracts` and commit `web/src/contracts/chat.ts`, or a test fails.
+Inside `web/`, each tool runs on its own: `pnpm lint`, `pnpm format`, `pnpm typecheck`, `pnpm test`, and `pnpm build`, and `pnpm vitest` watches the tests as you work. The chat's TypeScript types are generated from its contract, `src/faro/contracts/chat.schema.json`: after changing the contract, run `pnpm --dir web contracts` and commit `web/src/contracts/chat.ts`, or a test fails.
 
 ### Iterate on infrastructure
 
@@ -405,7 +405,7 @@ A custom domain is optional ([ADR-0007](docs/adr/0007-role-gated-web-app.md#host
 
 #### The tools' data
 
-The tools' data table is created from the export that `tools_data_export` names in `infra/envs/<env>.tfvars`, and only its import writes it. A change to the code that shapes the export (`pipeline/`, `src/banking_agent/pipeline/`, the export's writer, or the tools' data contract, as the [pipeline's README](pipeline/README.md) lists them) gives it a new version: run `make pipeline` and `make export`, which uploads it and prints the value, set it in both files, and commit the manifest it writes under `docs/pipeline/`. The next apply imports a new table, points the read tools at it, and then deletes the old one; each import takes a few minutes.
+The tools' data table is created from the export that `tools_data_export` names in `infra/envs/<env>.tfvars`, and only its import writes it. A change to the code that shapes the export (`pipeline/`, `src/faro/pipeline/`, the export's writer, or the tools' data contract, as the [pipeline's README](pipeline/README.md) lists them) gives it a new version: run `make pipeline` and `make export`, which uploads it and prints the value, set it in both files, and commit the manifest it writes under `docs/pipeline/`. The next apply imports a new table, points the read tools at it, and then deletes the old one; each import takes a few minutes.
 
 #### New modules
 
@@ -576,7 +576,7 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into
 | Terraform | The AWS provider | Read the plan when it's promoted |
 | Python and web majors | Every major version, one PR per ecosystem | Upgrade on purpose from a feature branch, or comment `@dependabot ignore <dependency> major version` |
 
-DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. The analysis libraries (polars, pyarrow, matplotlib, plotnine, scikit-learn) get no majors: only `src/banking_agent/analysis/` uses them, for the published reports, and a major can change their results. `@types/node` stays on the Node major in `.nvmrc`. TypeScript stays on 6: 7 replaces the compiler, and we don't plan to move. AG-UI stays below 1.0 (`@ag-ui/client` 1.0 and `@assistant-ui/react-ag-ui` 0.1, which needs it): 1.0 changes the client's types, so it moves from its own branch.
+DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. The analysis libraries (polars, pyarrow, matplotlib, plotnine, scikit-learn) get no majors: only `src/faro/analysis/` uses them, for the published reports, and a major can change their results. `@types/node` stays on the Node major in `.nvmrc`. TypeScript stays on 6: 7 replaces the compiler, and we don't plan to move. AG-UI stays below 1.0 (`@ag-ui/client` 1.0 and `@assistant-ui/react-ag-ui` 0.1, which needs it): 1.0 changes the client's types, so it moves from its own branch.
 
 Security updates come as soon as an advisory covers a version we lock, one PR each for Python and the web app. Dependabot doesn't hold those back, but uv and pnpm still refuse a release under a week old (`exclude-newer` in `pyproject.toml`, `minimumReleaseAge` in `web/pnpm-workspace.yaml`), so a fix that new waits until it ages. One that can't wait gets an exception for that package alone (`exclude-newer-package`, `minimumReleaseAgeExclude`), removed once the release is a week old. If a fix that new holds up the rest of its group, upgrade the others by hand from a feature branch. Python, Node, Terraform and the CI tool versions are still bumped by hand.
 
@@ -585,7 +585,7 @@ Security updates come as soon as an advisory covers a version we lock, one PR ea
 
 ### Files
 
-The backend files (`infra/envs/*.backend.tfbackend`, `infra/iam/backend.tfbackend`, `infra/dataset/backend.tfbackend`) are generated by `make backend` from the project name and the account ID, and committed. CI regenerates them on every deploy job, after its OIDC login. `dataset.lock` is committed too: `make data` writes it the first time, and `make data ADOPT=1` after that. The reports in `docs/analysis/` are written by `make analysis`, the manifests in `docs/pipeline/` by `make export`, bronze's YAML in `pipeline/models/bronze/` by `make contracts`, `infra/modules/gateway/tools.json` by `make build`, and, under `docs/evaluation/`, `runs.md` by `make eval-index`, `disagreements.md` by `make disagreements`, `results.md` by `make eval-report`, and `language.md` by `make language-check`; regenerate them instead of editing them. The scripts behind the setup targets live in [scripts/](scripts/) and share their naming and guards through `scripts/common.sh`; run them through `make` rather than directly. [infra/](infra/README.md), [src/banking_agent/](src/banking_agent/README.md), [pipeline/](pipeline/README.md), and [web/](web/README.md) each open with a README that maps the directory.
+The backend files (`infra/envs/*.backend.tfbackend`, `infra/iam/backend.tfbackend`, `infra/dataset/backend.tfbackend`) are generated by `make backend` from the project name and the account ID, and committed. CI regenerates them on every deploy job, after its OIDC login. `dataset.lock` is committed too: `make data` writes it the first time, and `make data ADOPT=1` after that. The reports in `docs/analysis/` are written by `make analysis`, the manifests in `docs/pipeline/` by `make export`, bronze's YAML in `pipeline/models/bronze/` by `make contracts`, `infra/modules/gateway/tools.json` by `make build`, and, under `docs/evaluation/`, `runs.md` by `make eval-index`, `disagreements.md` by `make disagreements`, `results.md` by `make eval-report`, and `language.md` by `make language-check`; regenerate them instead of editing them. The scripts behind the setup targets live in [scripts/](scripts/) and share their naming and guards through `scripts/common.sh`; run them through `make` rather than directly. [infra/](infra/README.md), [src/faro/](src/faro/README.md), [pipeline/](pipeline/README.md), and [web/](web/README.md) each open with a README that maps the directory.
 
 Gitignored files worth knowing about:
 

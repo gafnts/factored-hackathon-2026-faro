@@ -20,7 +20,7 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 from mypy_boto3_cognito_idp import CognitoIdentityProviderClient
 
-from banking_agent.contracts import validator
+from faro.contracts import validator
 
 from .conftest import SignIn, User, claims
 

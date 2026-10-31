@@ -1,12 +1,12 @@
 """
 The business clock (ADR-0003's rule, ADR-0006 Freshness): one row with the business date and the as-of instant, read
-from how the seven daily tables' rows arrived, by the rule the profile shares (banking_agent.clock).
+from how the seven daily tables' rows arrived, by the rule the profile shares (faro.clock).
 """
 
 from datetime import date, time
 from typing import Any
 
-from banking_agent import clock
+from faro import clock
 
 # The date each daily table's rows are dated by; transcripts take their interaction's.
 EVENT_DATES = {

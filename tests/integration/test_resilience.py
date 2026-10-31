@@ -21,7 +21,7 @@ from typing import Any
 import boto3
 import pytest
 
-from banking_agent.agent.metrics import line
+from faro.agent.metrics import line
 
 from .conftest import SignIn, User, claims, handoffs
 from .test_block import LOST, Conversation, active_card, asked, interrupt
@@ -38,7 +38,7 @@ TIMESTAMP = "%Y-%m-%d %H:%M:%S"
 
 
 def examples(name: str) -> list[dict[str, Any]]:
-    text = files("banking_agent.contracts").joinpath(f"examples/{name}").read_text()
+    text = files("faro.contracts").joinpath(f"examples/{name}").read_text()
     loaded: list[dict[str, Any]] = json.loads(text)
     return loaded
 

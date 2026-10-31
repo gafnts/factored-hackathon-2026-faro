@@ -13,8 +13,8 @@ from typing import Any
 
 import pytest
 
-from banking_agent.agent.formats import MEANINGS, amount, moment, transaction_name
-from banking_agent.agent.texts import FIXED
+from faro.agent.formats import MEANINGS, amount, moment, transaction_name
+from faro.agent.texts import FIXED
 
 from .conftest import SignIn, User, handoffs, stored
 from .test_block import Conversation, interrupt, reply

@@ -125,7 +125,7 @@ resource "aws_lambda_function" "file_handoff" {
   role             = aws_iam_role.file_handoff.arn
   runtime          = "python3.13"
   architectures    = ["arm64"]
-  handler          = "banking_agent.tools.handoff.handler"
+  handler          = "faro.tools.handoff.handler"
   filename         = var.tools_zip
   source_code_hash = filebase64sha256(var.tools_zip)
   memory_size      = 256

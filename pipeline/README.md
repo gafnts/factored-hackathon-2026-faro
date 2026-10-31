@@ -24,7 +24,7 @@ make export      # Write gold's items and manifest, and upload them (needs AWS_P
 | `data/exports/<snapshot>/<version>/` | Gold's items in parts, with the manifest beside them; the upload sends the manifest last |
 | `docs/pipeline/<snapshot>-<version>.json` | The same manifest, committed: the stamp, the clock, rows per model, a content hash per item kind, the export's objects, and every check's result with its rows and share, counts under 10 suppressed |
 
-The version hashes everything that shapes an export: this directory (without this README and dbt's working directories), `src/banking_agent/pipeline/`, the clock's rule, the export's writer, the tools' data contract, and the installed dbt-core, dbt-duckdb, and DuckDB. `make export` refuses gold that other code built.
+The version hashes everything that shapes an export: this directory (without this README and dbt's working directories), `src/faro/pipeline/`, the clock's rule, the export's writer, the tools' data contract, and the installed dbt-core, dbt-duckdb, and DuckDB. `make export` refuses gold that other code built.
 
 ## Checks
 
@@ -42,7 +42,7 @@ The pre-push hook and CI build the [team-generated fixture](../tests/fixtures/te
 | `macros/` | The bronze read, the schema names, and silver's text rules |
 | `tests/` | The checks dbt doesn't ship, and the tests of one rule each |
 
-The CLI behind the targets is `src/banking_agent/pipeline/`, tested under `tests/banking_agent/pipeline/`.
+The CLI behind the targets is `src/faro/pipeline/`, tested under `tests/faro/pipeline/`.
 
 ## On the pinned snapshot
 

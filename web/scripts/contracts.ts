@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { compile } from "json-schema-to-typescript";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const source = resolve(here, "../../src/banking_agent");
+const source = resolve(here, "../../src/faro");
 const contracts = resolve(source, "contracts");
 
 export interface Contract {
@@ -69,7 +69,7 @@ export async function generate(contract: Contract): Promise<string> {
         },
       },
     },
-    bannerComment: `// Generated from src/banking_agent/contracts/${contract.schema} by pnpm contracts.`,
+    bannerComment: `// Generated from src/faro/contracts/${contract.schema} by pnpm contracts.`,
   });
 }
 
@@ -81,7 +81,7 @@ export async function generateWords(): Promise<string> {
     Object.entries(parsed).filter(([key]) => key !== "$comment"),
   );
   return [
-    `// Generated from src/banking_agent/contracts/${REPLY_WORDS.source} by pnpm contracts.`,
+    `// Generated from src/faro/contracts/${REPLY_WORDS.source} by pnpm contracts.`,
     "",
     `export const WORDS = ${JSON.stringify(words, null, 2)} as const;`,
     "",

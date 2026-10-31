@@ -206,122 +206,6 @@ wheels = [
 ]
 
 [[package]]
-name = "banking-agent"
-version = "0.1.0"
-source = { editable = "." }
-default-groups = ["agent", "dev", "eda", "pipeline", "tools"]
-dependencies = [
-    { name = "boto3", extra = ["crt"] },
-    { name = "duckdb" },
-    { name = "jsonschema" },
-    { name = "rfc3339-validator" },
-]
-
-[package.dev-dependencies]
-agent = [
-    { name = "ag-ui-langgraph" },
-    { name = "ag-ui-protocol" },
-    { name = "bedrock-agentcore" },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "jsonschema" },
-    { name = "langchain" },
-    { name = "langchain-anthropic" },
-    { name = "langgraph" },
-    { name = "langgraph-checkpoint-aws" },
-    { name = "rfc3339-validator" },
-]
-dev = [
-    { name = "boto3-stubs", extra = ["cognito-idp", "dynamodb", "logs", "s3", "secretsmanager", "sts"] },
-    { name = "moto", extra = ["dynamodb", "s3"] },
-    { name = "mypy" },
-    { name = "playwright" },
-    { name = "pre-commit" },
-    { name = "pyproject-fmt" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "pytest-timeout" },
-    { name = "pytest-xdist" },
-    { name = "ruff" },
-    { name = "shellcheck-py" },
-    { name = "types-jsonschema" },
-]
-eda = [
-    { name = "matplotlib" },
-    { name = "plotnine" },
-    { name = "polars" },
-    { name = "pyarrow" },
-    { name = "scikit-learn" },
-]
-pipeline = [
-    { name = "dbt-core" },
-    { name = "dbt-duckdb" },
-    { name = "pyyaml" },
-    { name = "types-pyyaml" },
-]
-tools = [
-    { name = "boto3" },
-    { name = "jsonschema" },
-    { name = "rfc3339-validator" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "boto3", extras = ["crt"], specifier = ">=1.43.103" },
-    { name = "duckdb", specifier = ">=1.5.5" },
-    { name = "jsonschema", specifier = ">=4.26" },
-    { name = "rfc3339-validator", specifier = ">=0.1.4" },
-]
-
-[package.metadata.requires-dev]
-agent = [
-    { name = "ag-ui-langgraph", specifier = ">=0.0.45" },
-    { name = "ag-ui-protocol", specifier = ">=1" },
-    { name = "bedrock-agentcore", specifier = ">=1.23.1" },
-    { name = "fastapi", specifier = ">=0.141.1" },
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "jsonschema", specifier = ">=4.26" },
-    { name = "langchain", specifier = ">=1.4.2" },
-    { name = "langchain-anthropic", specifier = ">=1.7.4" },
-    { name = "langgraph", specifier = ">=1.2.12" },
-    { name = "langgraph-checkpoint-aws", specifier = ">=1.2.3" },
-    { name = "rfc3339-validator", specifier = ">=0.1.4" },
-]
-dev = [
-    { name = "boto3-stubs", extras = ["cognito-idp", "dynamodb", "logs", "s3", "secretsmanager", "sts"], specifier = ">=1.43.103" },
-    { name = "moto", extras = ["dynamodb", "s3"], specifier = ">=5.2.3" },
-    { name = "mypy", specifier = ">=2.3.1" },
-    { name = "playwright", specifier = ">=1.63" },
-    { name = "pre-commit", specifier = ">=4.6.2" },
-    { name = "pyproject-fmt", specifier = ">=2.29.4" },
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "pytest-cov", specifier = ">=7.1" },
-    { name = "pytest-timeout", specifier = ">=2.4" },
-    { name = "pytest-xdist", specifier = ">=3.8" },
-    { name = "ruff", specifier = ">=0.16.9" },
-    { name = "shellcheck-py", specifier = ">=0.11.0.1" },
-    { name = "types-jsonschema", specifier = ">=4.26.0.20260518" },
-]
-eda = [
-    { name = "matplotlib", specifier = ">=3.11.2" },
-    { name = "plotnine", specifier = ">=0.15.8" },
-    { name = "polars", specifier = ">=1.44.2" },
-    { name = "pyarrow", specifier = ">=25.0.1" },
-    { name = "scikit-learn", specifier = ">=1.9.1" },
-]
-pipeline = [
-    { name = "dbt-core", specifier = ">=1.12.5" },
-    { name = "dbt-duckdb", specifier = ">=1.11" },
-    { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "types-pyyaml", specifier = ">=6.0.12" },
-]
-tools = [
-    { name = "boto3", specifier = ">=1.43.103" },
-    { name = "jsonschema", specifier = ">=4.26" },
-    { name = "rfc3339-validator", specifier = ">=0.1.4" },
-]
-
-[[package]]
 name = "bedrock-agentcore"
 version = "1.24.2"
 source = { registry = "https://pypi.org/simple" }
@@ -848,6 +732,122 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/bf/89/780e11f9588d9e7128a3f87788354c7946a9cbb1401ad38a48c4db9a4f07/execnet-2.1.2.tar.gz", hash = "sha256:63d83bfdd9a23e35b9c6a3261412324f964c2ec8dcd8d3c6916ee9373e0befcd", size = 166622, upload-time = "2025-11-12T09:56:37.75Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ab/84/02fc1827e8cdded4aa65baef11296a9bbe595c474f0d6d758af082d849fd/execnet-2.1.2-py3-none-any.whl", hash = "sha256:67fba928dd5a544b783f6056f449e5e3931a5c378b128bc18501f7ea79e296ec", size = 40708, upload-time = "2025-11-12T09:56:36.333Z" },
+]
+
+[[package]]
+name = "faro"
+version = "0.1.0"
+source = { editable = "." }
+default-groups = ["agent", "dev", "eda", "pipeline", "tools"]
+dependencies = [
+    { name = "boto3", extra = ["crt"] },
+    { name = "duckdb" },
+    { name = "jsonschema" },
+    { name = "rfc3339-validator" },
+]
+
+[package.dev-dependencies]
+agent = [
+    { name = "ag-ui-langgraph" },
+    { name = "ag-ui-protocol" },
+    { name = "bedrock-agentcore" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "jsonschema" },
+    { name = "langchain" },
+    { name = "langchain-anthropic" },
+    { name = "langgraph" },
+    { name = "langgraph-checkpoint-aws" },
+    { name = "rfc3339-validator" },
+]
+dev = [
+    { name = "boto3-stubs", extra = ["cognito-idp", "dynamodb", "logs", "s3", "secretsmanager", "sts"] },
+    { name = "moto", extra = ["dynamodb", "s3"] },
+    { name = "mypy" },
+    { name = "playwright" },
+    { name = "pre-commit" },
+    { name = "pyproject-fmt" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-timeout" },
+    { name = "pytest-xdist" },
+    { name = "ruff" },
+    { name = "shellcheck-py" },
+    { name = "types-jsonschema" },
+]
+eda = [
+    { name = "matplotlib" },
+    { name = "plotnine" },
+    { name = "polars" },
+    { name = "pyarrow" },
+    { name = "scikit-learn" },
+]
+pipeline = [
+    { name = "dbt-core" },
+    { name = "dbt-duckdb" },
+    { name = "pyyaml" },
+    { name = "types-pyyaml" },
+]
+tools = [
+    { name = "boto3" },
+    { name = "jsonschema" },
+    { name = "rfc3339-validator" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "boto3", extras = ["crt"], specifier = ">=1.43.103" },
+    { name = "duckdb", specifier = ">=1.5.5" },
+    { name = "jsonschema", specifier = ">=4.26" },
+    { name = "rfc3339-validator", specifier = ">=0.1.4" },
+]
+
+[package.metadata.requires-dev]
+agent = [
+    { name = "ag-ui-langgraph", specifier = ">=0.0.45" },
+    { name = "ag-ui-protocol", specifier = ">=1" },
+    { name = "bedrock-agentcore", specifier = ">=1.23.1" },
+    { name = "fastapi", specifier = ">=0.141.1" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "jsonschema", specifier = ">=4.26" },
+    { name = "langchain", specifier = ">=1.4.2" },
+    { name = "langchain-anthropic", specifier = ">=1.7.4" },
+    { name = "langgraph", specifier = ">=1.2.12" },
+    { name = "langgraph-checkpoint-aws", specifier = ">=1.2.3" },
+    { name = "rfc3339-validator", specifier = ">=0.1.4" },
+]
+dev = [
+    { name = "boto3-stubs", extras = ["cognito-idp", "dynamodb", "logs", "s3", "secretsmanager", "sts"], specifier = ">=1.43.103" },
+    { name = "moto", extras = ["dynamodb", "s3"], specifier = ">=5.2.3" },
+    { name = "mypy", specifier = ">=2.3.1" },
+    { name = "playwright", specifier = ">=1.63" },
+    { name = "pre-commit", specifier = ">=4.6.2" },
+    { name = "pyproject-fmt", specifier = ">=2.29.4" },
+    { name = "pytest", specifier = ">=9.1.1" },
+    { name = "pytest-cov", specifier = ">=7.1" },
+    { name = "pytest-timeout", specifier = ">=2.4" },
+    { name = "pytest-xdist", specifier = ">=3.8" },
+    { name = "ruff", specifier = ">=0.16.9" },
+    { name = "shellcheck-py", specifier = ">=0.11.0.1" },
+    { name = "types-jsonschema", specifier = ">=4.26.0.20260518" },
+]
+eda = [
+    { name = "matplotlib", specifier = ">=3.11.2" },
+    { name = "plotnine", specifier = ">=0.15.8" },
+    { name = "polars", specifier = ">=1.44.2" },
+    { name = "pyarrow", specifier = ">=25.0.1" },
+    { name = "scikit-learn", specifier = ">=1.9.1" },
+]
+pipeline = [
+    { name = "dbt-core", specifier = ">=1.12.5" },
+    { name = "dbt-duckdb", specifier = ">=1.11" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "types-pyyaml", specifier = ">=6.0.12" },
+]
+tools = [
+    { name = "boto3", specifier = ">=1.43.103" },
+    { name = "jsonschema", specifier = ">=4.26" },
+    { name = "rfc3339-validator", specifier = ">=0.1.4" },
 ]
 
 [[package]]

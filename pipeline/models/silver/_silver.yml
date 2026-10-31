@@ -92,7 +92,7 @@ models:
             personal_data: none
       - name: held_out
         data_type: boolean
-        description: The MD5 of customer_id, read as an integer, is divisible by 5 (ADR-0003; banking_agent.split).
+        description: The MD5 of customer_id, read as an integer, is divisible by 5 (ADR-0003; faro.split).
         config:
           meta:
             personal_data: none

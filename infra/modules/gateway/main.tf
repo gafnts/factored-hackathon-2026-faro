@@ -202,7 +202,7 @@ resource "aws_lambda_function" "reads" {
   role             = aws_iam_role.reads.arn
   runtime          = "python3.13"
   architectures    = ["arm64"]
-  handler          = "banking_agent.tools.reads.handler"
+  handler          = "faro.tools.reads.handler"
   filename         = var.tools_zip
   source_code_hash = filebase64sha256(var.tools_zip)
   memory_size      = 256
@@ -308,7 +308,7 @@ resource "aws_lambda_function" "block" {
   role             = aws_iam_role.block.arn
   runtime          = "python3.13"
   architectures    = ["arm64"]
-  handler          = "banking_agent.tools.block.handler"
+  handler          = "faro.tools.block.handler"
   filename         = var.tools_zip
   source_code_hash = filebase64sha256(var.tools_zip)
   memory_size      = 256

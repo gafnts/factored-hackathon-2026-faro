@@ -16,10 +16,10 @@ import boto3
 import httpx
 import pytest
 
-from banking_agent.console.case import CALL
-from banking_agent.console.queue import PROJECTED
-from banking_agent.contracts import validator
-from banking_agent.tools.provenance import KEYS
+from faro.console.case import CALL
+from faro.console.queue import PROJECTED
+from faro.contracts import validator
+from faro.tools.provenance import KEYS
 
 from .conftest import SignIn, User, claims
 from .test_block import Conversation

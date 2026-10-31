@@ -1,7 +1,7 @@
-# The bronze contracts' second input, beside the data dictionary (transcribed in src/banking_agent/analysis/catalog.py):
+# The bronze contracts' second input, beside the data dictionary (transcribed in src/faro/analysis/catalog.py):
 # where the delivery differs from the dictionary, as the profile measured it on snapshot b3b8b248f604ef9a
 # (docs/analysis/profiling.md), each with its reason; and a personal-data tag per column (ADR-0006, Contracts).
-# `python -m banking_agent.pipeline contracts` writes models/bronze/_sources.yml from both. The quality checks still
+# `python -m faro.pipeline contracts` writes models/bronze/_sources.yml from both. The quality checks still
 # count what differs from the dictionary, as warnings; a correction describes the delivery, it never hides it.
 
 corrections:

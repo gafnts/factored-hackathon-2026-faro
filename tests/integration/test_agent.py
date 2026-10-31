@@ -22,8 +22,8 @@ from boto3.dynamodb.conditions import Key
 from langgraph_checkpoint_aws import DynamoDBSaver
 from mypy_boto3_cognito_idp import CognitoIdentityProviderClient
 
-from banking_agent.agent.app import thread_key
-from banking_agent.contracts import validator
+from faro.agent.app import thread_key
+from faro.contracts import validator
 
 from .conftest import SignIn, User, claims
 from .test_stack import arguments, call, tool_output

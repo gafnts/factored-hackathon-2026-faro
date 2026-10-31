@@ -3,7 +3,7 @@ build-backend = "uv_build"
 requires = [ "uv-build>=0.13,<0.14" ]
 
 [project]
-name = "banking-agent"
+name = "faro"
 version = "0.1.0"
 description = "Faro, a card support agent in Spanish and Portuguese, built for the Factored AI & Data Hackathon 2026"
 readme = "README.md"
@@ -86,10 +86,10 @@ overrides = [
   { module = "sklearn.*", ignore_missing_imports = true },
   { module = [ "ag_ui_langgraph.*", "langgraph_checkpoint_aws.*" ], ignore_missing_imports = true },
   { module = [
-    "banking_agent.analysis.cards_figures",
-    "banking_agent.analysis.figures",
-    "banking_agent.analysis.plotting",
-    "banking_agent.analysis.traffic_figures",
+    "faro.analysis.cards_figures",
+    "faro.analysis.figures",
+    "faro.analysis.plotting",
+    "faro.analysis.traffic_figures",
   ], disallow_untyped_calls = false },
 ]
 

@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > **Team-generated (SEC-02).** Every message here was written for this evaluation: the seeds by us, the paraphrases by a model. No customer wrote any of them, and the snapshot holds no real request in any language ([ADR-0005](../adr/0005-offline-scenario-evaluation.md), Negative).
 
-The families are the requests the evaluation's scripted customer sends ([ADR-0005](../adr/0005-offline-scenario-evaluation.md), decision 2, as amended on 2026-10-01). They live in [`src/banking_agent/evaluation/families/`](../../src/banking_agent/evaluation/families/), one file per label of the [policy's request table](../policy/card-support.md#requests) and one, `none`, for messages that hold no card request.
+The families are the requests the evaluation's scripted customer sends ([ADR-0005](../adr/0005-offline-scenario-evaluation.md), decision 2, as amended on 2026-10-01). They live in [`src/faro/evaluation/families/`](../../src/faro/evaluation/families/), one file per label of the [policy's request table](../policy/card-support.md#requests) and one, `none`, for messages that hold no card request.
 
 ## What a family is
 
@@ -23,7 +23,7 @@ One request, written in Spanish and in Portuguese: a seed in each language, then
 
 1. **Seeds, by us.** For each label we chose twelve variations on what the policy reads (which hint the message gives, register and length, a terse and an indirect form, two requests at once, an injection, mixed languages) and wrote one request for each in both languages.
 2. **Paraphrases, by Claude Opus 5.5,** from each seed, in one authoring session on 2026-10-01, with these instructions: keep the request, its labels, and its slots exactly; vary wording, register, length, and regional words (Colombian, Mexican, and Argentine Spanish; Brazilian Portuguese); mostly usted in Spanish, with some tú, as customers write, and você in Portuguese; write no digit, name, or identifier outside a slot; and keep each paraphrase a message a customer would send in a chat.
-3. **Checks on every message** (`banking_agent.evaluation.families.problems`, which the tests run): its slots are exactly the family's; no digit, brace, or identifier sits outside a slot; it reads as the language it's filed under (mixed, terse, third-language, and marked messages excepted); it repeats no other message of its family; and no held-out message has a character 3-gram Jaccard similarity of 0.6 or more with any development message, ADR-0005's bar for a message too close to count as unseen. Several drafts failed the last check, and one of the two messages was reworded each time.
+3. **Checks on every message** (`faro.evaluation.families.problems`, which the tests run): its slots are exactly the family's; no digit, brace, or identifier sits outside a slot; it reads as the language it's filed under (mixed, terse, third-language, and marked messages excepted); it repeats no other message of its family; and no held-out message has a character 3-gram Jaccard similarity of 0.6 or more with any development message, ADR-0005's bar for a message too close to count as unseen. Several drafts failed the last check, and one of the two messages was reworded each time.
 4. **By hand,** before any case uses them: the seeds, and a sample of paraphrases, one family per label.
 
 Each message names its author: the first in each language is the seed (`team`), the rest are paraphrases (`claude-opus-5-5`).
