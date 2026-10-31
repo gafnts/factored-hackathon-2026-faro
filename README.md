@@ -121,9 +121,9 @@ A fork stands up in an AWS account you control, with Terraform and nothing tied 
 | You want to | You need |
 |---|---|
 | Change code, tests, or docs | Only the toolchain |
-| Explore or process the organizers' dataset | The read-only keys from the dataset dictionary |
+| Explore or process the organizers' dataset | A copy of it, since it [can no longer be downloaded](CONTRIBUTING.md#2-restore-the-dataset) |
 | Run the whole stack in your own AWS account | Admin access to an AWS account, and your own fork |
-| [Check our reported numbers](CONTRIBUTING.md#reproduce-the-results) | The toolchain to start; the dataset keys and your own stack for the later checks |
+| [Check our reported numbers](CONTRIBUTING.md#reproduce-the-results) | The toolchain to start; a copy of the dataset and your own stack for the later checks |
 
 With the [toolchain](CONTRIBUTING.md#1-install-the-toolchain) installed:
 

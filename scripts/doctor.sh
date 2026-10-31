@@ -6,9 +6,6 @@ set -uo pipefail
 # shellcheck source-path=SCRIPTDIR
 source "$(dirname "$0")/common.sh"
 
-DATASET_PROFILE="${DATASET_SOURCE_PROFILE:-factored-hackathon}"
-DATASET_BUCKET="factored-datathon-2026-s3-${ORGANIZER_ACCOUNT_ID}-us-east-2-an"
-DATASET_REGION="us-east-2"
 LOCAL_PROFILE="${PROJECT}-local"
 BACKEND_FILES=(
   infra/envs/local.backend.tfbackend
@@ -47,25 +44,21 @@ elif ! out=$(identity "${ADMIN_PROFILE}"); then
   fail "cannot authenticate: ${out}"
 else
   read -r ACCOUNT_ID ARN <<< "${out}"
-  if [ "${ACCOUNT_ID}" = "${ORGANIZER_ACCOUNT_ID}" ]; then
-    fail "${ARN} is the organizers' dataset reader, not your account"
+  ok "${ARN}"
+  OWN_ACCOUNT_ID="${ACCOUNT_ID}"
+  BUCKET=$(state_bucket_name "${ACCOUNT_ID}")
+  if aws s3api head-bucket --bucket "${BUCKET}" --profile "${ADMIN_PROFILE}" >/dev/null 2>&1; then
+    ok "state bucket ${BUCKET} exists"
   else
-    ok "${ARN}"
-    OWN_ACCOUNT_ID="${ACCOUNT_ID}"
-    BUCKET=$(state_bucket_name "${ACCOUNT_ID}")
-    if aws s3api head-bucket --bucket "${BUCKET}" --profile "${ADMIN_PROFILE}" >/dev/null 2>&1; then
-      ok "state bucket ${BUCKET} exists"
-    else
-      todo "state bucket ${BUCKET} not found; run 'make bootstrap'"
-    fi
-    for file in "${BACKEND_FILES[@]}"; do
-      if grep -q "\"${BUCKET}\"" "${file}"; then
-        ok "${file} points at it"
-      else
-        fail "${file} points at another bucket; run 'make backend'"
-      fi
-    done
+    todo "state bucket ${BUCKET} not found; run 'make bootstrap'"
   fi
+  for file in "${BACKEND_FILES[@]}"; do
+    if grep -q "\"${BUCKET}\"" "${file}"; then
+      ok "${file} points at it"
+    else
+      fail "${file} points at another bucket; run 'make backend'"
+    fi
+  done
 fi
 
 # Only step 3 needs GitHub, so a missing CLI or sign-in is a todo.
@@ -99,24 +92,6 @@ if [ -f "${IAM_TFVARS}" ]; then
   fi
 else
   todo "${IAM_TFVARS} not found; run 'make bootstrap'"
-fi
-
-echo ""
-echo "Dataset profile: ${DATASET_PROFILE} (organizers' read-only keys)"
-if ! has_profile "${DATASET_PROFILE}"; then
-  todo "profile not found; see CONTRIBUTING.md, step 2 (Connect to the dataset)"
-elif ! out=$(identity "${DATASET_PROFILE}"); then
-  fail "cannot authenticate: ${out}"
-else
-  read -r ACCOUNT_ID ARN <<< "${out}"
-  if [ "${ACCOUNT_ID}" != "${ORGANIZER_ACCOUNT_ID}" ]; then
-    fail "${ARN} is not in the organizers' account (${ORGANIZER_ACCOUNT_ID})"
-  elif aws s3api list-objects-v2 --bucket "${DATASET_BUCKET}" --prefix data/ --max-keys 1 \
-    --profile "${DATASET_PROFILE}" --region "${DATASET_REGION}" >/dev/null 2>&1; then
-    ok "${ARN} can read s3://${DATASET_BUCKET}/data/"
-  else
-    fail "${ARN} cannot list s3://${DATASET_BUCKET}/data/"
-  fi
 fi
 
 echo ""
@@ -165,16 +140,16 @@ LOCK=dataset.lock
 echo ""
 echo "Dataset snapshot: ${LOCK} (make data, make snapshot)"
 if [ ! -f "${LOCK}" ]; then
-  todo "${LOCK} not found; run 'make data'"
+  fail "${LOCK} not found; it's committed with the repository"
 else
   SNAPSHOT=$(sed -n 's/^# snapshot: //p' "${LOCK}")
   FILES=$(grep -vc '^#' "${LOCK}")
   ok "${LOCK} pins snapshot ${SNAPSHOT} (${FILES} files)"
   LOCAL_DIR="data/snapshots/${SNAPSHOT}"
   if [ -d "${LOCAL_DIR}" ] && [ "$(find "${LOCAL_DIR}" -type f | wc -l | tr -d ' ')" = "${FILES}" ]; then
-    ok "${LOCAL_DIR} holds every file (make data re-verifies them)"
+    ok "${LOCAL_DIR} holds every file (make data checks them)"
   else
-    todo "${LOCAL_DIR} is incomplete; run 'make data'"
+    todo "${LOCAL_DIR} is incomplete; restore it with 'make data FROM=<folder>' (CONTRIBUTING.md, step 2)"
   fi
   if [ -z "${OWN_ACCOUNT_ID}" ] || ! has_profile "${LOCAL_PROFILE}"; then
     todo "the data bucket can't be checked until the admin and local deploy profiles work"

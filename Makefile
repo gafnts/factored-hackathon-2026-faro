@@ -142,8 +142,8 @@ teardown: ## Delete the state bucket, last of all (admin; asks first)
 
 ##@ Dataset snapshot
 
-data: ## Download and verify the pinned snapshot (ADOPT=1)
-	uv run python -m banking_agent.dataset download $(if $(filter 1,$(ADOPT)),--adopt)
+data: ## Check the local snapshot, or restore it from a copy (FROM=<folder>)
+	uv run python -m banking_agent.dataset $(if $(FROM),restore "$(FROM)",check)
 
 snapshot: _check-profile data ## Copy the pinned snapshot into the data bucket
 	uv run python -m banking_agent.dataset upload
