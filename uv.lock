@@ -807,8 +807,8 @@ requires-dist = [
 agent = [
     { name = "ag-ui-langgraph", specifier = ">=0.0.45" },
     { name = "ag-ui-protocol", specifier = ">=1" },
-    { name = "bedrock-agentcore", specifier = ">=1.25.0" },
-    { name = "fastapi", specifier = ">=0.162.0" },
+    { name = "bedrock-agentcore", specifier = ">=1.25" },
+    { name = "fastapi", specifier = ">=0.162" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "jsonschema", specifier = ">=4.26" },
     { name = "langchain", specifier = ">=1.4.2" },
