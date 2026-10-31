@@ -2,7 +2,7 @@
 
 Miniature snapshots of the 13 tables, written by the team for the pipeline's tests (SEC-02). They hold no organizer data: every row was made up, every ID carries `TEAM`, and every name, email, and phone is a placeholder. The files follow the delivery's layout, headers, byte order mark, and ID formats, so the pipeline reads them as it reads the pinned snapshot.
 
-`python -m tests.banking_agent.pipeline.fixture` writes each version's files and lock from `tests/banking_agent/pipeline/fixture.py`, and a test fails when the committed copies differ from what it writes.
+`python -m tests.faro.pipeline.fixture` writes each version's files and lock from `tests/faro/pipeline/fixture.py`, and a test fails when the committed copies differ from what it writes.
 
 | Version | What it holds |
 |---|---|
@@ -11,4 +11,4 @@ Miniature snapshots of the 13 tables, written by the team for the pipeline's tes
 | `update-extra-column` | The update, with a column added to transactions' 2026-06-18 partition. |
 | `update-renamed-column` | The update, with `status` renamed in complaints' 2026-06-17 partition and the column count unchanged. |
 
-The two versions and the broken variants are ADR-0006's fixture for update correctness (DML-06); `tests/banking_agent/pipeline/test_update.py` builds them all.
+The two versions and the broken variants are ADR-0006's fixture for update correctness (DML-06); `tests/faro/pipeline/test_update.py` builds them all.

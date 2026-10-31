@@ -7,7 +7,7 @@ import addFormats from "ajv-formats";
 
 const contracts = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../../src/banking_agent/contracts",
+  "../../src/faro/contracts",
 );
 
 function read(path: string): unknown {

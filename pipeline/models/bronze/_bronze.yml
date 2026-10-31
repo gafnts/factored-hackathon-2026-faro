@@ -1,4 +1,4 @@
-# Written by `python -m banking_agent.pipeline contracts` from the data dictionary (src/banking_agent/analysis/catalog.py)
+# Written by `python -m faro.pipeline contracts` from the data dictionary (src/faro/analysis/catalog.py)
 # and contracts/corrections.yml. Don't edit it by hand.
 models:
   - name: bronze_branches

@@ -18,8 +18,8 @@ from typing import Any
 import boto3
 import pytest
 
-from banking_agent.agent.texts import FIXED, render
-from banking_agent.contracts import validator
+from faro.agent.texts import FIXED, render
+from faro.contracts import validator
 
 from .conftest import SignIn, User, claims, handoffs
 from .test_agent import body, post, records, session_id

@@ -1,0 +1,2676 @@
+{
+  "clock": {
+    "as_of": "2026-06-18 06:00:00",
+    "business_date": "2026-06-17"
+  },
+  "content": {
+    "card": "5ca05293b00ab51917300ae009a8120e51291dea2b6f23683b12d53752ff7472",
+    "customer": "675f2e435ed21c9bb619b939bccaba5df043d5974664ef462c0e9f975f532569",
+    "metadata": "7ef008f1b59737ae5165d627498e2cfbf9770d3c786e7ceead3603c80ca60cad",
+    "transaction": "0fab99b7d86ee62a300b95635d2aceb4f6946fddd6bd5d75f4b2bd1efab446a7"
+  },
+  "contract": "urn:banking-agent:card-support:tools-data:1",
+  "items": {
+    "card": 140040,
+    "customer": 150000,
+    "metadata": 1,
+    "total": 419571,
+    "transaction": 129530
+  },
+  "objects": {
+    "items/part-00000.json.gz": {
+      "bytes": 2239890,
+      "sha256": "8823986827b96ec0777ce1de707a282950f5c72935c395567b98375ca8784a6c"
+    },
+    "items/part-00001.json.gz": {
+      "bytes": 2229436,
+      "sha256": "03577f00b657c13086aeb0e4e177ef34cfee737dba24af549260b4affdabd3f0"
+    },
+    "items/part-00002.json.gz": {
+      "bytes": 2237514,
+      "sha256": "c935c413f591d9fb3f0cc04a8491385aab3d30f317cadb9e669f1dbba702124a"
+    },
+    "items/part-00003.json.gz": {
+      "bytes": 2245998,
+      "sha256": "ca9098fedac5353b8134114ffd8723433543ce3fe8ecb9caed4187242c1544d8"
+    },
+    "items/part-00004.json.gz": {
+      "bytes": 2233862,
+      "sha256": "6e7930f9baa691f70123b773b56bb513f9dbe8a59e0c51ae86b480f08fcf47dd"
+    },
+    "items/part-00005.json.gz": {
+      "bytes": 2238832,
+      "sha256": "0d78fd4a4198aee322865a28f3f41be892c3f5a20b9c75521ed2793d93476b39"
+    },
+    "items/part-00006.json.gz": {
+      "bytes": 2240629,
+      "sha256": "baeb4dfe6e63242e4c39b034e31a1fc75e89aa29eae7029bdc3830c94e401006"
+    },
+    "items/part-00007.json.gz": {
+      "bytes": 2238743,
+      "sha256": "532e70280493c9481ce19e49a14f54d0aa92dc02b9820cbe00a99eca9952fe6d"
+    },
+    "items/part-00008.json.gz": {
+      "bytes": 876745,
+      "sha256": "f85b3e9ff92317df51427a627c08bd40de4749bbb52ffffaece94cd8737445b7"
+    }
+  },
+  "pipeline_version": "4a1bc9e15462b739",
+  "producer": "pipeline",
+  "run": {
+    "checks": [
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_address_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_branch_code_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_branch_code_unique",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_branch_id_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_branch_id_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_branch_name_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_branch_opening_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_branch_status_accepted_values",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_branch_status_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_branch_type_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_branch_type_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_city_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_closing_time_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_country_dictionary_values",
+        "rows": 175,
+        "severity": "warn",
+        "share": 0.5,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_country_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_geographic_zone_dictionary_values",
+        "rows": 350,
+        "severity": "warn",
+        "share": 1.0,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_geographic_zone_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_has_atms_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_has_teller_windows_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_opening_time_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_phone_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_branches",
+        "name": "bronze_branches_state_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_agent_id_references_service_agents",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_channel_dictionary_values",
+        "rows": 3395,
+        "severity": "warn",
+        "share": 0.004947,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_channel_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_contact_reason_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_customer_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_customer_id_references_customers",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_detected_sentiment_dictionary_values",
+        "rows": 226584,
+        "severity": "warn",
+        "share": 0.330155,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_has_recording_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_has_transcript_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_interaction_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_interaction_id_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_interaction_id_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_interaction_type_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_interaction_type_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_process_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_processed_on_its_day",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_reason_category_dictionary_values",
+        "rows": 686296,
+        "severity": "warn",
+        "share": 1.0,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_reason_category_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_requires_followup_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_center_interactions",
+        "name": "bronze_call_center_interactions_was_escalated_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_agent_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_agent_id_references_service_agents",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_audio_quality_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_customer_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_customer_id_references_customers",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_detected_language_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_duration_seconds_not_null",
+        "rows": 24029,
+        "severity": "warn",
+        "share": 0.140257,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_full_text_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_interaction_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_interaction_id_references_call_center_interactions",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_process_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_processed_on_its_day",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_transcript_id_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_transcript_id_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_call_transcripts",
+        "name": "bronze_call_transcripts_transcription_model_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_campaign_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_campaign_id_references_marketing_campaigns",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_customer_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_customer_id_references_customers",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_had_conversion_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_process_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_processed_on_its_day",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_send_channel_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_send_channel_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_send_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_send_id_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_send_id_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_send_status_accepted_values",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_send_status_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_campaign_sends",
+        "name": "bronze_campaign_sends_was_delivered_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_affected_product_id_references_products",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_assigned_agent_id_references_service_agents",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_case_type_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_case_type_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_category_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_complaint_id_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_complaint_id_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_creation_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_currency_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_customer_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_customer_id_references_customers",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_description_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_is_repeat_complainer_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_origin_interaction_id_references_call_center_interactions",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_priority_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_priority_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_process_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_processed_on_its_day",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_reception_channel_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_reception_channel_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_related_branch_id_references_branches",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_sla_breached_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_status_accepted_values",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_complaints",
+        "name": "bronze_complaints_status_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_accepts_marketing_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_city_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_country_dictionary_values",
+        "rows": 74907,
+        "severity": "warn",
+        "share": 0.49938,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_country_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_customer_id_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_customer_id_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_customer_status_accepted_values",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_customer_status_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_date_of_birth_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_detected_accent_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_document_number_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_document_number_unique",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_document_type_dictionary_values",
+        "rows": 15062,
+        "severity": "warn",
+        "share": 0.100413,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_document_type_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_first_name_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_gender_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_last_name_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_last_updated_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_registration_branch_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_registration_branch_id_references_branches",
+        "rows": 149995,
+        "severity": "warn",
+        "share": 0.999967,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_registration_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_segment_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_segment_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_customers",
+        "name": "bronze_customers_state_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_daily_exchange_rates",
+        "name": "bronze_daily_exchange_rates_date_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_daily_exchange_rates",
+        "name": "bronze_daily_exchange_rates_exchange_rate_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_daily_exchange_rates",
+        "name": "bronze_daily_exchange_rates_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_daily_exchange_rates",
+        "name": "bronze_daily_exchange_rates_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_daily_exchange_rates",
+        "name": "bronze_daily_exchange_rates_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_daily_exchange_rates",
+        "name": "bronze_daily_exchange_rates_source_currency_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_daily_exchange_rates",
+        "name": "bronze_daily_exchange_rates_source_currency_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_daily_exchange_rates",
+        "name": "bronze_daily_exchange_rates_target_currency_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_daily_exchange_rates",
+        "name": "bronze_daily_exchange_rates_target_currency_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_channel_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_channel_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_customer_id_references_customers",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_event_category_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_event_category_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_event_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_event_id_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_event_id_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_event_type_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_event_type_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_is_mobile_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_platform_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_process_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_processed_on_its_day",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_product_id_references_products",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_digital_events",
+        "name": "bronze_digital_events_session_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_campaign_id_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_campaign_id_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_campaign_name_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_campaign_objective_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_campaign_objective_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_campaign_status_accepted_values",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_campaign_status_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_campaign_type_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_campaign_type_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_end_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_marketing_campaigns",
+        "name": "bronze_marketing_campaigns_start_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_currency_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_currency_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_current_balance_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_customer_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_customer_id_references_customers",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_has_linked_app_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_last_updated_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_opening_branch_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_opening_branch_id_references_branches",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_opening_channel_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_opening_channel_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_opening_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_product_id_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_product_id_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_product_number_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_product_number_unique",
+        "rows": 12,
+        "severity": "warn",
+        "share": 3e-05,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_product_status_accepted_values",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_product_status_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_product_type_accepted_values",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_product_type_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_products",
+        "name": "bronze_products_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_agent_id_references_service_agents",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_customer_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_customer_id_references_customers",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_interaction_id_references_call_center_interactions",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_main_score_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_nps_category_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_process_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_processed_on_its_day",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_send_channel_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_send_channel_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_survey_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_survey_id_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_survey_id_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_survey_type_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_satisfaction_surveys",
+        "name": "bronze_satisfaction_surveys_survey_type_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_agent_id_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_agent_id_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_agent_status_accepted_values",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_agent_status_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_agent_type_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_agent_type_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_assigned_branch_id_references_branches",
+        "rows": 831,
+        "severity": "warn",
+        "share": 0.6925,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_country_of_origin_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_email_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_employee_code_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_employee_code_unique",
+        "rows": 26,
+        "severity": "warn",
+        "share": 0.021667,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_experience_level_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_experience_level_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_first_name_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_hire_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_languages_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_last_name_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_native_accent_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_native_accent_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_work_shift_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_service_agents",
+        "name": "bronze_service_agents_work_shift_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_amount_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_branch_id_references_branches",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_channel_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_channel_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_currency_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_currency_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_customer_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_customer_id_references_customers",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_files_match_the_lock",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_is_fraud_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_process_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_processed_on_its_day",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_product_id_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_product_id_references_products",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_rows_match_the_records",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_transaction_category_dictionary_values",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_transaction_country_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_transaction_date_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_transaction_id_key_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_transaction_id_key_unique",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_transaction_status_accepted_values",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_transaction_status_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_transaction_type_accepted_values",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "bronze_transactions",
+        "name": "bronze_transactions_transaction_type_not_null",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "gold_metadata",
+        "name": "gold_metadata_one_row",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "gold_transactions",
+        "name": "gold_transactions_within_the_window",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_card_transactions",
+        "name": "silver_card_transactions_after_card_expiration",
+        "rows": 462419,
+        "severity": "warn",
+        "share": 0.29883,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "silver_card_transactions",
+        "name": "silver_card_transactions_before_card_opening",
+        "rows": 288617,
+        "severity": "warn",
+        "share": 0.186514,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "silver_card_transactions",
+        "name": "silver_card_transactions_channel_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_card_transactions",
+        "name": "silver_card_transactions_currency_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_card_transactions",
+        "name": "silver_card_transactions_customer_is_the_cards",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_card_transactions",
+        "name": "silver_card_transactions_merchant_category_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_card_transactions",
+        "name": "silver_card_transactions_merchant_name_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_card_transactions",
+        "name": "silver_card_transactions_response_code_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_card_transactions",
+        "name": "silver_card_transactions_transaction_country_changed",
+        "rows": 14349,
+        "severity": "warn",
+        "share": 0.009273,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "silver_card_transactions",
+        "name": "silver_card_transactions_transaction_status_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_card_transactions",
+        "name": "silver_card_transactions_transaction_type_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_cards",
+        "name": "silver_cards_active_past_expiration",
+        "rows": 56664,
+        "severity": "warn",
+        "share": 0.404627,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "silver_cards",
+        "name": "silver_cards_currency_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_cards",
+        "name": "silver_cards_last_transaction_date_disagrees",
+        "rows": 118839,
+        "severity": "warn",
+        "share": 0.848608,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "silver_cards",
+        "name": "silver_cards_product_status_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_cards",
+        "name": "silver_cards_product_type_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_cards",
+        "name": "silver_cards_updated_after_as_of",
+        "rows": 8681,
+        "severity": "warn",
+        "share": 0.061989,
+        "status": "warn"
+      },
+      {
+        "kind": "test",
+        "model": "silver_clock",
+        "name": "silver_clock_as_of_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_clock",
+        "name": "silver_clock_business_date_not_null",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_clock",
+        "name": "silver_clock_one_row",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_customers",
+        "name": "silver_customers_country_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_customers",
+        "name": "silver_customers_customer_status_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_customers",
+        "name": "silver_customers_segment_changed",
+        "rows": 0,
+        "severity": "warn",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "test",
+        "model": "silver_customers",
+        "name": "silver_customers_updated_after_as_of",
+        "rows": 9301,
+        "severity": "warn",
+        "share": 0.062007,
+        "status": "warn"
+      },
+      {
+        "kind": "unit_test",
+        "model": "silver_cards",
+        "name": "silver_reads_cards_opened_by_the_as_of_day_and_flags_them",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "unit_test",
+        "model": "silver_customers",
+        "name": "silver_reads_customers_registered_by_the_as_of_instant_and_splits_them",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      },
+      {
+        "kind": "unit_test",
+        "model": "silver_card_transactions",
+        "name": "silver_spells_each_country_one_way_and_flags_conflicts",
+        "rows": 0,
+        "severity": "error",
+        "share": 0.0,
+        "status": "pass"
+      }
+    ],
+    "rows": {
+      "bronze.branches": 350,
+      "bronze.call_center_interactions": 686296,
+      "bronze.call_transcripts": 171321,
+      "bronze.campaign_sends": 1746801,
+      "bronze.complaints": 67095,
+      "bronze.customers": 150000,
+      "bronze.daily_exchange_rates": 13164,
+      "bronze.digital_events": 15620994,
+      "bronze.marketing_campaigns": 200,
+      "bronze.products": 400000,
+      "bronze.satisfaction_surveys": 212759,
+      "bronze.service_agents": 1200,
+      "bronze.transactions": 4425008,
+      "gold.cards": 140040,
+      "gold.customers": 150000,
+      "gold.metadata": "<10",
+      "gold.transactions": 129530,
+      "silver.card_transactions": 1547432,
+      "silver.cards": 140040,
+      "silver.clock": "<10",
+      "silver.customers": 150000
+    },
+    "versions": {
+      "dbt-core": "1.12.5",
+      "dbt-duckdb": "1.11.0",
+      "duckdb": "1.5.5"
+    }
+  },
+  "snapshot": "b3b8b248f604ef9a"
+}

@@ -1,6 +1,6 @@
 # Gold is the data half of the tools' contract (ADR-0006, Contracts): each model holds one kind of item's attributes in
-# src/banking_agent/contracts/tools-data.schema.json, with customer_id for the partition, and the checks below restate
-# its enums, patterns, and lengths. tests/banking_agent/pipeline/test_gold.py holds the two to each other.
+# src/faro/contracts/tools-data.schema.json, with customer_id for the partition, and the checks below restate
+# its enums, patterns, and lengths. tests/faro/pipeline/test_gold.py holds the two to each other.
 
 models:
   - name: gold_metadata

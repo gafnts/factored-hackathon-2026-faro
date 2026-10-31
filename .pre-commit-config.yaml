@@ -109,14 +109,14 @@ repos:
         name: tsc (web)
         entry: pnpm --dir web typecheck
         language: system
-        files: ^(web/|src/banking_agent/contracts/)
+        files: ^(web/|src/faro/contracts/)
         pass_filenames: false
 
       - id: vitest
         name: vitest (web)
         entry: pnpm --dir web test
         language: system
-        files: ^(web/|src/banking_agent/contracts/)
+        files: ^(web/|src/faro/contracts/)
         pass_filenames: false
         stages: [pre-push]
 

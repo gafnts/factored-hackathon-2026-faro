@@ -24,9 +24,9 @@ from botocore.exceptions import ClientError
 from mypy_boto3_cognito_idp import CognitoIdentityProviderClient
 from mypy_boto3_cognito_idp.type_defs import AttributeTypeTypeDef
 
-from banking_agent import personas
-from banking_agent.dataset.lock import read_lock
-from banking_agent.tools.cases import REFERENCE, plain
+from faro import personas
+from faro.dataset.lock import read_lock
+from faro.tools.cases import REFERENCE, plain
 
 ROOT = Path(__file__).resolve().parents[2]
 

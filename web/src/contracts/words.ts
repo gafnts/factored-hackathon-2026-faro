@@ -1,4 +1,4 @@
-// Generated from src/banking_agent/contracts/reply-words.json by pnpm contracts.
+// Generated from src/faro/contracts/reply-words.json by pnpm contracts.
 
 export const WORDS = {
   "product_type": {
