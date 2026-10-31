@@ -228,7 +228,7 @@ flowchart LR
   BR --> OR
 ```
 
-The state the tools read is a frozen master snapshot with an event cutoff: customers and cards as delivered, transactions dated at or before the as-of instant (business date 2026-06-17, read as of 2026-06-18 06:00). Rows updated after that instant are flagged, never corrected, and results are reported with and without them. `prototype` serves export `795ff66b819516bf` of snapshot `b3b8b248f604ef9a`; its manifest, with every check's result, is in [docs/pipeline/](pipeline/), and [the pipeline's README](../pipeline/README.md) says how to rebuild it.
+The state the tools read is a frozen master snapshot with an event cutoff: customers and cards as delivered, transactions dated at or before the as-of instant (business date 2026-06-17, read as of 2026-06-18 06:00). Rows updated after that instant are flagged, never corrected, and results are reported with and without them. `prototype` serves export `4a1bc9e15462b739` of snapshot `b3b8b248f604ef9a`; its manifest, with every check's result, is in [docs/pipeline/](pipeline/), and [the pipeline's README](../pipeline/README.md) says how to rebuild it.
 
 Writes never touch the export. A block lands in a sandbox keyed by the sign-in, so each judge and each evaluation case starts clean. The sandbox also carries the evaluation's fixtures (a record the snapshot lacks) and fault plans (a tool made to fail), honored only in the sign-in that wrote them.
 
