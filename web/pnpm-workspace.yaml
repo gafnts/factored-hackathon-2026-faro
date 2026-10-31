@@ -3,6 +3,8 @@ minimumReleaseAge: 10080
 savePrefix: ""
 engineStrict: true
 # jsx-a11y hasn't widened its range, and runs on ESLint 10's flat config.
+# The AG-UI client's zod 3 reaches generative-ui, whose schemas load on it; we render no generative UI.
 peerDependencyRules:
   allowedVersions:
     eslint-plugin-jsx-a11y>eslint: "10"
+    "@assistant-ui/generative-ui>zod": "3"
