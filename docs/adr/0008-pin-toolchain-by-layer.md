@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-10-31).
+Accepted (2026-10-31).
 
 ## Context
 
@@ -64,7 +64,7 @@ flowchart BT
 
 | Layer | What it holds | Where its versions live | What installs it |
 |---|---|---|---|
-| Dependencies | The Python packages and the Python-based tools (ruff, mypy, pre-commit, zizmor); the web app's packages and tools; Terraform's providers; the hooks pre-commit fetches | `uv.lock`; `web/pnpm-lock.yaml`; each root's `.terraform.lock.hcl`; `.pre-commit-config.yaml`, by commit SHA | uv, pnpm, `terraform init`, pre-commit |
+| Dependencies | The Python packages and the Python-based tools (ruff, mypy, pre-commit, zizmor); the web app's packages and tools; Terraform's providers; tflint's AWS ruleset; the hooks pre-commit fetches | `uv.lock`; `web/pnpm-lock.yaml`; each root's `.terraform.lock.hcl`; `.tflint.hcl`; `.pre-commit-config.yaml`, by commit SHA | uv, pnpm, `terraform init`, `tflint --init`, pre-commit |
 | Dev environment | Python, uv, Node, pnpm, Terraform, tflint, trivy | `mise.toml`, with `mise.lock` | mise |
 | System | The OS, mise itself, the AWS CLI, the GitHub CLI, direnv, git; in production, AWS's runtimes | Not pinned: any recent version works | Each of us, or AWS |
 
@@ -78,7 +78,7 @@ In practice:
 - **Ranges stay as guards.** `requires-python`, `engines`, each root's `required_version`, and uv's `required-version` pin nothing; they make a wrong install fail fast, and every pin must fall inside them. Python's minor version moves only with AWS's runtimes.
 - **CI installs the toolchain in one place.** Every job calls a composite action, `.github/actions/toolchain`, which runs `jdx/mise-action` at a pinned mise release a week old (the one version `mise.toml` can't hold) and restores uv's and pnpm's caches. Jobs call it with `uses: $/...`, which loads it from the commit being run instead of the working tree.
 - **Hooks are pinned by commit SHA**, with the `# frozen:` comment Dependabot reads and rewrites.
-- **Bumps.** Dependabot keeps the dependency layer current. The dev environment, and the mise release in the composite action, are bumped by hand in the quarterly round: `mise outdated --bump` lists what's newer and at least a week old, and each bump stays inside its guard.
+- **Bumps.** Dependabot keeps the dependency layer current, except tflint's AWS ruleset in `.tflint.hcl`. That ruleset, the dev environment, and the mise release in the composite action are bumped by hand in the quarterly round; for the dev environment, `mise outdated --bump` lists what's newer and at least a week old, and each bump stays inside its guard.
 
 ## Alternatives considered
 
