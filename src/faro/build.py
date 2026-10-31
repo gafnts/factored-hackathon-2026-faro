@@ -1,17 +1,18 @@
 """
 Builds what Terraform deploys into build/ (ADR-0004, Deployment): a zip each for the Runtime and the Lambdas, with this
-package and the Linux arm64 wheels its dependency group locks in uv.lock. Every zip is the same bytes on every machine,
-so a plan shows a change only when the code or a locked version changed. The Runtime's entry script names the commit
-that last changed the packaged code, which the execution record stamps on every turn. It also rewrites the Gateway's
-tool definitions, which are committed so that CI can lint the stack without a build.
+package and the Linux arm64 wheels its dependency group locks in uv.lock. Every zip is the same bytes on every machine
+and from any checkout, so a plan shows a change only when the code or a locked version changed. The Runtime's entry
+script names the commit that last changed the packaged code, which the execution record stamps on every turn. It also
+rewrites the Gateway's tool definitions, which are committed so that CI can lint the stack without a build.
 """
 
+import csv
 import json
 import shutil
 import subprocess
 import sys
 import zipfile
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Container, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,6 +30,9 @@ PLATFORM = (
     ":all:",
 )
 EPOCH = (2026, 1, 1, 0, 0, 0)
+# What uv's install adds beside the distributions: console scripts, whose first line names the building machine's
+# interpreter and which nothing runs, and its lock on the target.
+INSTALLED = ("bin", ".lock")
 # What the zips package: a commit that changes nothing here deploys the same zips. The evaluation never runs in the
 # stack, so neither the zips nor the version carry it (ADR-0004's amendment of 2026-10-01).
 EVALUATION = ("faro", "evaluation")
@@ -86,26 +90,44 @@ def app_version(git: Callable[[Sequence[str]], str] = git) -> str:
 
 
 def packaged(path: Path, root: Path) -> bool:
-    """
-    Console scripts carry the building machine's interpreter in their shebang, and nothing runs them.
-    """
     parts = path.relative_to(root).parts
     return (
         path.is_file()
-        and parts[0] != "bin"
+        and parts[0] not in INSTALLED
         and "__pycache__" not in parts
         and parts[:2] != EVALUATION
     )
 
 
+def recorded(record: bytes, names: Container[str]) -> bytes:
+    """
+    A RECORD lists every file its install wrote; the zip's lists only the files the zip holds.
+    """
+    lines = record.decode().splitlines(keepends=True)
+    kept = (
+        line
+        for line, row in zip(lines, csv.reader(lines), strict=True)
+        if row and row[0] in names
+    )
+    return "".join(kept).encode()
+
+
 def write_zip(source: Path, target: Path) -> None:
+    files = {
+        path.relative_to(source).as_posix(): path
+        for path in sorted(source.rglob("*"))
+        if packaged(path, source)
+    }
     target.unlink(missing_ok=True)
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
-        for path in sorted(p for p in source.rglob("*") if packaged(p, source)):
-            info = zipfile.ZipInfo(path.relative_to(source).as_posix(), date_time=EPOCH)
+        for name, path in files.items():
+            data = path.read_bytes()
+            if name.endswith(".dist-info/RECORD"):
+                data = recorded(data, files.keys())
+            info = zipfile.ZipInfo(name, date_time=EPOCH)
             info.external_attr = 0o644 << 16
             info.compress_type = zipfile.ZIP_DEFLATED
-            archive.writestr(info, path.read_bytes())
+            archive.writestr(info, data)
 
 
 def build_wheel(out: Path, run: Run = run) -> Path:

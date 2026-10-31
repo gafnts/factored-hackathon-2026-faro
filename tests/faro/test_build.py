@@ -60,11 +60,12 @@ def test_a_zip_is_the_same_bytes_whenever_it_is_written(tmp_path: Path) -> None:
     assert {i.external_attr >> 16 for i in infos} == {0o644}
 
 
-def test_console_scripts_and_bytecode_stay_out(tmp_path: Path) -> None:
+def test_what_the_install_adds_and_bytecode_stay_out(tmp_path: Path) -> None:
     source = tree(
         tmp_path / "src",
         {
             "bin/uvicorn": "#!/Users/someone/.venv/bin/python",
+            ".lock": "",
             "pkg/__pycache__/m.cpython-313.pyc": "x",
             "pkg/m.py": "m",
             "pkg/bin/data.txt": "kept",
@@ -74,6 +75,27 @@ def test_console_scripts_and_bytecode_stay_out(tmp_path: Path) -> None:
 
     with zipfile.ZipFile(tmp_path / "out.zip") as archive:
         assert archive.namelist() == ["pkg/bin/data.txt", "pkg/m.py"]
+
+
+def test_a_record_lists_only_what_its_zip_holds(tmp_path: Path) -> None:
+    source = tree(
+        tmp_path / "src",
+        {
+            "bin/uvicorn": "#!/Users/someone/.venv/bin/python",
+            "uvicorn/main.py": "m",
+            "uvicorn-1.0.dist-info/RECORD": (
+                "bin/uvicorn,sha256=machine,35\n"
+                '"uvicorn/main.py",sha256=m,1\n'
+                "uvicorn-1.0.dist-info/RECORD,,\n"
+            ),
+        },
+    )
+    build.write_zip(source, tmp_path / "out.zip")
+
+    with zipfile.ZipFile(tmp_path / "out.zip") as archive:
+        assert archive.read("uvicorn-1.0.dist-info/RECORD").decode() == (
+            '"uvicorn/main.py",sha256=m,1\nuvicorn-1.0.dist-info/RECORD,,\n'
+        )
 
 
 def test_the_evaluation_package_stays_out(tmp_path: Path) -> None:
