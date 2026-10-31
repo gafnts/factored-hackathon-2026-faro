@@ -4,6 +4,10 @@
 
 Accepted (2026-09-26).
 
+Amended as built, each correction applied in the section it names:
+
+- 2026-10-30: the organizers' dataset can no longer be downloaded, so `make data` restores the pinned snapshot from a copy, checked against the lock, and the data bucket survives a teardown while it holds a snapshot or an export ([Decision](#decision), [Consequences](#consequences)).
+
 ## Context
 
 [ADR-0001](0001-deploy-to-us-east-1.md) puts every stack in us-east-1, while the dataset stays in the organizers' bucket in us-east-2. Five forces shape how the project should read it:
@@ -18,15 +22,15 @@ Accepted (2026-09-26).
 
 Copy the organizers' `data/` prefix into a bucket this project owns in us-east-1, and use the organizers' keys for that copy only. Everything downstream (ETL, evaluation, CI, the deployed prototype) reads the copy with the project's own roles.
 
-Each copy is an immutable snapshot, and a lock file committed to the repository pins the snapshot the code uses. When the source no longer matches the lock, the copy stops and reports the difference; new data is adopted deliberately, through a reviewed change to the lock. Re-running a copy that already matches transfers nothing, and pipeline outputs and evaluation reports record the snapshot they ran on.
+Each copy is an immutable snapshot, and a lock file committed to the repository pins the snapshot the code uses; every copy of it, on a laptop or in the bucket, is checked file by file against the lock. The snapshot pinned on 2026-09-26 is the last one: the organizers' dataset can no longer be downloaded, so there is no newer data to adopt. Re-running a restore or an upload that already matches transfers nothing, and pipeline outputs and evaluation reports record the snapshot they ran on.
 
-The bucket lives outside the per-environment stacks, so destroying an environment never deletes the data.
+The bucket lives outside the per-environment stacks, so destroying an environment never deletes the data, and Terraform won't delete the bucket while it holds a snapshot or an export, so a full teardown leaves it in place too.
 
 In practice:
 
-- **The bucket.** `banking-agent-data-<account-id>-us-east-1-an`, in the account's regional namespace, has a Terraform root of its own, `infra/dataset/`, applied with admin credentials like the deploy roles in `infra/iam/`. Its policy rejects any write without `If-None-Match`, so an object, once written, can't be overwritten.
-- **The lock.** `dataset.lock` lists every file with its size, its source ETag, and a SHA-256 computed on download. The snapshot ID is the first 16 hex characters of a SHA-256 over the sorted key, size, and SHA-256 of every file, so it names the content, not the source or the day it was copied.
-- **`make data`** lists the source, stops if it no longer matches the lock (`ADOPT=1` writes a new snapshot and lock instead), downloads into `data/snapshots/<id>/`, and checks every file's MD5 against its source ETag and its SHA-256 against the lock. All but two source ETags are plain MD5s; the other two are multipart ETags, checked by recomputing them with the AWS CLI's 8 MiB part size.
+- **The bucket.** `banking-agent-data-<account-id>-us-east-1-an`, in the account's regional namespace, has a Terraform root of its own, `infra/dataset/`, applied with admin credentials like the deploy roles in `infra/iam/`. Its policy rejects any write without `If-None-Match`, so an object, once written, can't be overwritten. `force_destroy` is off, so `make dataset-destroy` stops while the bucket holds anything.
+- **The lock.** `dataset.lock` lists every file with its size, its source ETag, and a SHA-256 computed when the snapshot was downloaded. The snapshot ID is the first 16 hex characters of a SHA-256 over the sorted key, size, and SHA-256 of every file, so it names the content, not the source or the day it was copied.
+- **`make data`** checks the local copy in `data/snapshots/<id>/` against the lock: every file's size and SHA-256. `make data FROM=<folder>` restores it from a copy: it refuses a folder that lacks any of the lock's files or holds one with the wrong size, copies only the files the lock lists, checks each one's SHA-256 before putting it in place, and skips files already in place and intact. The lock's keys follow the layout of the organizers' `data/` prefix, so any copy of it works.
 - **`make snapshot`** uploads that copy to `snapshots/<id>/` with each file's SHA-256, which S3 checks on arrival, and writes the lock there last as the completion marker. A rerun on a complete snapshot transfers nothing.
 
 ## Alternatives considered
@@ -46,15 +50,16 @@ In practice:
 Positive:
 - The organizers' keys are needed only where the copy runs; nothing deployed and nothing in the repository holds them.
 - The prototype and every pipeline keep working if those keys are rotated or revoked.
+- When the source went away, the bucket's copy and the lock kept the snapshot: every file is still checked against the lock, and any copy of it can rebuild `data/`.
 - Every run reads the same bytes until the lock changes, and a change to the data arrives as a PR like any other change.
 - Pipelines read in-region, from the same Region ADR-0001 chose for everything else.
 - The snapshot ID traces a number in an evaluation report back to the exact raw files.
 - The local copy used for exploration holds the same bytes as the bucket copy, checked file by file.
 
 Negative:
-- A copy streams about 5.35 GB through the machine running it, down and then up: minutes on a datacenter link, tens of minutes on a home connection.
+- An upload streams about 5.35 GB from the machine running it: minutes on a datacenter link, tens of minutes on a home connection.
 - More moving parts than reading the source directly: a bucket with its own Terraform root, a copy module, and a lock file.
 - Each snapshot duplicates the dataset in storage, at a few cents a month.
-- A clone in another account can rebuild the locked snapshot only while the organizers still publish the same bytes. Otherwise the lock check fails loudly, and the difference has to be reported as a data limitation (SCP-07).
-- `make dataset-destroy` deletes every snapshot; once the organizers' bucket is gone, they can't be rebuilt.
+- A clone in another account can rebuild the locked snapshot only from a copy of the organizers' dataset, since it can no longer be downloaded. Without one, a clone can't run the pipeline, the analysis, or the eval sets, or fill a stack of its own. We report this as a data limitation (SCP-07); for anyone outside the project, it leaves OPS-07's reproducible setup met only by the checks that run on team-written fixtures.
+- `make dataset-destroy` stops while the bucket holds a snapshot or an export, since a snapshot can't be rebuilt; deleting one is a deliberate step outside Terraform.
 - The lock adds a 1.5 MB file to the repository, exempt from the large-file hook.

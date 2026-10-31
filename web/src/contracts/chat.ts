@@ -1,4 +1,4 @@
-// Generated from src/banking_agent/contracts/chat.schema.json by pnpm contracts.
+// Generated from src/faro/contracts/chat.schema.json by pnpm contracts.
 
 /**
  * This interface was referenced by `CardSupportChat`'s JSON-Schema

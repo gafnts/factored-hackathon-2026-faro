@@ -1,4 +1,4 @@
-// Generated from src/banking_agent/contracts/console.schema.json by pnpm contracts.
+// Generated from src/faro/contracts/console.schema.json by pnpm contracts.
 
 /**
  * What the console API answers a human agent (ADR-0007, The console API, and its amendments of 2026-09-30): a page of a queue's cases, one case with the tool calls its evidence names, or a refusal. It reads the demo's filed cases only and changes none. A case's fields and its payload are the case record's and the handoff schema's own, referred to by their IDs rather than copied, so the console's types follow them.

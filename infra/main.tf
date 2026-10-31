@@ -36,14 +36,14 @@ module "tools_data" {
   prefix      = local.prefix
   export      = var.tools_data_export
   data_bucket = local.data_bucket
-  contract    = "${path.root}/../src/banking_agent/contracts/tools-data.schema.json"
+  contract    = "${path.root}/../src/faro/contracts/tools-data.schema.json"
 }
 
 module "sandbox" {
   source = "./modules/sandbox"
 
   prefix   = local.prefix
-  contract = "${path.root}/../src/banking_agent/contracts/overlay.schema.json"
+  contract = "${path.root}/../src/faro/contracts/overlay.schema.json"
 }
 
 module "gateway" {

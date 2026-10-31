@@ -19,9 +19,9 @@ from typing import Any
 import boto3
 import pytest
 
-from banking_agent.agent.graph import PAGES
-from banking_agent.agent.texts import render
-from banking_agent.contracts import validator
+from faro.agent.graph import PAGES
+from faro.agent.texts import render
+from faro.contracts import validator
 
 from .conftest import SignIn, User, claims, stored
 from .test_block import Conversation, control_of, reply, status

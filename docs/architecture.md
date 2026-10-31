@@ -195,7 +195,7 @@ Three rules make a reply safe to send (AI-03, AI-05, CTL-02):
 - **Facts as placeholders.** The model writes `{card.expiration}`, never the value; code fills it in the conversation's language and the customer's number format. Outcomes (blocked, verified, a handoff's reference) are fixed sentences chosen by code. The model writes the answer of the four reads only; every question, decline, abstention, refusal, and offer is fixed text.
 - **The reply check.** Before a reply leaves, code checks every placeholder, digit, internal flag, and withheld status. A reply that fails is replaced by a fixed one built from the same facts, and the fallback is counted (OPS-05).
 
-The handoff is a structured case, not a transcript (CTL-05): the request, each verified fact tied to the tool call that read it, the actions taken, the customer's own statements kept apart, and the unresolved questions. The graph validates it against [handoff.schema.json](../src/banking_agent/policy/handoff.schema.json); `file_handoff` validates it again, checks each fact against the execution record, adds the `is_fraud` and customer status facts the model never sees, raises the priority to `urgent` where POL-47 requires it, and files it with a reference the customer hears. The console shows the case within a 3-second poll.
+The handoff is a structured case, not a transcript (CTL-05): the request, each verified fact tied to the tool call that read it, the actions taken, the customer's own statements kept apart, and the unresolved questions. The graph validates it against [handoff.schema.json](../src/faro/policy/handoff.schema.json); `file_handoff` validates it again, checks each fact against the execution record, adds the `is_fraud` and customer status facts the model never sees, raises the priority to `urgent` where POL-47 requires it, and files it with a reference the customer hears. The console shows the case within a 3-second poll.
 
 ## Where each rule holds
 
@@ -228,7 +228,7 @@ flowchart LR
   BR --> OR
 ```
 
-The state the tools read is a frozen master snapshot with an event cutoff: customers and cards as delivered, transactions dated at or before the as-of instant (business date 2026-06-17, read as of 2026-06-18 06:00). Rows updated after that instant are flagged, never corrected, and results are reported with and without them. `prototype` serves export `795ff66b819516bf` of snapshot `b3b8b248f604ef9a`; its manifest, with every check's result, is in [docs/pipeline/](pipeline/), and [the pipeline's README](../pipeline/README.md) says how to rebuild it.
+The state the tools read is a frozen master snapshot with an event cutoff: customers and cards as delivered, transactions dated at or before the as-of instant (business date 2026-06-17, read as of 2026-06-18 06:00). Rows updated after that instant are flagged, never corrected, and results are reported with and without them. `prototype` serves export `4a1bc9e15462b739` of snapshot `b3b8b248f604ef9a`; its manifest, with every check's result, is in [docs/pipeline/](pipeline/), and [the pipeline's README](../pipeline/README.md) says how to rebuild it.
 
 Writes never touch the export. A block lands in a sandbox keyed by the sign-in, so each judge and each evaluation case starts clean. The sandbox also carries the evaluation's fixtures (a record the snapshot lacks) and fault plans (a tool made to fail), honored only in the sign-in that wrote them.
 

@@ -37,10 +37,10 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
-from banking_agent.agent.formats import transaction_name
-from banking_agent.agent.texts import FIXED, render
-from banking_agent.contracts import validator
-from banking_agent.tools.cases import draw_reference, queue_order, reference_item
+from faro.agent.formats import transaction_name
+from faro.agent.texts import FIXED, render
+from faro.contracts import validator
+from faro.tools.cases import draw_reference, queue_order, reference_item
 
 from .conftest import SignIn, User, cases, claims, handoffs
 from .test_agent import checkpoint_messages, records
@@ -711,7 +711,7 @@ def planted(outputs: dict[str, Any], markup: dict[str, str]) -> dict[str, Any]:
     (ADR-0007, Rendering what others wrote). Its IDs are made up, and the record it names holds nothing.
     """
     example = json.loads(
-        files("banking_agent.contracts")
+        files("faro.contracts")
         .joinpath("examples/handoff-case.json")
         .read_text(encoding="utf-8")
     )[2]

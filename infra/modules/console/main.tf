@@ -8,20 +8,20 @@ locals {
       name    = "${var.prefix}-console-queue"
       route   = "GET /api/cases"
       path    = "GET/api/cases"
-      handler = "banking_agent.console.handlers.queue_handler"
+      handler = "faro.console.handlers.queue_handler"
     }
     case = {
       name    = "${var.prefix}-console-case"
       route   = "GET /api/cases/{reference}"
       path    = "GET/api/cases/*"
-      handler = "banking_agent.console.handlers.case_handler"
+      handler = "faro.console.handlers.case_handler"
     }
   }
-  # banking_agent.console.queue.PROJECTED: the index's keys and projection, so a page never reads a payload.
+  # faro.console.queue.PROJECTED: the index's keys and projection, so a page never reads a payload.
   queue_attributes = [
     "pk", "queue_key", "queue_order", "reference", "priority", "reason_code", "language", "filed_at", "flagged",
   ]
-  # banking_agent.console.case.CALL: a tool call's attributes but its input, so the console never reads a message
+  # faro.console.case.CALL: a tool call's attributes but its input, so the console never reads a message
   # (input), a reply (text), or a model's output (output) (CTL-05).
   call_attributes = [
     "sign_in", "entry_key", "kind", "call_id", "tool", "via", "attempt", "called_at", "latency_ms", "request_id",

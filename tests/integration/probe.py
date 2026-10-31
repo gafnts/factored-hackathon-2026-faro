@@ -20,9 +20,9 @@ import boto3
 import httpx
 from boto3.dynamodb.conditions import Key
 
-from banking_agent import personas
-from banking_agent.agent.app import thread_key
-from banking_agent.dataset.lock import read_lock
+from faro import personas
+from faro.agent.app import thread_key
+from faro.dataset.lock import read_lock
 
 from .conftest import ROOT, claims, signed_in, throwaway_users
 from .test_stack import arguments, call, tool_output

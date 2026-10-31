@@ -9,7 +9,6 @@ export AWS_PROFILE="${ADMIN_PROFILE}"
 
 IDENTITY=$(aws sts get-caller-identity --query '[Account,Arn]' --output text)
 read -r ACCOUNT_ID PRINCIPAL_ARN <<< "${IDENTITY}"
-assert_not_organizer "${ACCOUNT_ID}"
 
 # In a trust policy, the root ARN means every principal in the account.
 if [[ "${PRINCIPAL_ARN}" == *":root" ]]; then

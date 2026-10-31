@@ -50,7 +50,7 @@ test("renders the Markdown a reply uses: emphasis, lists, and tables", () => {
   );
 });
 
-// A status answer as the agent's code writes it (formats.card_line, pinned in tests/banking_agent/agent/test_formats.py).
+// A status answer as the agent's code writes it (formats.card_line, pinned in tests/faro/agent/test_formats.py).
 const STATUS_ANSWERS = {
   es: [
     "Estas son sus tarjetas y el estado de cada una:",
@@ -150,7 +150,7 @@ test.each([
 });
 
 // Transactions as the agent's code writes them: a page (formats.transaction_line) and the charges a customer picks from
-// (formats.transaction_name), pinned in tests/banking_agent/agent/test_formats.py.
+// (formats.transaction_name), pinned in tests/faro/agent/test_formats.py.
 const PAGES = {
   es: [
     "Estos son los movimientos de su tarjeta de crédito terminada en 7858 entre el 20/03/2026 06:00 y el 18/06/2026 06:00, del más reciente al más antiguo:",
@@ -305,7 +305,7 @@ test.each([
 });
 
 // Several cards' credit as the agent's code writes it (formats.credit_line, pinned in
-// tests/banking_agent/agent/test_formats.py).
+// tests/faro/agent/test_formats.py).
 const CREDITS = {
   es: [
     "Al 17/06/2026, este es el crédito disponible de sus tarjetas:",

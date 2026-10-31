@@ -8,6 +8,7 @@ What Faro can't claim, what the data and the evaluation leave out, what a bank w
 - **No customer in the data writes Portuguese.** Every Portuguese message in the evaluation was written by us or paraphrased by a model from our seeds, and so was every Spanish one. Results per language say how Faro handles our phrasing in each language, not how it would handle customers' ([families.md](families.md)).
 - **The contact-center baseline is context, not a comparison.** Handle times, resolution, and escalation per reason category come from contacts that can't be tied to a card request, so the ROI uses them as brackets and is labeled a projection ([selection report](../analysis/selection.md#contact-center-baseline)).
 - **Recent transactions are a card's last 90 days, ten at a time,** with no filter by period, merchant, or amount. Enough for this bank, where 99% of cards with a transaction in that window have four or fewer, and not a statement.
+- **The dataset can no longer be downloaded.** It was available through the hackathon, judging included; since late October 2026 it isn't, and it isn't ours to share. Our numbers stand as recorded: `dataset.lock` pins every file by its SHA-256, and each run's manifest names its commit, snapshot, and pipeline version. Without a copy, though, someone outside the project can rerun only the checks that run on team-written fixtures, such as `make regression`; the pipeline, the analysis, the eval sets, and a stack of their own need one ([CONTRIBUTING](../../CONTRIBUTING.md#2-restore-the-dataset), [ADR-0002](../adr/0002-mirror-dataset-into-pinned-snapshots.md)).
 
 ## Language coverage (SCP-07)
 
@@ -54,7 +55,7 @@ Faro is a prototype on a frozen snapshot, deployed end to end on AWS (AgentCore 
 Each was weighed and left as it is for a solo ten-day build; none is hidden:
 
 - Both environments (`local`, `prototype`) share one AWS account, with partial tag isolation; the deploy roles carry `PowerUserAccess`; the evaluation harness's role trusts the account root.
-- The Runtime runs with `network_mode = PUBLIC`; the snapshot, runtime, and site buckets have `force_destroy`; the secrets' recovery window is zero days, so a deleted secret is gone.
+- The Runtime runs with `network_mode = PUBLIC`; the evaluation, runtime, and site buckets have `force_destroy`; the secrets' recovery window is zero days, so a deleted secret is gone.
 - CI applies Terraform with no smoke test after the apply; five trivy findings are ignored, each marked inline in the Terraform with its rule.
 - The four `*.tfbackend` files hold AWS account IDs: identifiers, not credentials, and accepted as such.
 - No single source for tool versions (Terraform's version in two places; tflint and trivy only in CI; uv unpinned); pre-commit hooks pinned by tag, not SHA; no zizmor linting of the workflows.

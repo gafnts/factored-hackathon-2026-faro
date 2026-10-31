@@ -9,7 +9,6 @@ source "$(dirname "$0")/common.sh"
 export AWS_PROFILE="${ADMIN_PROFILE}"
 
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-assert_not_organizer "${ACCOUNT_ID}"
 BUCKET=$(state_bucket_name "${ACCOUNT_ID}")
 
 echo ""
@@ -20,7 +19,7 @@ echo "    ${BUCKET}"
 echo ""
 echo "Run this ONLY after every Terraform stack is destroyed (destroy for each"
 echo "env, then iam-destroy and dataset-destroy). Deleting the bucket orphans anything Terraform"
-echo "still tracks."
+echo "still tracks, such as a data bucket kept because it holds a snapshot."
 echo ""
 
 read -r -p "Type the bucket name to confirm: " CONFIRM

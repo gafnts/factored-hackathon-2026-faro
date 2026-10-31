@@ -126,7 +126,7 @@ resource "aws_lambda_function" "pre_token" {
   role             = aws_iam_role.pre_token.arn
   runtime          = "python3.13"
   architectures    = ["arm64"]
-  handler          = "banking_agent.identity.pre_token.handler"
+  handler          = "faro.identity.pre_token.handler"
   filename         = var.pre_token_zip
   source_code_hash = filebase64sha256(var.pre_token_zip)
   timeout          = 5
