@@ -54,7 +54,8 @@ class Workspace:
 
 
 def workspace(data_dir: Path, snapshot: str) -> Workspace:
-    root = data_dir / "pipeline"
+    # dbt reads a relative target path from the project, not from here.
+    root = data_dir.absolute() / "pipeline"
     return Workspace(root / f"{snapshot}.duckdb", root / snapshot)
 
 

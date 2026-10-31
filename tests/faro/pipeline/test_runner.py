@@ -26,6 +26,20 @@ def test_the_project_parses_with_usage_stats_off(tmp_path: Path) -> None:
     assert space.database == tmp_path / "pipeline" / "0123456789abcdef.duckdb"
 
 
+def test_a_relative_data_dir_keeps_dbts_files_in_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    space = runner.workspace(Path("data"), "0123456789abcdef")
+    space.reset()
+
+    runner.dbt(["parse"], space, {"snapshot_root": str(tmp_path)})
+
+    target = tmp_path / "data" / "pipeline" / "0123456789abcdef" / "target"
+    assert (target / "manifest.json").is_file()
+    assert not (runner.PROJECT / "data").exists()
+
+
 def test_a_project_that_doesnt_parse_stops_the_build(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
