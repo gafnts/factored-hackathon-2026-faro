@@ -6,6 +6,10 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Changed
+
+- The chat runs on AG-UI 1.0: `@ag-ui/client` 1.0.3 and `@assistant-ui/react-ag-ui` 0.1.0. The Runtime already spoke protocol 1.0, so only the web app changes, and Dependabot no longer holds AG-UI back.
+
 ## Promotion 10 ([#128]) - 2026-10-31
 
 ### Added

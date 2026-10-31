@@ -6,3 +6,7 @@ engineStrict: true
 peerDependencyRules:
   allowedVersions:
     eslint-plugin-jsx-a11y>eslint: "10"
+# They ask for zod 3 but import only zod/v4, so they share the app's zod 4 and its jitless setting (src/zod.ts).
+overrides:
+  "@ag-ui/client>zod": $zod
+  "@ag-ui/proto>zod": $zod
