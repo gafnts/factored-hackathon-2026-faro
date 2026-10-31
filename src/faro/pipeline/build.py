@@ -25,4 +25,9 @@ def build(
     records = checks.count_records(root, [f.key for f in lock.files], workers)
     space.reset()
     checks.load(space.database, lock, records)
-    return runner.dbt(["build"], space, variables(lock, root))
+    results = runner.dbt(["build"], space, variables(lock, root))
+    if not results:
+        raise runner.PipelineError(
+            f"dbt build recorded no results; its messages are in {space.logs}"
+        )
+    return results

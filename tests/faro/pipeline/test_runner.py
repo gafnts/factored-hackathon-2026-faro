@@ -102,6 +102,20 @@ def test_make_pipeline_builds_into_data_pipeline(
     assert f"Built {database}" in capsys.readouterr().out
 
 
+def test_a_build_that_records_no_results_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    lock_path, data_dir, _ = fixture.install("base", tmp_path)
+    monkeypatch.setattr(runner, "dbt", lambda *args, **kwargs: [])
+    args = ["--lock", str(lock_path), "--data-dir", str(data_dir)]
+
+    assert main([*args, "build"]) == 1
+
+    assert "dbt build recorded no results" in capsys.readouterr().err
+
+
 def test_make_pipeline_refuses_a_missing_snapshot(
     tmp_path: Path, persona_bank: tuple[Lock, Path]
 ) -> None:
