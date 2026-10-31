@@ -6,6 +6,21 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Added
+
+- zizmor audits the workflows on every commit that touches `.github/`, and in CI with its online audits too ([#136]).
+
+### Changed
+
+- The toolchain is pinned by layer ([ADR-0008](docs/adr/0008-pin-toolchain-by-layer.md)). mise installs Python 3.13.17, uv, Node, pnpm, Terraform, tflint, and trivy at the exact versions in `mise.toml`, each download checked against `mise.lock`, on our machines and in CI. Setup now starts with installing mise; `.python-version`, `.nvmrc`, and `.terraform-version` are gone ([#136]).
+- CI installs that toolchain through one composite action instead of six setup actions, so the deploy job no longer downloads pnpm unchecked at run time ([#136]).
+- The pre-commit hooks are pinned by commit SHA, with the release in a `# frozen:` comment ([#136]).
+- The next deploy updates the Runtime and the five Lambdas that share `tools.zip`, with no change to their code: each zip lists its packages' console scripts, whose first line names the Python that built them, now mise's ([#136]).
+
+### Fixed
+
+- The README's badges point at the renamed repository, and CONTRIBUTING no longer mentions `make data ADOPT=1` ([#136]).
+
 ## Promotion 11 ([#130]) - 2026-10-31
 
 ### Added
@@ -91,5 +106,6 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 [#128]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/128
 [#129]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/129
 [#130]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/130
+[#136]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/136
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c

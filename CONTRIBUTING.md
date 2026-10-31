@@ -101,32 +101,37 @@ The operations that can hurt are hard to trigger by mistake:
 
 ### 1. Install the toolchain
 
+[mise](https://mise.jdx.dev/getting-started.html) installs the tools that build and check Faro (Python, uv, Node.js, pnpm, Terraform, tflint, and trivy) at the versions `mise.toml` pins, and checks each download against `mise.lock`. Install mise 2026.10.19 or later, activate it in your shell, and trust the repository's config once:
+
+```bash
+echo 'eval "$(mise activate zsh)"' >> ~/.zshrc   # For another shell, see mise's guide
+mise trust                                      # In the repository, from a new shell
+```
+
+Editors and scripts that don't start an interactive shell find the tools through mise's shims: add `eval "$(mise activate zsh --shims)"` to `~/.zshenv`. nvm, pyenv, or tfenv can stay installed; in the repository, mise's tools come first on the `PATH`.
+
+Besides mise:
+
 | Tool | Version | Needed for |
 |---|---|---|
-| [uv](https://docs.astral.sh/uv/) | Recent | Python 3.13 (uv installs it from `.python-version`), dependencies, pre-commit |
-| [Node.js](https://nodejs.org) | 24.21.0 (`.nvmrc`; with [nvm](https://github.com/nvm-sh/nvm), `nvm install` in the repository) | The web app in `web/`, and its hooks |
-| [pnpm](https://pnpm.io) | Recent; it runs the version `web/package.json` pins | The web app's dependencies |
-| [Terraform](https://developer.hashicorp.com/terraform/install) | 1.16.x (`.terraform-version`) | Infrastructure, and the Terraform hooks |
-| [tflint](https://github.com/terraform-linters/tflint#installation) | CI uses v0.64.0 | Terraform lint hook. On Homebrew, install from `terraform-linters/tap/tflint`: since v0.63, homebrew-core no longer gets new releases |
-| [trivy](https://github.com/aquasecurity/trivy) | CI uses v0.74.0 | Terraform security scan (pre-push hook) |
 | [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) | Recent (2.37 works) | Steps 2 and 3 only |
 | [GitHub CLI](https://cli.github.com) | Recent | Step 3 only |
 | [direnv](https://direnv.net) | Optional | Setting `AWS_PROFILE` when you enter the repo |
 
-Then install the dependencies and hooks, and run every check once:
+Then install the toolchain, the dependencies, and the hooks, and run every check once:
 
 ```bash
-make install   # Python and web deps, both hook stages, tflint plugins
+make install   # The toolchain, Python and web deps, both hook stages, tflint plugins
 make check     # Every hook against every file, as CI's pre-commit job runs them
 ```
 
-If `make check` passes, your machine runs the same hooks as CI; CI also plays the regression set, which `make regression` runs locally. Re-run `make install` after pulling changes to `pyproject.toml`, `web/package.json`, `.pre-commit-config.yaml`, or `.tflint.hcl`.
+If `make check` passes, your machine runs the same tools and hooks as CI; CI also plays the regression set, which `make regression` runs locally. Re-run `make install` after pulling changes to `mise.toml`, `pyproject.toml`, `web/package.json`, `.pre-commit-config.yaml`, or `.tflint.hcl`.
 
 From now on, hooks run on their own:
 
 | Stage | What runs | When |
 |---|---|---|
-| `pre-commit` | Hygiene checks (whitespace, YAML, merge conflicts, large files, private keys), `terraform fmt`, `tflint`, `gitleaks`, `actionlint`, `shellcheck`, `pyproject-fmt`, `ruff check`, `ruff format`, `mypy`; for the web app, Prettier, ESLint, and `tsc` | On `git commit` |
+| `pre-commit` | Hygiene checks (whitespace, YAML, merge conflicts, large files, private keys), `terraform fmt`, `tflint`, `gitleaks`, `actionlint`, `zizmor`, `shellcheck`, `pyproject-fmt`, `ruff check`, `ruff format`, `mypy`; for the web app, Prettier, ESLint, and `tsc` | On `git commit` |
 | `pre-push` | `terraform validate`, `trivy`, `gitleaks-history` (the full history), `pytest` (with an 80% coverage floor); for the web app, Vitest (with the same floor) and a production build | On `git push` |
 
 ### 2. Restore the dataset
@@ -499,7 +504,8 @@ Run `make doctor` first; most setup problems show up there.
 | The Runtime answers every run with `RUN_ERROR` | The model key was removed from its secret, or is wrong. Run `make model-key` again ([step 3.7](#37-verify-and-deploy-local)); `make doctor` checks that each secret holds a key. |
 | A test says `infra/modules/gateway/tools.json` is stale | The tools' contract changed. Run `make build` and commit the file. |
 | A web test says `web/src/contracts/chat.ts` is stale | The chat's contract changed. Run `pnpm --dir web contracts` and commit the file. |
-| `pnpm install` says `Unsupported engine` | Another Node version is active. Run `nvm use` in the repository, which reads `.nvmrc`. |
+| mise says the repository's config files aren't trusted | Run `mise trust` in the repository. |
+| `pnpm install` says `Unsupported engine`, or a tool isn't the version `mise.toml` pins | mise isn't active in this shell, so another install comes first on the `PATH`. Activate it as in [step 1](#1-install-the-toolchain), and run `mise doctor`. |
 
 ---
 
@@ -556,21 +562,25 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 
 ### What's pinned
 
+Each layer of the toolchain is pinned in one file, which whatever installs that layer reads ([ADR-0008](docs/adr/0008-pin-toolchain-by-layer.md)). The ranges in `pyproject.toml`, `web/package.json`, and the Terraform roots pin nothing: they're guards that make a wrong install fail fast, and every pin falls inside them.
+
 | What | Where |
 |---|---|
-| Python 3.13 | `.python-version`, and `requires-python` in `pyproject.toml` |
-| uv 0.13 | `required-version` and the `uv-build` requirement in `pyproject.toml`, so every uv that touches the lock (yours, CI's latest, Dependabot's) writes it in the same format |
+| Python, uv, Node, pnpm, Terraform, tflint, trivy | Exact versions in `mise.toml`, each download's checksum in `mise.lock` (Linux x64 and macOS arm64), and only releases a week old (`minimum_release_age` in `mise.toml`) |
+| Python 3.13 | Guarded by `requires-python` in `pyproject.toml`; AWS's runtimes fix the minor version |
+| uv 0.13 | Guarded by `required-version` and the `uv-build` requirement in `pyproject.toml`, so every uv that touches the lock (yours, CI's, Dependabot's) writes it in the same format |
+| Node 24 | Guarded by `engines` in `web/package.json` (pnpm won't install on another version) |
+| pnpm | `packageManager` in `web/package.json`, which pnpm enforces; mise installs the same version, and a test keeps the two equal |
+| Terraform 1.16 | Guarded by `required_version` in each root |
+| mise | `version` in `.github/actions/toolchain/action.yml` for CI, and `min_version` in `mise.toml` for yours |
 | Python dependencies | `uv.lock`, and only releases a week old (`exclude-newer` in `pyproject.toml`) |
-| Node 24.21.0 | `.nvmrc`, and `engines` in `web/package.json` (pnpm won't install on another version) |
-| pnpm | `packageManager` in `web/package.json` |
 | Web dependencies | Exact versions in `web/package.json`, locked in `web/pnpm-lock.yaml`, and only releases a week old (`web/pnpm-workspace.yaml`) |
-| Dataset snapshot | `dataset.lock` |
-| Terraform 1.16.x | `.terraform-version`, and `required_version` in each root |
 | AWS provider | An exact version in `infra/terraform.tf`, which Dependabot bumps, and `.terraform.lock.hcl` in each root (linux/amd64, darwin/amd64, darwin/arm64) |
+| tflint's AWS ruleset | `.tflint.hcl` |
 | What the Runtime and the Lambdas run | The `agent` and `tools` dependency groups in `uv.lock`, built for Linux arm64 by `make build` |
-| Hook versions | `rev` entries in `.pre-commit-config.yaml` |
-| GitHub Actions | Commit SHAs in `.github/workflows/`, with the release in a trailing comment |
-| CI tool versions | `env` blocks in `.github/workflows/` |
+| Dataset snapshot | `dataset.lock` |
+| Hook versions | Commit SHAs in `.pre-commit-config.yaml`, with the release in a `# frozen:` comment |
+| GitHub Actions | Commit SHAs in `.github/workflows/` and `.github/actions/`, with the release in a trailing comment |
 
 Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into `develop`. Version updates come quarterly and skip releases younger than a week; security updates don't wait for the schedule. Any change to `.github/dependabot.yml` on `develop` makes Dependabot check every ecosystem straight away, whatever the schedule, so config changes are best made together. They're grouped by what a merge touches, so each PR is taken one way, and one failing update never holds up another group:
 
@@ -584,16 +594,18 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into
 | Terraform | The AWS provider | Read the plan when it's promoted |
 | Python and web majors | Every major version, one PR per ecosystem | Upgrade on purpose from a feature branch, or comment `@dependabot ignore <dependency> major version` |
 
-DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. The analysis libraries (polars, pyarrow, matplotlib, plotnine, scikit-learn) get no majors: only `src/faro/analysis/` uses them, for the published reports, and a major can change their results. `@types/node` stays on the Node major in `.nvmrc`. TypeScript stays on 6: 7 replaces the compiler, and we don't plan to move.
+DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. The analysis libraries (polars, pyarrow, matplotlib, plotnine, scikit-learn) get no majors: only `src/faro/analysis/` uses them, for the published reports, and a major can change their results. `@types/node` stays on the Node major in `mise.toml`. TypeScript stays on 6: 7 replaces the compiler, and we don't plan to move.
 
-Security updates come as soon as an advisory covers a version we lock, one PR each for Python and the web app. Dependabot doesn't hold those back, but uv and pnpm still refuse a release under a week old (`exclude-newer` in `pyproject.toml`, `minimumReleaseAge` in `web/pnpm-workspace.yaml`), so a fix that new waits until it ages. One that can't wait gets an exception for that package alone (`exclude-newer-package`, `minimumReleaseAgeExclude`), removed once the release is a week old. If a fix that new holds up the rest of its group, upgrade the others by hand from a feature branch. Python, Node, Terraform and the CI tool versions are still bumped by hand.
+Security updates come as soon as an advisory covers a version we lock, one PR each for Python and the web app. Dependabot doesn't hold those back, but uv and pnpm still refuse a release under a week old (`exclude-newer` in `pyproject.toml`, `minimumReleaseAge` in `web/pnpm-workspace.yaml`), so a fix that new waits until it ages. One that can't wait gets an exception for that package alone (`exclude-newer-package`, `minimumReleaseAgeExclude`), removed once the release is a week old. If a fix that new holds up the rest of its group, upgrade the others by hand from a feature branch.
+
+Dependabot doesn't read `mise.toml`, `.tflint.hcl`, or the mise release in `.github/actions/toolchain/action.yml`, so we bump those by hand in the same quarterly round. `mise outdated --bump` lists the newer releases a week old, and `mise upgrade --bump <tool>` installs one and writes it to `mise.toml` and `mise.lock`. Keep each inside its guard (Python stays on 3.13 until AWS's runtimes move), and when pnpm moves, move `packageManager` with it.
 
 > [!IMPORTANT]
 > A security fix is done when it's promoted, not when its alert closes. Alerts follow `develop`, the default branch, so one closes as soon as its fix merges there, while `prototype` keeps the vulnerable version until the promotion deploys the fix.
 
 ### Files
 
-The backend files (`infra/envs/*.backend.tfbackend`, `infra/iam/backend.tfbackend`, `infra/dataset/backend.tfbackend`) are generated by `make backend` from the project name and the account ID, and committed. CI regenerates them on every deploy job, after its OIDC login. `dataset.lock` is committed too: `make data` writes it the first time, and `make data ADOPT=1` after that. The reports in `docs/analysis/` are written by `make analysis`, the manifests in `docs/pipeline/` by `make export`, bronze's YAML in `pipeline/models/bronze/` by `make contracts`, `infra/modules/gateway/tools.json` by `make build`, and, under `docs/evaluation/`, `runs.md` by `make eval-index`, `disagreements.md` by `make disagreements`, `results.md` by `make eval-report`, and `language.md` by `make language-check`; regenerate them instead of editing them. The scripts behind the setup targets live in [scripts/](scripts/) and share their naming and guards through `scripts/common.sh`; run them through `make` rather than directly. [infra/](infra/README.md), [src/faro/](src/faro/README.md), [pipeline/](pipeline/README.md), and [web/](web/README.md) each open with a README that maps the directory.
+The backend files (`infra/envs/*.backend.tfbackend`, `infra/iam/backend.tfbackend`, `infra/dataset/backend.tfbackend`) are generated by `make backend` from the project name and the account ID, and committed. CI regenerates them on every deploy job, after its OIDC login. `dataset.lock` is committed too, and nothing rewrites it now that the organizers' dataset can't be downloaded: `make data` checks your copy against it, and `make data FROM=<folder>` restores one. The reports in `docs/analysis/` are written by `make analysis`, the manifests in `docs/pipeline/` by `make export`, bronze's YAML in `pipeline/models/bronze/` by `make contracts`, `infra/modules/gateway/tools.json` by `make build`, and, under `docs/evaluation/`, `runs.md` by `make eval-index`, `disagreements.md` by `make disagreements`, `results.md` by `make eval-report`, and `language.md` by `make language-check`; regenerate them instead of editing them. The scripts behind the setup targets live in [scripts/](scripts/) and share their naming and guards through `scripts/common.sh`; run them through `make` rather than directly. [infra/](infra/README.md), [src/faro/](src/faro/README.md), [pipeline/](pipeline/README.md), and [web/](web/README.md) each open with a README that maps the directory.
 
 Gitignored files worth knowing about:
 
@@ -603,6 +615,7 @@ Gitignored files worth knowing about:
 - `web/public/config.json`: the configuration `make web-dev` copies from the stack's outputs
 - `infra/iam/iam.tfvars`: your principal ARN, the state bucket, and the OIDC subject prefix the CI roles trust
 - `.envrc`: your local `AWS_PROFILE`
+- `mise.local.toml`: your own changes to `mise.toml`, which mise reads on top of it
 - `.env`, `.env.*`: local secrets, such as the Anthropic API key `make model-key` stores; the tracked `.env.example` lists their variables
 - `data/`: the dataset snapshots, the personas, the pipeline's DuckDB file, the exports, the evaluation's sets and run evidence, and the judges' credentials and private note; nothing under it may ever be committed
 - `docs/hackathon/`: the organizers' materials, including the dataset keys

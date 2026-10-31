@@ -9,7 +9,9 @@ on:
       - "!infra/dataset/**"
       - "src/**"
       - "web/**"
-      - ".nvmrc"
+      - "mise.toml"
+      - "mise.lock"
+      - ".github/actions/toolchain/**"
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/deploy-prototype.yml"
@@ -22,6 +24,9 @@ on:
       - "src/**"
       - "pyproject.toml"
       - "uv.lock"
+      - "mise.toml"
+      - "mise.lock"
+      - ".github/actions/toolchain/**"
       - ".github/workflows/deploy-prototype.yml"
   workflow_dispatch:
 
@@ -35,7 +40,6 @@ defaults:
 env:
   ENV: prototype
   AWS_REGION: us-east-1
-  TF_VERSION: 1.16.4
 
 jobs:
   # Read-only role and no state lock, so a plan never blocks an apply.
@@ -60,14 +64,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: $/.github/actions/toolchain
         with:
-          enable-cache: true
-
-      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-          terraform_wrapper: false
+          tools: python uv terraform
 
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
@@ -140,14 +139,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: $/.github/actions/toolchain
         with:
-          enable-cache: true
-
-      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-          terraform_wrapper: false
+          tools: python uv terraform node pnpm
 
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
@@ -164,16 +158,6 @@ jobs:
         run: |
           terraform -chdir=infra apply -auto-approve \
             -var-file=envs/${{ env.ENV }}.tfvars
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
-
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        with:
-          package_json_file: web/package.json
-          cache: true
-          cache_dependency_path: web/pnpm-lock.yaml
 
       # After the apply, beside the config.json it wrote.
       - name: Deploy the site
