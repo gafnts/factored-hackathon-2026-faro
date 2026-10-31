@@ -450,6 +450,14 @@ When `develop` is in a state you'd be happy for judges to see, open a PR from `d
 
 Once the promotion's PR is open, move the changelog's `Unreleased` entries under a new `## Promotion N (#PR) - date` heading in a PR into `develop`, with a line for anything merged without one, such as Dependabot's PRs. The promotion picks it up, so `main` carries its own record.
 
+Once the promotion merges, fast-forward `develop` to `main`. The merge commit is the only commit `main` has that `develop` lacks, so after this step any commit on `main` and not on `develop` reached `main` some other way:
+
+```bash
+git fetch && git switch develop && git merge --ff-only origin/main && git push
+```
+
+If a PR merged into `develop` while the promotion was open, the fast-forward refuses; run `git merge origin/main` instead, which adds a merge commit with no file changes.
+
 To redeploy `main` without an infrastructure change, run the workflow by hand: **Actions → Deploy · Prototype → Run workflow** with `main` picked under **Use workflow from**, or `gh workflow run deploy-prototype.yml --ref main`. Both default to `develop`, where every job skips.
 
 > [!NOTE]
@@ -576,7 +584,7 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into
 | Terraform | The AWS provider | Read the plan when it's promoted |
 | Python and web majors | Every major version, one PR per ecosystem | Upgrade on purpose from a feature branch, or comment `@dependabot ignore <dependency> major version` |
 
-DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. The analysis libraries (polars, pyarrow, matplotlib, plotnine, scikit-learn) get no majors: only `src/faro/analysis/` uses them, for the published reports, and a major can change their results. `@types/node` stays on the Node major in `.nvmrc`. TypeScript stays on 6: 7 replaces the compiler, and we don't plan to move. AG-UI stays below 1.0 (`@ag-ui/client` 1.0 and `@assistant-ui/react-ag-ui` 0.1, which needs it): 1.0 changes the client's types, so it moves from its own branch.
+DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. The analysis libraries (polars, pyarrow, matplotlib, plotnine, scikit-learn) get no majors: only `src/faro/analysis/` uses them, for the published reports, and a major can change their results. `@types/node` stays on the Node major in `.nvmrc`. TypeScript stays on 6: 7 replaces the compiler, and we don't plan to move.
 
 Security updates come as soon as an advisory covers a version we lock, one PR each for Python and the web app. Dependabot doesn't hold those back, but uv and pnpm still refuse a release under a week old (`exclude-newer` in `pyproject.toml`, `minimumReleaseAge` in `web/pnpm-workspace.yaml`), so a fix that new waits until it ages. One that can't wait gets an exception for that package alone (`exclude-newer-package`, `minimumReleaseAgeExclude`), removed once the release is a week old. If a fix that new holds up the rest of its group, upgrade the others by hand from a feature branch. Python, Node, Terraform and the CI tool versions are still bumped by hand.
 

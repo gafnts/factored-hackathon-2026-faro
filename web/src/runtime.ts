@@ -31,7 +31,10 @@ export function withoutSteerAway(input: RunAgentInput): RunAgentInput {
     entries.every(
       (entry) => entry.status === "cancelled" && entry.payload === undefined,
     );
-  return steered ? { ...input, resume: undefined } : input;
+  if (!steered) return input;
+  const message = { ...input };
+  delete message.resume;
+  return message;
 }
 
 export class ChatAgent extends HttpAgent {
