@@ -33,6 +33,7 @@ infra/iam/iam.tfvars
 .env.*
 !.env.example
 .envrc
+mise.local.toml
 
 # dbt
 /pipeline/target/

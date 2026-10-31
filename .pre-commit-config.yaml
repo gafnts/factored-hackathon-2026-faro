@@ -49,6 +49,8 @@ repos:
     rev: 914e7df21a07ef503a81201c76d2b11c789d3fca # frozen: v1.7.12
     hooks:
       - id: actionlint
+        # It doesn't know GitHub's $/ syntax, an action from the commit being run, yet.
+        args: [-ignore, 'specifying action "\$/']
 
   - repo: local
     hooks:

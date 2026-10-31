@@ -41,7 +41,8 @@ help:
 
 ##@ Setup
 
-install: ## Install Python and web deps, hooks, and tflint plugins
+install: ## Install the toolchain, Python and web deps, hooks, and tflint plugins
+	mise install
 	uv sync --all-groups --all-extras
 	pnpm --dir web install --frozen-lockfile
 	uv run pre-commit install

@@ -70,6 +70,8 @@ tools = [
 
 [tool.uv]
 required-version = ">=0.13"
+# The Python mise installs (mise.toml), not one uv downloads.
+python-preference = "system"
 default-groups = [ "agent", "dev", "eda", "pipeline", "tools" ]
 exclude-newer = "1 week"
 
