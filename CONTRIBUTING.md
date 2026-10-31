@@ -450,6 +450,14 @@ When `develop` is in a state you'd be happy for judges to see, open a PR from `d
 
 Once the promotion's PR is open, move the changelog's `Unreleased` entries under a new `## Promotion N (#PR) - date` heading in a PR into `develop`, with a line for anything merged without one, such as Dependabot's PRs. The promotion picks it up, so `main` carries its own record.
 
+Once the promotion merges, fast-forward `develop` to `main`. The merge commit is the only commit `main` has that `develop` lacks, so after this step any commit on `main` and not on `develop` reached `main` some other way:
+
+```bash
+git fetch && git switch develop && git merge --ff-only origin/main && git push
+```
+
+If a PR merged into `develop` while the promotion was open, the fast-forward refuses; run `git merge origin/main` instead, which adds a merge commit with no file changes.
+
 To redeploy `main` without an infrastructure change, run the workflow by hand: **Actions → Deploy · Prototype → Run workflow** with `main` picked under **Use workflow from**, or `gh workflow run deploy-prototype.yml --ref main`. Both default to `develop`, where every job skips.
 
 > [!NOTE]
