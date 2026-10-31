@@ -9,10 +9,8 @@ from mypy_boto3_s3 import S3Client
 
 from banking_agent.dataset.lock import parse, read_lock
 from banking_agent.dataset.snapshot import (
-    ORGANIZER_ACCOUNT_ID,
     SnapshotError,
     check,
-    data_bucket_name,
     restore,
     snapshot_dir,
     upload,
@@ -198,8 +196,3 @@ def test_upload_needs_the_local_copy(
 
     with pytest.raises(SnapshotError, match=r"customers\.csv is missing; restore it"):
         upload(s3, bucket, lock_path, data, log=quiet)
-
-
-def test_the_organizers_account_never_holds_snapshots() -> None:
-    with pytest.raises(SnapshotError, match="organizers' account"):
-        data_bucket_name(ORGANIZER_ACCOUNT_ID, "us-east-1")

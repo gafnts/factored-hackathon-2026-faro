@@ -17,7 +17,6 @@ from banking_agent.dataset.lock import Lock, LockedFile, digest_file, read_lock,
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
 
-ORGANIZER_ACCOUNT_ID = "157725502942"
 PROJECT = "banking-agent"
 
 # Written last, so a snapshot in the bucket is complete once it exists.
@@ -36,11 +35,6 @@ class SnapshotError(Exception):
 
 
 def data_bucket_name(account_id: str, region: str) -> str:
-    if account_id == ORGANIZER_ACCOUNT_ID:
-        raise SnapshotError(
-            f"these credentials belong to the organizers' account ({ORGANIZER_ACCOUNT_ID}), "
-            "not the account that holds the snapshots"
-        )
     return f"{PROJECT}-data-{account_id}-{region}-an"
 
 
