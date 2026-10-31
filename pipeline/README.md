@@ -46,11 +46,11 @@ The CLI behind the targets is `src/faro/pipeline/`, tested under `tests/faro/pip
 
 ## On the pinned snapshot
 
-Snapshot `b3b8b248f604ef9a`, pipeline version `795ff66b819516bf`, on an Apple M2 Pro with 16 GB, on 2026-09-30:
+Snapshot `b3b8b248f604ef9a`, pipeline version `4a1bc9e15462b739`, on an Apple M2 Pro with 16 GB, on 2026-10-30:
 
 | Step | Time | Result |
 |---|---:|---|
-| `make pipeline` | 40 s | 23,495,188 rows in bronze; 79 checks that stop the build and 3 unit tests passed; 19 of the 205 warnings found rows, as the [profile](../docs/analysis/profiling.md) measured |
-| `make export`, before the upload | 83 s | 419,571 items in 9 parts of about 2.2 MB; business date 2026-06-17, as of 2026-06-18 06:00 |
+| `make pipeline` | 47 s | 23,495,188 rows in bronze; 79 checks that stop the build and 3 unit tests passed; 19 of the 205 warnings found rows, as the [profile](../docs/analysis/profiling.md) measured |
+| `make export`, before the upload | 80 s | 419,571 items in 9 parts of about 2.2 MB; business date 2026-06-17, as of 2026-06-18 06:00 |
 
-Its manifest is [docs/pipeline/b3b8b248f604ef9a-795ff66b819516bf.json](../docs/pipeline/b3b8b248f604ef9a-795ff66b819516bf.json). Two builds of the snapshot gave the same manifest, byte for byte.
+Its manifest is [docs/pipeline/b3b8b248f604ef9a-4a1bc9e15462b739.json](../docs/pipeline/b3b8b248f604ef9a-4a1bc9e15462b739.json). Two builds of the snapshot gave the same manifest, byte for byte.
