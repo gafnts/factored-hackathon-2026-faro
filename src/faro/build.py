@@ -2,9 +2,8 @@
 Builds what Terraform deploys into build/ (ADR-0004, Deployment): a zip each for the Runtime and the Lambdas, with the
 Linux arm64 wheels its dependency group locks in uv.lock and its share of this package. Every zip is the same bytes on
 every machine and from any checkout, so a plan shows a change only when the code or a locked version changed. The
-Runtime's entry script names the commit that last changed the packaged code, which the execution record stamps on every
-turn. It also rewrites the Gateway's tool definitions, which are committed so that CI can lint the stack without a
-build.
+Runtime's entry script names the commit that last changed its share, which the execution record stamps on every turn.
+It also rewrites the Gateway's tool definitions, which are committed so that CI can lint the stack without a build.
 """
 
 import csv
@@ -35,14 +34,6 @@ EPOCH = (2026, 1, 1, 0, 0, 0)
 # What uv's install adds beside the distributions: console scripts, whose first line names the building machine's
 # interpreter and which nothing runs, and its lock on the target.
 INSTALLED = ("bin", ".lock")
-# What the stamp follows: a commit that changes nothing here keeps it. The evaluation never runs in the stack, so the
-# version ignores it (ADR-0004's amendment of 2026-10-01).
-PACKAGED = (
-    "src",
-    "pyproject.toml",
-    "uv.lock",
-    ":(exclude)src/faro/evaluation",
-)
 
 Run = Callable[[Sequence[str]], None]
 Git = Callable[[Sequence[str]], str]
@@ -57,13 +48,14 @@ class Artifact:
 
 
 # Each zip's share of this package, under src/faro: the packages its entry points import, with the files they read.
+RUNTIME = Artifact(
+    "runtime",
+    ("agent", "contracts", "masking.py", "policy", "tools"),
+    group="agent",
+    entry="from faro.agent.app import main\n\nmain({app_version!r})\n",
+)
 ARTIFACTS = (
-    Artifact(
-        "runtime",
-        ("agent", "contracts", "masking.py", "policy", "tools"),
-        group="agent",
-        entry="from faro.agent.app import main\n\nmain({app_version!r})\n",
-    ),
+    RUNTIME,
     Artifact("pre_token", ("identity",)),
     Artifact("tools", ("console", "contracts", "policy", "tools"), group="tools"),
 )
@@ -82,23 +74,25 @@ def git(args: Sequence[str]) -> str:
     return done.stdout.strip()
 
 
-def app_version(git: Git = git) -> str:
-    """
-    Needs the history: in a shallow clone, the last commit that changed the packaged code is always the newest.
-    """
-    commit = git(["log", "-1", "--format=%H", "--", *PACKAGED])
-    if git(["status", "--porcelain", "--", *PACKAGED]):
-        print(
-            "warning: the packaged code has uncommitted changes, and the Runtime is "
-            f"stamped with {commit[:12]}, the last commit that changed it",
-            file=sys.stderr,
-        )
-    return commit
-
-
 def pathspecs(artifact: Artifact) -> list[str]:
     shared = [f"src/faro/{path}" for path in ("__init__.py", *artifact.code)]
     return shared + [f":(exclude)src/faro/{path}" for path in UNSHIPPED]
+
+
+def app_version(git: Git = git) -> str:
+    """
+    The last commit that changed the Runtime's share, so a change to its locked dependencies alone keeps the stamp.
+    It needs the history: in a shallow clone, the last commit that changed the share is always the newest.
+    """
+    shared = pathspecs(RUNTIME)
+    commit = git(["log", "-1", "--format=%H", "--", *shared])
+    if git(["status", "--porcelain", "--", *shared]):
+        print(
+            "warning: the Runtime's code has uncommitted changes, and it's stamped "
+            f"with {commit[:12]}, the last commit that changed it",
+            file=sys.stderr,
+        )
+    return commit
 
 
 def copy_code(artifact: Artifact, package: Path, git: Git = git) -> None:

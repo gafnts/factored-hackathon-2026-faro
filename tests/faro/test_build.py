@@ -93,7 +93,7 @@ def test_the_runtime_gets_its_groups_wheels_its_share_and_an_entry_script(
 ) -> None:
     recorder = Recorder()
 
-    target = build.build_artifact(build.ARTIFACTS[0], tmp_path, COMMIT, recorder)
+    target = build.build_artifact(build.RUNTIME, tmp_path, COMMIT, recorder)
 
     export, install = recorder.commands
     assert export[:2] == ["uv", "export"]
@@ -109,7 +109,7 @@ def test_the_runtime_gets_its_groups_wheels_its_share_and_an_entry_script(
     assert {name.split("/")[0] for name in names} == {"faro", "main.py"}
     assert {name.split("/")[1] for name in names if name.startswith("faro/")} == {
         "__init__.py",
-        *build.ARTIFACTS[0].code,
+        *build.RUNTIME.code,
     }
     assert "faro/agent/prompts/reply.md" in names
     assert "faro/contracts/execution-record.schema.json" in names
@@ -188,7 +188,13 @@ def test_the_runtime_is_stamped_with_the_last_commit_of_its_code(
         return COMMIT if args[0] == "log" else dirty
 
     assert build.app_version(git) == COMMIT
-    assert asked[0] == ["log", "-1", "--format=%H", "--", *build.PACKAGED]
+    assert asked[0] == [
+        "log",
+        "-1",
+        "--format=%H",
+        "--",
+        *build.pathspecs(build.RUNTIME),
+    ]
     assert ("uncommitted" in capsys.readouterr().err) == bool(dirty)
 
 
@@ -196,9 +202,7 @@ def test_the_stamp_names_a_commit_of_this_repository() -> None:
     assert re.fullmatch("[0-9a-f]{40}", build.app_version())
 
 
-def test_a_commit_to_the_evaluation_package_alone_keeps_the_stamp(
-    tmp_path: Path,
-) -> None:
+def test_only_a_commit_to_the_runtimes_share_moves_the_stamp(tmp_path: Path) -> None:
     # A git hook exports GIT_DIR and its kin, which would point these commands at the repository running the tests.
     alone = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
@@ -224,6 +228,14 @@ def test_a_commit_to_the_evaluation_package_alone_keeps_the_stamp(
     git(["init", "--quiet"])
     commit({"src/faro/agent/app.py": "a"})
     stamped = build.app_version(git)
-    commit({"src/faro/evaluation/oracle.py": "o"})
+    for elsewhere in (
+        {"src/faro/evaluation/oracle.py": "o"},
+        {"src/faro/console/case.py": "c"},
+        {"src/faro/contracts/examples/chat.json": "{}"},
+        {"pyproject.toml": "dev tools", "uv.lock": "dev tools", "README.md": "docs"},
+    ):
+        commit(elsewhere)
+        assert build.app_version(git) == stamped
+    commit({"src/faro/tools/cards.py": "t"})
 
-    assert build.app_version(git) == stamped
+    assert build.app_version(git) != stamped
