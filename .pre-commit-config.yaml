@@ -54,6 +54,14 @@ repos:
 
   - repo: local
     hooks:
+      # Its online audits need GH_TOKEN; without one it runs the offline ones.
+      - id: zizmor
+        name: zizmor
+        entry: uv run zizmor .github
+        language: system
+        files: ^\.github/
+        pass_filenames: false
+
       - id: shellcheck
         name: shellcheck
         entry: uv run shellcheck -x

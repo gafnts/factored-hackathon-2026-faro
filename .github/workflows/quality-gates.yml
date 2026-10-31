@@ -61,8 +61,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+      # A token turns on zizmor's online audits.
       - name: Run all hooks
         run: make check
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   # Fails on a safety check, or a finding with no open disagreement entry (ADR-0005).
   regression:
