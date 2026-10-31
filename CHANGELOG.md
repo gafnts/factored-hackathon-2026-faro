@@ -15,11 +15,14 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - The toolchain is pinned by layer ([ADR-0008](docs/adr/0008-pin-toolchain-by-layer.md)). mise installs Python 3.13.17, uv, Node, pnpm, Terraform, tflint, and trivy at the exact versions in `mise.toml`, each download checked against `mise.lock`, on our machines and in CI. Setup now starts with installing mise; `.python-version`, `.nvmrc`, and `.terraform-version` are gone ([#136]).
 - CI installs that toolchain through one composite action instead of six setup actions, so the deploy job no longer downloads pnpm unchecked at run time ([#136]).
 - The pre-commit hooks are pinned by commit SHA, with the release in a `# frozen:` comment ([#136]).
-- The next deploy updates the Runtime and the five Lambdas that share `tools.zip`, with no change to their code: each zip lists its packages' console scripts, whose first line names the Python that built them, now mise's ([#136]).
+- Each zip holds only what its functions run: the packages of ours that its entry points import, with the files they read, and its dependency group's distributions. A change to code the stack doesn't run (the evaluation, the pipeline, the analysis), to the docs, or to the dev tools no longer redeploys the Runtime or the Lambdas ([#137]).
+- The Runtime's stamp, which every execution record carries, is the last commit that changed its own code. Before, any change to `pyproject.toml` or `uv.lock` moved it; a change to its locked dependencies alone now deploys a new zip under the same stamp ([#137]).
+- The next deploy updates the Runtime and all six Lambdas once, for their new zips, with no change to what they run ([#137]).
 
 ### Fixed
 
 - The README's badges point at the renamed repository, and CONTRIBUTING no longer mentions `make data ADOPT=1` ([#136]).
+- The same commit builds the same zips from any checkout. Each zip listed its packages' console scripts, whose first line names the Python that built them, so a new checkout path or a new Python changed two of the zips ([#137]).
 
 ## Promotion 11 ([#130]) - 2026-10-31
 
@@ -107,5 +110,6 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 [#129]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/129
 [#130]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/130
 [#136]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/136
+[#137]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/137
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c

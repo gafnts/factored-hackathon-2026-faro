@@ -262,7 +262,7 @@
           "required": ["app", "policy", "prompts", "schemas", "snapshot", "pipeline_version"],
           "properties": {
             "app": {
-              "description": "The commit that last changed the deployed code (src/, pyproject.toml, uv.lock), so a commit that changes only documents or infrastructure deploys the same Runtime.",
+              "description": "The commit that last changed the Runtime's share of src/faro, the packages its zip holds, so a commit that changes nothing it runs deploys the same Runtime. A change to its locked dependencies alone deploys a new zip under the same commit.",
               "type": "string",
               "pattern": "^[0-9a-f]{40}$"
             },
