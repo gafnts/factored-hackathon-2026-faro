@@ -59,7 +59,7 @@ No path depends on the maintainers' AWS account or credentials. Resource names a
 Both live in the same AWS account. Each has its own Terraform state file, its own deploy role, and its own `Environment=<env>` tag, and a deploy role is denied any resource tagged for the other environment. `prototype` runs on synthetic data and mock banking tools, and is deliberately not called production.
 
 > [!NOTE]
-> Tag-based isolation is partial: it doesn't reach untagged resources, or actions that ignore resource tags (S3 object reads and writes among them). The state bucket, and each environment's own buckets and CloudFront functions, are covered by explicit denies instead (see [Guardrails](#guardrails)). A separate AWS account per environment is remaining deployment work.
+> Tag-based isolation is partial: it doesn't reach untagged resources, or actions that ignore resource tags (S3 object reads and writes among them). The state bucket, and each environment's own buckets and CloudFront functions, are covered by explicit denies instead (see [Guardrails](#guardrails)). A separate AWS account per environment is the standard boundary, and where a project with real customers should start. We keep one account by choice: the gap is between our own development stack and a prototype on synthetic data, and closing it now would mostly mean moving a running environment between accounts.
 
 ### Branches
 

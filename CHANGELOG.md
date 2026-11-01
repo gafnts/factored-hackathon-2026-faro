@@ -6,6 +6,10 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Changed
+
+- An AWS account per environment is no longer planned for this project; CONTRIBUTING says why both environments stay in one.
+
 ## [1.7.0] - 2026-10-31 (Promotion 13)
 
 ### Changed
