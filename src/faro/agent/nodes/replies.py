@@ -17,8 +17,8 @@ from faro.agent.nodes.state import (
     READS,
     WRITE,
     Awaiting,
-    Case,
     Decision,
+    Ending,
     Outcome,
     State,
     Update,
@@ -88,29 +88,22 @@ SHAPES = {
         " then one sentence that says it stands as its status, not as declined."
     ),
 }
-# The decisions of turns whose reply is fixed text only, by case.
-OUTCOMES_BY_CASE: dict[str, tuple[Outcome, list[str]]] = {
+# The cases that end a request with the fixed text of their name, the small talk for no_request, and their decisions.
+ENDINGS: dict[Ending, tuple[Outcome, list[str]]] = {
     "no_request": ("answer", ["POL-06"]),
     "unavailable": ("abstain", ["POL-48"]),
     "refused": ("decline", ["POL-08", "POL-49"]),
     "other_person": ("decline", ["POL-08"]),
     "third_language": ("decline", ["POL-51"]),
 }
-ASKED: dict[str, Awaiting] = {
-    "card": "card",
-    "reason": "reason",
-    "transaction": "transaction",
-}
 
 
-def ending(state: State, case: Case) -> Decision:
-    outcome_class, rules = OUTCOMES_BY_CASE[case]
+def ending(state: State, case: Ending) -> Decision:
+    outcome_class, rules = ENDINGS[case]
     label = None if case in ("no_request", "third_language") else state.get("label")
     asking = state.get("asking")
     awaiting: Awaiting = (
-        ASKED[asking["detail"]]
-        if case == "third_language" and asking is not None
-        else "none"
+        asking["detail"] if case == "third_language" and asking is not None else "none"
     )
     return decided(outcome_class, rules, label, awaiting)
 
@@ -183,12 +176,15 @@ async def conclude(state: State) -> Update:
             break
         names += used
         parts.append(text)
-    if case in FIXED:
+    if case in ENDINGS:
         name = small_talk(state) if case == "no_request" else case
         names.append(name)
         parts.append(FIXED[name][language])
-    explicit = state.get("decision")
-    outcome = ending(state, case) if explicit is None or case in FIXED else explicit
+        outcome = ending(state, case)
+    else:
+        explicit = state.get("decision")
+        assert explicit is not None
+        outcome = explicit
     offer = state.get("offer") if case != "unavailable" else None
     if case == "unavailable" and label is not None:
         # A routed request whose read or model call failed; a failed router leaves no label to offer under (POL-48).
