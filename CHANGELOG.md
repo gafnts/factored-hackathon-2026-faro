@@ -11,6 +11,10 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - A monthly budget for the AWS account, 40 USD unless `monthly_budget_usd` sets another amount, which notifies a topic when its forecast passes 80% and when the month's charges pass the amount; CONTRIBUTING says how to subscribe to it ([#156]).
 - A monthly spend limit with alerts on the project's Anthropic workspace, under a limit for the organization; CONTRIBUTING says where each is set ([#156]).
 
+### Changed
+
+- The agent's graph is a module per flow, under `faro.agent.nodes`, and `graph.py` keeps its overview and wiring; nothing the agent does changed. The next deploy updates the Runtime alone, under a new stamp, since its code moved.
+
 ## [1.8.0] - 2026-11-01 (Promotion 14)
 
 ### Changed
