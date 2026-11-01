@@ -26,7 +26,7 @@ DATASET_BACKEND := -backend-config=backend.tfbackend
 	data snapshot personas tiny-export pipeline export contracts analysis \
 	iam-init iam-plan iam-apply iam-output iam-destroy \
 	dataset-init dataset-plan dataset-apply dataset-destroy \
-	init model-key plan apply destroy outputs cut release lock \
+	init model-key plan apply destroy outputs verify cut release lock \
 	_check-backend _check-profile
 
 # Targets tagged `## ...` are listed under the nearest `##@ Section` header.
@@ -302,6 +302,9 @@ destroy: _check-profile _check-backend build ## Destroy ENV (explicit ENV; proto
 outputs: _check-profile _check-backend ## Write ENV's outputs to build/ENV.outputs.json
 	@mkdir -p build
 	$(TF_AWS) output -json > $(OUTPUTS)
+
+verify: _check-profile _check-backend ## Check that ENV's Lambdas and Runtime run the zips in build/
+	@$(TF_AWS) show -json | bash scripts/verify.sh
 
 
 ##@ Release

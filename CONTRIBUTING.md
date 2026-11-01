@@ -376,6 +376,7 @@ make init               # Initialize the local backend (safe to re-run)
 make plan               # Build, preview, and save the plan to build/
 make apply              # Apply the saved plan
 make site               # Build the web app, upload it, and clear the cache
+make verify             # Check that the Lambdas and the Runtime run the zips in build/
 make integration        # Test the stack (SLOW=1 waits out a token, 15 min)
 make browser            # Play the chat and the console in Chromium
 make probe              # Time the Runtime and check what it stores and traces
