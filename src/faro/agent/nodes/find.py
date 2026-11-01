@@ -19,6 +19,7 @@ from faro.agent.nodes.state import (
     decided,
     heard,
     latest_text,
+    not_active,
     offering,
     request_text,
     said,
@@ -179,13 +180,10 @@ async def find_transaction(state: State) -> Update:
             "rules": rules,
             "target": {**target, "reason": "unrecognized_charge", "charge": charge},
         }
-    name = (
-        "already_blocked" if target["product_status"] == "Blocked" else "not_blockable"
-    )
     return {
         **turn,
         "case": "handoff",
-        "say": [*say, *lead, *said((name, {"card": card}))],
+        "say": [*say, *lead, not_active(target)],
         "handoff": required(
             "unrecognized_charge",
             label,

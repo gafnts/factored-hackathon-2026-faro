@@ -26,8 +26,9 @@ from faro.agent.nodes.cards import (
     ProductType,
     Transaction,
     Window,
+    card_facts,
 )
-from faro.agent.payload import HandoffRequest
+from faro.agent.payload import Action, ActionOutcome, HandoffRequest
 from faro.agent.records import Cited
 from faro.agent.scope import SCOPE
 
@@ -55,8 +56,6 @@ Step = Literal[
     "blocking",
     "again",
     "fixed",
-    "pointer",
-    "not_served",
 ]
 Ending = Literal[
     "no_request", "unavailable", "refused", "other_person", "third_language"
@@ -302,6 +301,31 @@ def request_text(state: State) -> str:
     return state.get("text") or latest_text(state)
 
 
+def new_request() -> Update:
+    """
+    What a request starts from: nothing said, decided, or read for it yet.
+    """
+    return {
+        "say": [],
+        "decision": None,
+        "rules": [],
+        "details": None,
+        "target": None,
+        "targets": [],
+        "block": None,
+        "listed": None,
+        "handoff": None,
+        "then": None,
+    }
+
+
+def new_turn() -> Update:
+    """
+    What a turn starts from: a new request's, with no part of the reply yet, and none of the last turn's cards or text.
+    """
+    return {**new_request(), "cards": [], "text": None, "parts": [], "names": []}
+
+
 def routing(routed: RouterOutput, text: str) -> Update:
     """
     The first request in POL-05's order, and the rest queued with the message that asked for them; a message with no
@@ -352,11 +376,19 @@ def queued(state: State) -> list[Label]:
 
 def paged(state: State) -> str | None:
     paging = state.get("paging")
-    return MORE if paging is not None and paging.get("cursor") else None
+    return MORE if paging is not None and paging["cursor"] else None
 
 
 def said(*parts: Said) -> list[Said]:
     return list(parts)
+
+
+def not_active(card: CardFacts) -> Said:
+    """
+    What a block says of a card that isn't Active: that it's already blocked, or that it can't be (POL-34).
+    """
+    name = "already_blocked" if card["product_status"] == "Blocked" else "not_blockable"
+    return (name, {"card": card_facts(card)})
 
 
 def decided(
@@ -396,18 +428,39 @@ def offering(request: HandoffRequest, outcome_class: Outcome) -> Offer:
     }
 
 
+def action(pending: Pending, outcome: ActionOutcome, *evidence: str) -> Action:
+    """
+    The block a handoff records: taken, with its outcome and the call that took it, or a confirmation that ended unused,
+    cancelled with the control or lapsed (POL-36, POL-37).
+    """
+    return {
+        "action": "block_card",
+        "card_id": pending["card_id"],
+        "reason": pending["reason"],
+        "confirmation_id": pending["confirmation_id"],
+        "outcome": outcome,
+        "confirmed_at": pending.get("confirmed_at"),
+        "evidence": list(evidence),
+    }
+
+
+def listed_calls(listed: str | None, *calls: str) -> list[str]:
+    """
+    The calls a handoff cites: the listing that settled its cards, if one did, then the calls named.
+    """
+    return [*([listed] if listed else []), *calls]
+
+
 def cited(pending: Pending, *calls: str) -> Cites:
     """
     What a handoff about the pending confirmation cites: the listing that settled its card, a charge's window reads
     and the charge found, if any, and the calls named.
     """
-    charge = pending.get("charge")
+    charge = pending["charge"]
     return {
-        "calls": [
-            *([pending["listed"]] if pending["listed"] else []),
-            *(charge["calls"] if charge else []),
-            *calls,
-        ],
+        "calls": listed_calls(
+            pending["listed"], *(charge["calls"] if charge else []), *calls
+        ),
         "cards": [pending["card_id"]],
         "transactions": charge["transactions"] if charge else [],
     }

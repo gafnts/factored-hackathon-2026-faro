@@ -22,6 +22,8 @@ from faro.agent.nodes.state import (
     decided,
     heard,
     latest_text,
+    listed_calls,
+    not_active,
     offering,
     paged,
     request_text,
@@ -147,8 +149,8 @@ def question(
     asked = asked or {}
     before = asked.get("questions", 0) if asked.get("detail") == detail else 0
     label: Label = held.get("label") or "block_card"
+    listed, cards = cites
     if before >= QUESTIONS:
-        listed, cards = cites
         stopped = [*rules, "POL-17"]
         say = [*state.get("say", []), *said(("clarification_stopped", {}))]
         if label == "unrecognized_charge":
@@ -160,7 +162,7 @@ def question(
                     "unrecognized_charge",
                     label,
                     [*stopped, "POL-39"],
-                    calls=[listed] if listed else [],
+                    calls=listed_calls(listed),
                     cards=cards,
                 ),
             }
@@ -169,7 +171,7 @@ def question(
             label,
             ["POL-17"],
             stopped,
-            calls=[listed] if listed else [],
+            calls=listed_calls(listed),
             cards=cards,
         )
         return {
@@ -179,10 +181,7 @@ def question(
             "offer": offering(request, "abstain"),
             "decision": decided("abstain", stopped, label, OFFERED),
         }
-    listed, cards = cites
-    decision = decided(
-        "clarify", rules, label, "card" if detail == "card" else "reason"
-    )
+    decision = decided("clarify", rules, label, detail)
     return {
         "case": "fixed",
         "asking": {
@@ -190,7 +189,7 @@ def question(
             "questions": before + 1,
             "asked": (name, facts),
             "decision": decision,
-            "cited": {"calls": [listed] if listed else [], "cards": cards},
+            "cited": {"calls": listed_calls(listed), "cards": cards},
             **held,
         },
         "say": [*state.get("say", []), *said((name, facts))],
@@ -459,15 +458,10 @@ async def resolve_card(state: State) -> Update:
             "text": asked.get("text") or state.get("text"),
         }
     if card["product_status"] != "Active":
-        name = (
-            "already_blocked"
-            if card["product_status"] == "Blocked"
-            else "not_blockable"
-        )
         return {
             **turn,
             "asking": None,
-            "say": [*say, *said((name, {"card": card_facts(card)}))],
+            "say": [*say, not_active(card)],
             "decision": decided("decline", ["POL-13", "POL-34"], "block_card"),
         }
     if reason is None:

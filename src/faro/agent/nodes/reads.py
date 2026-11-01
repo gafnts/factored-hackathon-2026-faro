@@ -16,6 +16,7 @@ from faro.agent.nodes.state import (
     State,
     Update,
     decided,
+    listed_calls,
     offering,
     said,
     writable,
@@ -35,32 +36,31 @@ async def read(state: State) -> Update:
     return update
 
 
-def failed_read(call: ToolCall) -> Update | None:
+def failed_read(
+    state: State, label: Label, call: ToolCall, calls: list[str]
+) -> Update | None:
     """
     A read that didn't answer: denied is a refusal (POL-49), a customer not served in full the tool refused is handed off
-    by the caller, and anything else can't be answered now (POL-48).
+    citing the calls, once for every request the message holds (POL-12), and anything else can't be answered now
+    (POL-48).
     """
     if call.outcome == "denied":
         return {"case": "refused"}
     if call.outcome == "refused":
-        return {"case": "not_served"}
+        return {
+            "case": "handoff",
+            "queue": None,
+            "handoff": required(
+                "customer_not_active",
+                label,
+                ["POL-12"],
+                calls=calls,
+                cards=[c["card_id"] for c in state.get("targets", [])],
+            ),
+        }
     if call.outcome != "ok" or call.result is None:
         return {"case": "unavailable"}
     return None
-
-
-def not_served(state: State, label: Label, calls: list[str]) -> Update:
-    return {
-        "case": "handoff",
-        "queue": None,
-        "handoff": required(
-            "customer_not_active",
-            label,
-            ["POL-12"],
-            calls=calls,
-            cards=[c["card_id"] for c in state.get("targets", [])],
-        ),
-    }
 
 
 def conflict_offer(
@@ -91,13 +91,12 @@ async def read_status(state: State) -> Update:
     """
     scope = SCOPE.get()
     label: Label = "card_status"
-    listed = state.get("listed")
-    calls = [listed] if listed else []
+    calls = listed_calls(state.get("listed"))
     cards: list[CardRecord] = []
     for card in state["targets"]:
         call = await tool(scope, "get_card", card_id=card["card_id"])
         calls.append(call.call_id)
-        failed = failed_read(call)
+        failed = failed_read(state, label, call, calls)
         if failed is not None:
             return failed
         if call.result is None or "card" not in call.result:
@@ -183,8 +182,7 @@ async def read_credit(state: State) -> Update:
     """
     scope = SCOPE.get()
     label: Label = "available_credit"
-    listed = state.get("listed")
-    calls = [listed] if listed else []
+    calls = listed_calls(state.get("listed"))
     figured: list[Figure] = []
     others: list[Said] = []
     notes: list[Said] = []
@@ -193,11 +191,11 @@ async def read_credit(state: State) -> Update:
     for card in state["targets"]:
         call = await tool(scope, "get_available_credit", card_id=card["card_id"])
         calls.append(call.call_id)
-        failed = failed_read(call)
-        if failed is not None and failed["case"] == "not_served":
-            return not_served(state, label, calls)
-        if failed is not None or call.result is None or "card" not in call.result:
-            return failed or {"case": "unavailable"}
+        failed = failed_read(state, label, call, calls)
+        if failed is not None:
+            return failed
+        if call.result is None or "card" not in call.result:
+            return {"case": "unavailable"}
         credit = call.result["card"]
         availability = credit["availability"]
         if availability in ("available", "over_limit"):
@@ -279,11 +277,11 @@ async def read_transactions(state: State) -> Update:
         card_id=target["card_id"],
         **({"cursor": paging["cursor"]} if following and paging else {}),
     )
-    failed = failed_read(call)
-    if failed is not None and failed["case"] == "not_served":
-        return not_served(state, label, [target["listed"], call.call_id])
-    if failed is not None or call.result is None or "transactions" not in call.result:
-        return failed or {"case": "unavailable"}
+    failed = failed_read(state, label, call, [target["listed"], call.call_id])
+    if failed is not None:
+        return failed
+    if call.result is None or "transactions" not in call.result:
+        return {"case": "unavailable"}
     result = call.result
     bookmark: Paging = {
         "card_id": target["card_id"],

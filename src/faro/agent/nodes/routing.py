@@ -15,6 +15,9 @@ from faro.agent.nodes.state import (
     decided,
     heard,
     latest_text,
+    listed_calls,
+    new_request,
+    new_turn,
     offering,
     paged,
     request_text,
@@ -32,24 +35,11 @@ async def begin(state: State) -> Update:
     Opens the turn's state; the language stays until the model call that reads the message says otherwise (POL-50).
     """
     return {
+        **new_turn(),
         "language": state.get("language", DEFAULT),
         "label": None,
         "case": "fixed",
-        "cards": [],
-        "targets": [],
-        "text": None,
-        "parts": [],
-        "names": [],
-        "say": [],
-        "decision": None,
-        "rules": [],
-        "details": None,
-        "target": None,
-        "block": None,
         "complaint": False,
-        "listed": None,
-        "handoff": None,
-        "then": None,
         "offer": None,
     }
 
@@ -75,21 +65,12 @@ async def next_request(state: State) -> Update:
     assert queue is not None
     label, *rest = queue["labels"]
     return {
+        **new_request(),
         "label": label,
         "case": CASES[label],
         "queue": {**queue, "labels": rest} if rest else None,
         "text": queue["text"],
-        "complaint": queue.get("complaint", False),
-        "say": [],
-        "decision": None,
-        "rules": [],
-        "details": None,
-        "target": None,
-        "targets": [],
-        "block": None,
-        "listed": None,
-        "handoff": None,
-        "then": None,
+        "complaint": queue["complaint"],
     }
 
 
@@ -159,7 +140,7 @@ async def unsupported(state: State) -> Update:
     if details.get("owner") == "someone_else":
         return {"case": "other_person"}
     service = details.get("service") or "other_card_service"
-    listed = [c for c in (state.get("listed"),) if c is not None]
+    calls = listed_calls(state.get("listed"))
     if service == "unblock":
         card_type, last_four = hints(details)
         named = [c for c in state.get("cards", []) if fits(c, card_type, last_four)]
@@ -171,7 +152,7 @@ async def unsupported(state: State) -> Update:
                 "unblock_request",
                 label,
                 ["POL-41"],
-                calls=listed,
+                calls=calls,
                 cards=[c["card_id"] for c in meant],
             ),
         }
@@ -180,9 +161,7 @@ async def unsupported(state: State) -> Update:
             "say": [*state.get("say", []), *said(("outside_cards", {}))],
             "decision": decided("decline", ["POL-43"], label),
         }
-    request = offered(
-        "unsupported_request", label, ["POL-42"], ["POL-42"], calls=listed
-    )
+    request = offered("unsupported_request", label, ["POL-42"], ["POL-42"], calls=calls)
     return {
         "say": [
             *state.get("say", []),
@@ -226,17 +205,8 @@ async def aside(state: State) -> Update:
     served: Update = {
         **turn,
         **routing(routed, text),
+        **new_request(),
         "asking": None,
-        "say": [],
-        "decision": None,
-        "rules": [],
-        "details": None,
-        "target": None,
-        "targets": [],
-        "block": None,
-        "listed": None,
-        "handoff": None,
-        "then": None,
     }
     if asked.get("label") != "unrecognized_charge":
         return served

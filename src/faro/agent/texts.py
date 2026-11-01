@@ -341,6 +341,8 @@ FIXED: dict[str, dict[str, str]] = {
 
 # A reply that failed the check is replaced by the unavailable text, under its own name.
 FIXED["reply_fallback"] = FIXED["unavailable"]
+# A request about someone else's card gets the refusal's words, under its own name (POL-08).
+FIXED["other_person"] = FIXED["refused"]
 # POL-06: a message that doesn't answer the agent's question gets its reply without the reply's own closing question,
 # since the agent's question follows it.
 CLOSING = {"es": " ¿En qué le puedo ayudar?", "pt": " Como posso ajudar?"}
