@@ -1,7 +1,7 @@
 # Into develop, the default branch. Version updates come quarterly, grouped by what a
 # merge touches, with majors apart so they never hold up the rest. The cooldown skips
-# releases younger than a week; security updates ignore it. Not covered: the
-# Terraform CLI, Python, Node, and the tool versions in the workflows' env blocks.
+# releases younger than a week; security updates ignore it. Not covered: mise.toml
+# and mise.lock, the mise release in the toolchain action, and .tflint.hcl's ruleset.
 
 version: 2
 
@@ -11,8 +11,9 @@ multi-ecosystem-groups:
       interval: quarterly
 
 updates:
+  # / covers only the workflows and a root action.yml.
   - package-ecosystem: github-actions
-    directory: /
+    directories: [/, /.github/actions/*]
     patterns: ["*"]
     multi-ecosystem-group: ci-tooling
     cooldown:
@@ -78,7 +79,7 @@ updates:
       default-days: 7
       semver-major-days: 14
     ignore:
-      # Its types follow the Node major in .nvmrc.
+      # Its types follow the Node major in mise.toml.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
       # TypeScript 7 replaces the compiler; we stay on 6.

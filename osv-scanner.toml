@@ -1,0 +1,6 @@
+# Advisories we accept until a date (ADR-0010). Each needs a reason and an ignoreUntil at most 90 days away.
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-01-15
+reason = "minimatch's globparts denial of service needs a pattern an attacker writes; ESLint matches only our config's, and no fix fits ESLint's ^10.2.5 or jsx-a11y's ^3.1.2"

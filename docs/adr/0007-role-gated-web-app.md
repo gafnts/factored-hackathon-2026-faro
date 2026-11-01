@@ -16,6 +16,7 @@ Amended as built, each correction applied in the section it names:
 - 2026-10-03: the chat draws a status answer's cards in frames, and a list of transactions as a statement, from the reply's own text ([Rendering what others wrote](#rendering-what-others-wrote)).
 - 2026-10-03: the transaction a reply found is a statement of one row, and a decline's reason, on the line under it, the frame's last row ([Rendering what others wrote](#rendering-what-others-wrote)).
 - 2026-10-03: the credit of several cards in one frame, a row per card ([Rendering what others wrote](#rendering-what-others-wrote)).
+- 2026-10-31: the app built in a job without credentials and uploaded by the apply job, with a check through the site after each deploy ([Hosting and the domain](#hosting-and-the-domain); [ADR-0009](0009-release-checked-deploys.md)).
 
 ## Context
 
@@ -73,7 +74,7 @@ The console is in Spanish, the bank's working language, in which the payload's f
 - **Configuration is read at load,** from a `config.json` written from Terraform's outputs: the user pool, both app clients, and the Runtime's ARN. The same build then runs in any fork, and a custom domain covers the API with no change.
 - **The custom domain is optional** (decision 1). Every merge to `main` applies the stack, and an apply that waited for DNS couldn't show the record it waits for, since Terraform prints outputs only when an apply ends; but ACM's validation record belongs to the name and the account, not to one certificate, so while it stays in DNS any new request for the name validates against it. We requested a certificate for `faro.gabriel.com.gt` by hand, added its validation record in Netlify's DNS, and deleted that certificate once ACM issued it, which proved the record; the name's CNAME to the distribution's domain went in at the same time. One change then sets `domain_name` and `attach_domain`: Terraform requests the certificate in us-east-1 with DNS validation, `aws_acm_certificate_validation` passes against the record, and the distribution takes the alias and the certificate. The two variables stay, so a fork whose DNS doesn't hold the record yet takes two changes (`domain_name` first, which outputs the validation record to add by hand, then `attach_domain`), and Terraform outputs both records either way. A distribution can carry several names, so a later rename can keep the old name working.
 - **Without it,** the site is served on the distribution's own domain, which is what a fork submits. Terraform outputs the site's URL either way, and `deploy-prototype.yml` sets it as the environment's URL, the link SUB-02 asks for.
-- **Deployment:** `deploy-prototype.yml` builds the app, uploads it once Terraform has applied, and invalidates the distribution (ADR-0004's deployment).
+- **Deployment:** `deploy-prototype.yml` builds the app in a job without credentials; the apply job uploads that build once Terraform has applied and invalidates the distribution, and a check then signs a standing smoke user in through the site ([ADR-0009](0009-release-checked-deploys.md); ADR-0004's deployment).
 
 ### Sign-in
 

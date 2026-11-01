@@ -1,0 +1,36 @@
+name: Toolchain
+description: Install the tools mise.toml pins, checked against mise.lock, and restore uv's and pnpm's caches.
+
+inputs:
+  tools:
+    description: The tools to install, space-separated; every tool in mise.toml when empty.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # mise's own version, the one tool mise.toml can't pin; a week old, like every release we take.
+    - uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e # v5.2.3
+      with:
+        version: 2026.10.19
+        install_args: ${{ inputs.tools }}
+
+    - if: inputs.tools == '' || contains(inputs.tools, 'uv')
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/uv
+        key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+        restore-keys: uv-${{ runner.os }}-
+
+    - id: pnpm
+      if: inputs.tools == '' || contains(inputs.tools, 'pnpm')
+      shell: bash
+      run: echo "store=$(pnpm --dir web store path --silent)" >> "$GITHUB_OUTPUT"
+
+    - if: steps.pnpm.outcome == 'success'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.pnpm.outputs.store }}
+        key: pnpm-${{ runner.os }}-${{ hashFiles('web/pnpm-lock.yaml') }}
+        restore-keys: pnpm-${{ runner.os }}-

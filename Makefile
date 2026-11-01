@@ -19,14 +19,14 @@ DATASET_TF      := AWS_PROFILE=$(AWS_ADMIN_PROFILE) terraform -chdir=infra/datas
 DATASET_BACKEND := -backend-config=backend.tfbackend
 
 .PHONY: help install tflint-init \
-	check lint format type tf-format \
-	test integration browser probe judges \
-	build web web-dev site \
+	check advisories lint format type tf-format \
+	test integration browser smoke probe judges smoke-user \
+	build web web-dev site upload \
 	bootstrap backend doctor provision teardown \
 	data snapshot personas tiny-export pipeline export contracts analysis \
 	iam-init iam-plan iam-apply iam-output iam-destroy \
 	dataset-init dataset-plan dataset-apply dataset-destroy \
-	init model-key plan apply destroy outputs lock \
+	init model-key plan apply destroy outputs verify cut release lock \
 	_check-backend _check-profile
 
 # Targets tagged `## ...` are listed under the nearest `##@ Section` header.
@@ -41,7 +41,8 @@ help:
 
 ##@ Setup
 
-install: ## Install Python and web deps, hooks, and tflint plugins
+install: ## Install the toolchain, Python and web deps, hooks, and tflint plugins
+	mise install
 	uv sync --all-groups --all-extras
 	pnpm --dir web install --frozen-lockfile
 	uv run pre-commit install
@@ -57,6 +58,9 @@ tflint-init: ## Refresh tflint plugins after a .tflint.hcl bump
 # Hooks without `stages` run in every stage, so pre-push covers both.
 check: ## Run every hook against every file, as CI does
 	uv run pre-commit run --all-files --hook-stage pre-push
+
+advisories: ## Check both lockfiles for known advisories, as CI does
+	osv-scanner scan source --config=osv-scanner.toml --lockfile=uv.lock --lockfile=web/pnpm-lock.yaml
 
 lint: ## Run ruff check and ESLint
 	uv run ruff check src tests
@@ -89,12 +93,27 @@ browser: _check-profile outputs ## Play the chat and the console in Chromium aga
 	uv run playwright install chromium
 	STACK_OUTPUTS=$(OUTPUTS) uv run pytest -m browser -v --tb=short
 
+# CI sets SMOKE_* from the deploy's outputs and the environment's secret; here they come from ENV's outputs and
+# data/smoke/. One retry, for a fault upstream of us.
+smoke: $(if $(SMOKE_SITE),,_check-profile outputs) ## Sign ENV's smoke user in and ask about its cards, as after a deploy
+	uv run playwright install chromium
+	@export SMOKE_SITE="$${SMOKE_SITE:-$$(jq -r .site.value.url $(OUTPUTS))}" \
+		SMOKE_GATEWAY_URL="$${SMOKE_GATEWAY_URL:-$$(jq -r .gateway_url.value $(OUTPUTS))}" \
+		SMOKE_LIST_CARDS_TARGET="$${SMOKE_LIST_CARDS_TARGET:-$$(jq -r .gateway_targets.value.list_cards $(OUTPUTS))}" \
+		SMOKE_USERNAME="$${SMOKE_USERNAME:-$$(jq -r .username data/smoke/$(ENV).json)}" \
+		SMOKE_PASSWORD="$${SMOKE_PASSWORD:-$$(jq -r .password data/smoke/$(ENV).json)}"; \
+	uv run pytest -m smoke -v --tb=short -p no:cacheprovider || \
+		{ echo "Retrying once, for a fault upstream of us."; uv run pytest -m smoke -v --tb=short -p no:cacheprovider; }
+
 probe: _check-profile outputs ## Time ENV's Runtime and check what it stores and traces
 	STACK_OUTPUTS=$(OUTPUTS) uv run python -m tests.integration.probe
 
 # JUDGE, not USER: make inherits USER from the shell as the login name, so it is always set.
 judges: _check-profile outputs ## Manage the judges' users in ENV's pool (WHAT=, JUDGE=)
 	uv run python -m faro.judges $(or $(WHAT),create) --stack $(OUTPUTS) $(if $(JUDGE),--user $(JUDGE))
+
+smoke-user: _check-profile outputs ## Create or reset ENV's smoke user, the check's customer
+	uv run python -m faro.smoke_user --stack $(OUTPUTS)
 
 
 ##@ Build
@@ -105,7 +124,9 @@ build: ## Build the zips and rewrite the Gateway's tools.json
 web: ## Build the web app
 	pnpm --dir web build
 
-site: _check-profile outputs web ## Build the web app and upload it to ENV's site
+site: _check-profile web upload ## Build the web app and upload it to ENV's site
+
+upload: _check-profile outputs ## Upload the built web app to ENV's site
 	@if [ "$(ENV)" = "prototype" ] && [ "$(I_KNOW)" != "1" ]; then \
 		echo "Refusing to deploy prototype's site from local. CI owns prototype."; exit 1; fi
 	@bash scripts/site.sh $(OUTPUTS)
@@ -278,7 +299,7 @@ init: _check-profile ## Initialize ENV's backend
 model-key: _check-profile ## Store ANTHROPIC_API_KEY from .env in ENV's secret
 	uv run python -m faro.model_key --env $(ENV)
 
-plan: _check-profile build ## Build, then plan ENV and save the plan
+plan: _check-profile $(if $(BUILT),,build) ## Build, then plan ENV and save the plan (BUILT=1 plans build/ as it is)
 	$(TF_AWS) plan $(VARS) -out=../$(PLAN)
 
 apply: _check-profile _check-backend ## Apply the saved plan (prototype needs I_KNOW=1)
@@ -299,6 +320,18 @@ destroy: _check-profile _check-backend build ## Destroy ENV (explicit ENV; proto
 outputs: _check-profile _check-backend ## Write ENV's outputs to build/ENV.outputs.json
 	@mkdir -p build
 	$(TF_AWS) output -json > $(OUTPUTS)
+
+verify: _check-profile _check-backend ## Check that ENV's Lambdas and Runtime run the zips in build/
+	@$(TF_AWS) show -json | bash scripts/verify.sh
+
+
+##@ Release
+
+cut: ## Cut Unreleased into the next version, a promotion's first step (BUMP=minor or patch)
+	uv run python -m faro.release cut --bump $(or $(BUMP),minor)
+
+release: ## Tag main's head and release it once its deploy run passed (DRY=1 previews)
+	uv run python -m faro.release release $(if $(DRY),--dry-run)
 
 
 ##@ Maintenance

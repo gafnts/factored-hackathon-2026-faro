@@ -1,0 +1,16 @@
+min_version = "2026.10.19"
+
+[settings]
+locked = true
+minimum_release_age = "7d"
+
+[tools]
+python = "3.13.17"
+uv = "0.13.6"
+node = "24.21.0"
+# The launcher; packageManager in web/package.json is the pin, and pnpm hands over to it.
+pnpm = "12.6.0"
+terraform = "1.16.4"
+tflint = "0.64.0"
+trivy = "0.74.0"
+osv-scanner = "2.7.0"

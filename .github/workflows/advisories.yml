@@ -1,0 +1,35 @@
+name: Advisories
+
+# Every PR and push, with no path filter, so the required check always reports; weekly on develop, the default
+# branch, for advisories published between merges (ADR-0010).
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: advisories-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  scan:
+    name: Known advisories
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: $/.github/actions/toolchain
+        with:
+          tools: osv-scanner
+
+      - name: Check both lockfiles
+        run: make advisories
