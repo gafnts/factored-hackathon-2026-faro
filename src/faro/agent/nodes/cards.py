@@ -4,11 +4,17 @@ A card and its transactions, as the nodes match them to what the customer says a
 
 import re
 from datetime import datetime
-from typing import Any, Literal, NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
+from faro.agent.models import Details
+
+Kind = Literal["credit", "debit"]
 ProductType = Literal["Tarjeta Crédito", "Tarjeta Débito"]
 ProductStatus = Literal["Active", "Blocked", "Closed", "Suspended"]
-TYPES: dict[str, ProductType] = {"credit": "Tarjeta Crédito", "debit": "Tarjeta Débito"}
+TYPES: dict[Kind, ProductType] = {
+    "credit": "Tarjeta Crédito",
+    "debit": "Tarjeta Débito",
+}
 KINDS = {product_type: kind for kind, product_type in TYPES.items()}
 LAST_FOUR = re.compile(r"^[0-9]{4}$")
 
@@ -101,7 +107,7 @@ def card_facts(card: CardFacts) -> CardFacts:
     }
 
 
-def kind(card: CardFacts) -> str:
+def kind(card: CardFacts) -> Kind:
     return "credit" if card["product_type"] == TYPES["credit"] else "debit"
 
 
@@ -116,10 +122,11 @@ def seen(card: CardFacts, transaction: Transaction | None = None) -> str:
     return text
 
 
-def hints(details: dict[str, Any]) -> tuple[ProductType | None, str | None]:
+def hints(details: Details) -> tuple[ProductType | None, str | None]:
     last_four = details.get("last_four")
     last_four = last_four if last_four and LAST_FOUR.match(last_four) else None
-    return TYPES.get(details.get("card_type") or ""), last_four
+    card_type = details.get("card_type")
+    return (TYPES[card_type] if card_type else None), last_four
 
 
 def fits(card: CardFacts, card_type: ProductType | None, last_four: str | None) -> bool:

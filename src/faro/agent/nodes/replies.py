@@ -4,7 +4,7 @@ reads' answers the model writes and code checks (ADR-0004, decision 8).
 """
 
 import uuid
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.callbacks import adispatch_custom_event
 from langchain_core.messages import AIMessage
@@ -21,6 +21,7 @@ from faro.agent.nodes.state import (
     Decision,
     Outcome,
     State,
+    Written,
     decided,
     offering,
     queued,
@@ -115,9 +116,7 @@ def ending(state: State, case: Case) -> Decision:
     return decided(outcome_class, rules, label, awaiting)
 
 
-def instructions(
-    state: State, label: str, part: dict[str, Any], facts: list[str]
-) -> str:
+def instructions(state: State, label: str, part: Written, facts: list[str]) -> str:
     """
     What the reply's model reads besides the request's message: the request, the records in words, the answer's shape,
     and each placeholder with what it holds, never its value.
@@ -132,7 +131,7 @@ def instructions(
 
 
 async def answer(
-    state: State, scope: Scope, label: str | None, part: dict[str, Any]
+    state: State, scope: Scope, label: str | None, part: Written
 ) -> tuple[str, list[str]]:
     """
     A read's answer: the model's, when its request is among WRITES and the reply check passes it, filled in; otherwise
@@ -177,7 +176,8 @@ async def conclude(state: State) -> dict[str, Any]:
             parts.append(render(name, language, facts))
             continue
         try:
-            text, used = await answer(state, scope, label, facts)
+            # WRITE's facts are what writable() built.
+            text, used = await answer(state, scope, label, cast(Written, facts))
         except ModelFailedError:
             # What was said before it stands, such as a confirmation that ended unused (POL-36).
             case = "unavailable"

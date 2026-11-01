@@ -11,6 +11,7 @@ from faro.agent.nodes.cards import Card, CardRecord, Credit, card_facts, seen
 from faro.agent.nodes.state import (
     OFFERED,
     Outcome,
+    Said,
     State,
     decided,
     offering,
@@ -66,7 +67,7 @@ def conflict_offer(
     rules: list[str],
     calls: list[str],
     cards: list[str],
-    say: list[list[Any]],
+    say: list[Said],
 ) -> dict[str, Any]:
     """
     POL-31: a person is offered only when the customer asks which of two conflicting facts is right.
@@ -148,7 +149,7 @@ def credit_seen(figure: Figure) -> str:
     )
 
 
-def figures(figured: list[Figure], country: str, as_of: str) -> list[list[Any]]:
+def figures(figured: list[Figure], country: str, as_of: str) -> list[Said]:
     """
     The cards with a figure, in one model call: one in a sentence, and two or more in a list under one (POL-14).
     """
@@ -183,8 +184,8 @@ async def read_credit(state: State) -> dict[str, Any]:
     listed = state.get("listed")
     calls = [listed] if listed else []
     figured: list[Figure] = []
-    others: list[list[Any]] = []
-    notes: list[list[Any]] = []
+    others: list[Said] = []
+    notes: list[Said] = []
     rules: list[str] = []
     missing: list[str] = []
     for card in state["targets"]:

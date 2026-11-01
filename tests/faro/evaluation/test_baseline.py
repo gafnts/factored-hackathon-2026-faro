@@ -17,7 +17,7 @@ from faro.agent.models import Models
 from faro.agent.nodes.cards import Transaction, listing, today
 from faro.agent.nodes.replies import instructions
 from faro.agent.nodes.resolve import ASKS
-from faro.agent.nodes.state import MORE
+from faro.agent.nodes.state import MORE, Written
 from faro.agent.payload import context, required, transcript, written
 from faro.agent.texts import FIXED, LANGUAGE_NAMES, placeholders
 from faro.evaluation import baseline
@@ -318,6 +318,10 @@ WRITTEN = {
 }
 
 
+# What the records show, and no template, which is all instructions() reads of a part.
+PART = cast(Written, {"shown": "A card."})
+
+
 @pytest.mark.parametrize("language", ["es", "pt"])
 @pytest.mark.parametrize("fixed", sorted(WRITTEN))
 def test_each_reads_answer_has_a_template_the_reply_check_passes(
@@ -325,7 +329,7 @@ def test_each_reads_answer_has_a_template_the_reply_check_passes(
 ) -> None:
     called, recorded = models()
     names = list(dict.fromkeys(placeholders(FIXED[fixed][language])))
-    facts = instructions({"messages": []}, WRITTEN[fixed], {"shown": "A card."}, names)
+    facts = instructions({"messages": []}, WRITTEN[fixed], PART, names)
 
     text = asyncio.run(called.reply("¿Y mi tarjeta?", facts, LANGUAGE_NAMES[language]))
 
@@ -336,9 +340,7 @@ def test_each_reads_answer_has_a_template_the_reply_check_passes(
 
 
 def test_a_request_without_a_template_gets_its_placeholders_alone() -> None:
-    facts = instructions(
-        {"messages": []}, "card_status", {"shown": "A card."}, ["card", "as_of"]
-    )
+    facts = instructions({"messages": []}, "card_status", PART, ["card", "as_of"])
 
     text = baseline.reply(LANGUAGE_NAMES["es"], facts)
 

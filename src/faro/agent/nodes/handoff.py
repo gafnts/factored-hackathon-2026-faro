@@ -90,7 +90,8 @@ async def handoff(state: State) -> dict[str, Any]:
     then = state.get("then")
     if then is not None:
         # The request the handoff ends gets its own decision, before the new one is served (POL-05).
-        after = [then["label"], *((then.get("queue") or {}).get("labels", []))]
+        queue = then.get("queue")
+        after = [then["label"], *([] if queue is None else queue["labels"])]
         scope.turn.decide(
             **decided(
                 outcome,

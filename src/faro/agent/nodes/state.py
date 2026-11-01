@@ -3,6 +3,7 @@ The graph's state, and what every flow reads from it or builds into its updates.
 """
 
 import uuid
+from collections.abc import Mapping
 from typing import Annotated, Any, Final, Literal, NotRequired, TypedDict
 
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
@@ -12,12 +13,20 @@ from faro.agent.language import DEFAULT, Spoken, settled
 from faro.agent.models import (
     ORDER,
     BlockReason,
+    Details,
     Label,
     Language,
     NoRequest,
     RouterOutput,
 )
-from faro.agent.nodes.cards import Card
+from faro.agent.nodes.cards import (
+    Card,
+    CardFacts,
+    ProductStatus,
+    ProductType,
+    Transaction,
+    Window,
+)
 from faro.agent.payload import HandoffRequest
 from faro.agent.records import Cited
 from faro.agent.scope import SCOPE
@@ -116,6 +125,123 @@ class Offer(TypedDict):
     outcome_class: Outcome
 
 
+# A part of the reply: a fixed text's name and the facts it states, or WRITE and what the model writes from.
+Facts = Mapping[str, object]
+Said = tuple[str, Facts]
+
+
+class Written(TypedDict):
+    template: str
+    facts: Facts
+    shown: str
+
+
+class Cites(TypedDict):
+    """
+    What a handoff cites about a question that stopped (the listing or the reads it asked from, and its cards), or
+    about a pending confirmation (cited()), which adds the charge found.
+    """
+
+    calls: list[str]
+    cards: list[str]
+    transactions: NotRequired[list[str]]
+
+
+class Asking(TypedDict, total=False):
+    """
+    The question the chat asked, which the next message may answer (POL-06, POL-17): which card (candidates are card
+    IDs, with the hints and the reason the request gave), the reason for a block (the card's ID), or which transaction
+    (candidates are the transactions listed, with the card and the reads). The next message reads it with a fallback
+    to no question, hence every key is optional.
+    """
+
+    detail: Literal["card", "reason", "transaction"]
+    questions: int
+    asked: Said
+    decision: Decision
+    cited: Cites
+    label: Label
+    text: str
+    card_id: str
+    card_type: ProductType | None
+    last_four: str | None
+    reason: BlockReason | None
+    candidates: list[str] | list[Transaction]
+    target: Target
+    calls: list[str]
+
+
+class Pending(TypedDict):
+    """
+    A block waiting on the confirm control (POL-36): its confirmation, the card, how many messages typed while it
+    shows were pointed to it, what a handoff about it would cite, and the draft that handoff would file.
+    """
+
+    confirmation_id: str
+    card: CardFacts
+    card_id: str
+    reason: BlockReason
+    expires_at: int
+    origin_jti: str
+    typed: int
+    listed: str | None
+    label: Label
+    charge: Charge | None
+    handoff_id: str | None
+    confirmed_at: NotRequired[str]
+
+
+class BlockOutput(TypedDict, total=False):
+    """
+    The fields of block_card's outputs the graph reads: the block's outcome, or the refusal and the card's status.
+    """
+
+    attempts: int
+    block_outcome: Literal["verified", "not_verified"]
+    refusal: str
+    product_status: ProductStatus
+
+
+class Block(TypedDict):
+    call_id: str
+    outcome: str
+    result: BlockOutput | None
+    planned: bool
+
+
+class Queue(TypedDict):
+    """
+    The requests a message asked for that wait for the one being served, in POL-05's order.
+    """
+
+    labels: list[Label]
+    text: str
+    complaint: bool
+
+
+class Paging(TypedDict):
+    """
+    The card whose transactions the chat listed last, and the cursor of the page after, null on the last (POL-25).
+    """
+
+    card_id: str
+    cursor: str | None
+    window: Window
+
+
+class Routed(TypedDict, total=False):
+    """
+    Where a message's requests go (routing()), as a turn sets it or a handoff keeps it to serve after itself (then).
+    """
+
+    label: Label | None
+    case: Case
+    complaint: bool
+    text: str
+    no_request: NoRequest | None
+    queue: Queue | None
+
+
 class ChatState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
 
@@ -130,25 +256,25 @@ class State(ChatState, total=False):
     label: Label | None
     case: Case
     cards: list[Card]
-    say: list[list[Any]]
+    say: list[Said]
     decision: Decision | None
     rules: list[str]
-    details: dict[str, Any] | None
-    asking: dict[str, Any] | None
+    details: Details | None
+    asking: Asking | None
     target: Target | None
-    pending: dict[str, Any] | None
-    block: dict[str, Any] | None
+    pending: Pending | None
+    block: Block | None
     complaint: bool
     listed: str | None
     handoff: HandoffRequest | None
-    then: dict[str, Any] | None
+    then: Routed | None
     offer: Offer | None
     evidence: Annotated[list[Cited], kept]
     country: str
     targets: list[Card]
-    queue: dict[str, Any] | None
+    queue: Queue | None
     text: str | None
-    paging: dict[str, Any] | None
+    paging: Paging | None
     recent: str | None
     # The cards the chat last listed, in their order, so a later message can name one by its place (POL-13).
     shown_cards: list[str] | None
@@ -214,8 +340,9 @@ def heard(state: State, text: str, found: Language) -> dict[str, Any]:
     return {"language": settled(state.get("language", DEFAULT), found), "read": count}
 
 
-def queued(state: State) -> list[str]:
-    return list((state.get("queue") or {}).get("labels", []))
+def queued(state: State) -> list[Label]:
+    queue = state.get("queue")
+    return [] if queue is None else list(queue["labels"])
 
 
 def paged(state: State) -> str | None:
@@ -223,8 +350,8 @@ def paged(state: State) -> str | None:
     return MORE if paging is not None and paging.get("cursor") else None
 
 
-def said(*parts: tuple[str, dict[str, Any]]) -> list[list[Any]]:
-    return [[name, facts] for name, facts in parts]
+def said(*parts: Said) -> list[Said]:
+    return list(parts)
 
 
 def decided(
@@ -241,12 +368,12 @@ def decided(
     }
 
 
-def writable(template: str, facts: dict[str, Any], words: str) -> list[list[Any]]:
+def writable(template: str, facts: Facts, words: str) -> list[Said]:
     """
     A read's answer, which the model writes when its request is among WRITES, from the placeholders its fixed reply
     states and the words that say what the records show, never a figure (ADR-0004's amendment of 2026-10-01).
     """
-    return [[WRITE, {"template": template, "facts": facts, "shown": words}]]
+    return [(WRITE, {"template": template, "facts": facts, "shown": words})]
 
 
 def offering(request: HandoffRequest, outcome_class: Outcome) -> Offer:
@@ -264,20 +391,20 @@ def offering(request: HandoffRequest, outcome_class: Outcome) -> Offer:
     }
 
 
-def cited(pending: dict[str, Any], *calls: str) -> dict[str, Any]:
+def cited(pending: Pending, *calls: str) -> Cites:
     """
     What a handoff about the pending confirmation cites: the listing that settled its card, a charge's window reads
     and the charge found, if any, and the calls named.
     """
-    charge = pending.get("charge") or {}
+    charge = pending.get("charge")
     return {
         "calls": [
-            *([pending["listed"]] if pending.get("listed") else []),
-            *charge.get("calls", []),
+            *([pending["listed"]] if pending["listed"] else []),
+            *(charge["calls"] if charge else []),
             *calls,
         ],
         "cards": [pending["card_id"]],
-        "transactions": charge.get("transactions", []),
+        "transactions": charge["transactions"] if charge else [],
     }
 
 

@@ -156,7 +156,7 @@ async def unsupported(state: State) -> dict[str, Any]:
         return {"case": "unavailable"}
     if extracted.language == OTHER:
         return {"case": "third_language"}
-    details = extracted.model_dump()
+    details = extracted.details()
     if details.get("owner") == "someone_else":
         return {"case": "other_person"}
     service = details.get("service") or "other_card_service"

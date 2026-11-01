@@ -2,7 +2,7 @@
 The transaction a charge or a decline is about, and the decline explained (POL-27 to POL-32, POL-39).
 """
 
-from typing import Any
+from typing import Any, cast
 
 from faro.agent.language import OTHER
 from faro.agent.models import Label, ModelFailedError
@@ -11,6 +11,7 @@ from faro.agent.nodes.cards import Transaction, card_facts, listing, seen, shown
 from faro.agent.nodes.state import (
     OFFERED,
     QUESTIONS,
+    Said,
     State,
     Target,
     decided,
@@ -59,7 +60,8 @@ async def find_transaction(state: State) -> dict[str, Any]:
     failed = False
     if answering:
         turn["text"] = asked.get("text")
-        calls, candidates = asked["calls"], asked["candidates"]
+        # A transaction question's candidates are the transactions it listed.
+        calls, candidates = asked["calls"], cast(list[Transaction], asked["candidates"])
         given = (
             f"{KINDS_OF_TRANSACTION[label]}\n{today(scope.business_date)}\n"
             "The customer is answering which of these transactions they mean:\n"
@@ -118,14 +120,14 @@ async def find_transaction(state: State) -> dict[str, Any]:
         return {**turn, "case": "unavailable"}
     if len(fitting) > 1 and before < QUESTIONS:
         listed = fitting[:SHOWN]
-        which = [
+        which: Said = (
             "which_decline" if declined else "which_charge",
             {
                 "card": card,
                 "transactions": [shown(t) for t in listed],
                 "country": country,
             },
-        ]
+        )
         decision = decided("clarify", rules, label, "transaction")
         return {
             **turn,
@@ -236,7 +238,7 @@ async def explained(
     found = fitting[0]
     facts = {"card": card, "transaction": found, "country": country}
     rules = ["POL-27"]
-    conflicts: list[list[Any]] = []
+    conflicts: list[Said] = []
     if found["before_card_opening"]:
         conflicts += said(("before_opening", {"card": card}))
     if (

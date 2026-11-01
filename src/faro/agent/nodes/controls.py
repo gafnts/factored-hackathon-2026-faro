@@ -21,6 +21,8 @@ from faro.agent.nodes.state import (
     QUESTIONS,
     Decision,
     Offer,
+    Pending,
+    Said,
     State,
     cited,
     decided,
@@ -72,7 +74,7 @@ def offer_waits(offer: Offer, rules: list[str]) -> Decision:
     return decided(offer["outcome_class"], rules, offer["request"]["label"], OFFERED)
 
 
-def unused(pending: dict[str, Any], outcome: ActionOutcome = "lapsed") -> Action:
+def unused(pending: Pending, outcome: ActionOutcome = "lapsed") -> Action:
     """
     A confirmation that ended unused, as a handoff's action: cancelled with the control, or lapsed.
     """
@@ -87,9 +89,7 @@ def unused(pending: dict[str, Any], outcome: ActionOutcome = "lapsed") -> Action
     }
 
 
-def owed(
-    pending: dict[str, Any], cause: str, rules: list[str]
-) -> HandoffRequest | None:
+def owed(pending: Pending, cause: str, rules: list[str]) -> HandoffRequest | None:
     """
     The handoff a confirmation's unused end requires, which files its draft: POL-39's however it ended, and POL-38's
     when a lost or stolen card's block lapsed at its time limit or with the sign-in, since the customer left without
@@ -113,7 +113,7 @@ def owed(
     )
 
 
-async def ended(scope: Scope, pending: dict[str, Any], to: str, cause: str) -> None:
+async def ended(scope: Scope, pending: Pending, to: str, cause: str) -> None:
     await scope.turn.write(
         "confirmation",
         confirmation_id=pending["confirmation_id"],
@@ -125,7 +125,7 @@ async def ended(scope: Scope, pending: dict[str, Any], to: str, cause: str) -> N
     )
 
 
-async def lapsed(scope: Scope, pending: dict[str, Any], cause: str) -> list[list[Any]]:
+async def lapsed(scope: Scope, pending: Pending, cause: str) -> list[Said]:
     """
     Ends the confirmation unused, and says so; owed() says whether a person takes the case.
     """
@@ -136,7 +136,7 @@ async def lapsed(scope: Scope, pending: dict[str, Any], cause: str) -> list[list
     return said(("confirmation_lapsed", {"card": pending["card"]}))
 
 
-def lapse_rules(pending: dict[str, Any], cause: str) -> list[str]:
+def lapse_rules(pending: Pending, cause: str) -> list[str]:
     rules = ["POL-36"]
     if cause == "session_end":
         rules.insert(0, "POL-09")
@@ -310,8 +310,7 @@ async def answered_offer(
         ):
             await ended(scope, pending, "lapsed", "handoff_accepted")
         # The accepted handoff files the confirmation's draft, if it had one, so none is left to expire.
-        request = {
-            **request,
+        request = request | {
             "actions": [*request["actions"], unused(pending)],
             "handoff_id": pending.get("handoff_id"),
         }
@@ -400,7 +399,7 @@ async def typed_to_offer(
 
 async def typed_to_confirmation(
     scope: Scope,
-    pending: dict[str, Any],
+    pending: Pending,
     offer: Offer | None,
     text: str,
     routed: dict[str, Any] | None,
@@ -499,7 +498,7 @@ async def typed_to_confirmation(
                 "block_card",
                 ["POL-36"],
                 rules,
-                calls=[pending["listed"]] if pending.get("listed") else [],
+                calls=[pending["listed"]] if pending["listed"] else [],
                 cards=[pending["card_id"]],
             ),
             "block",

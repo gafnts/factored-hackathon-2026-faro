@@ -3,17 +3,18 @@ The card a request is about, and the reason for a block (POL-13 to POL-17, POL-3
 """
 
 import re
-from typing import Any
+from typing import Any, cast
 
 from faro.agent.formats import moment
 from faro.agent.language import OTHER
-from faro.agent.models import Label, ModelFailedError
+from faro.agent.models import Details, Label, ModelFailedError
 from faro.agent.nodes.calls import tool
 from faro.agent.nodes.cards import TYPES, Card, ProductType, card_facts, fits, hints
 from faro.agent.nodes.state import (
     OFFERED,
     QUESTIONS,
     READS,
+    Asking,
     State,
     decided,
     heard,
@@ -53,14 +54,15 @@ def cards_named(cards: list[Card], ids: list[str]) -> str:
 
 
 def extraction_context(
-    state: State, asking: dict[str, Any], cards: list[Card], label: Label
+    state: State, asking: Asking, cards: list[Card], label: Label
 ) -> str:
     """
     What the extraction reads beside the message: the question it answers, if any, or the request with the cards the
     chat last listed, so a card named by its place in that list ("la segunda") is the one at that place (POL-13).
     """
     if asking.get("detail") == "card":
-        listed = cards_named(cards, asking["candidates"])
+        # A card question's candidates are card IDs.
+        listed = cards_named(cards, cast(list[str], asking["candidates"]))
         return f"The customer is answering which of these cards they mean:\n{listed}"
     if asking.get("detail") == "reason":
         return "The customer is answering why they want to block the card."
@@ -126,7 +128,7 @@ def match(
 
 def question(
     state: State,
-    asked: dict[str, Any] | None,
+    asked: Asking | None,
     detail: str,
     name: str,
     facts: dict[str, Any],
@@ -183,7 +185,7 @@ def question(
         "asking": {
             "detail": detail,
             "questions": before + 1,
-            "asked": [name, facts],
+            "asked": (name, facts),
             "decision": decision,
             "cited": {"calls": [listed] if listed else [], "cards": cards},
             **held,
@@ -193,7 +195,7 @@ def question(
     }
 
 
-EMPTY = {
+EMPTY: Details = {
     "card_type": None,
     "last_four": None,
     "block_reason": None,
@@ -266,7 +268,7 @@ async def resolve_card(state: State) -> dict[str, Any]:
             if not charge:
                 return {**turn, "case": "unavailable", "asking": None}
             # A charge's card can still be asked for.
-            details = dict(EMPTY)
+            details = EMPTY.copy()
         else:
             if extracted.language == OTHER:
                 # POL-51: a question asked stays pending.
