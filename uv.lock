@@ -736,7 +736,7 @@ wheels = [
 
 [[package]]
 name = "faro"
-version = "1.6.0"
+version = "1.7.0"
 source = { editable = "." }
 default-groups = ["agent", "dev", "eda", "pipeline", "tools"]
 dependencies = [

@@ -4,7 +4,7 @@ requires = [ "uv-build>=0.13,<0.14" ]
 
 [project]
 name = "faro"
-version = "1.6.0"
+version = "1.7.0"
 description = "Faro, a card support agent in Spanish and Portuguese, built for the Factored AI & Data Hackathon 2026"
 readme = "README.md"
 license = "MIT"
