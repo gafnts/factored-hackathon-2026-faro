@@ -55,7 +55,6 @@ Step = Literal[
     "blocking",
     "again",
     "fixed",
-    "not_served",
 ]
 Ending = Literal[
     "no_request", "unavailable", "refused", "other_person", "third_language"
