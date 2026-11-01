@@ -13,7 +13,8 @@ from typing import Any
 
 import pytest
 
-from faro.agent.graph import EARLIER, SHAPES
+from faro.agent.graph import SHAPES
+from faro.agent.nodes.resolve import EARLIER
 from faro.agent.texts import FIXED, render
 
 from .conftest import Harness, detail, tool_result

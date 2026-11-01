@@ -24,13 +24,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from faro.agent.graph import ASKS, EARLIER
 from faro.agent.models import (
     MODEL,
     ModelFailedError,
     Models,
     prompt_version,
 )
+from faro.agent.nodes.resolve import ASKS, EARLIER
 from faro.evaluation.families import Answer, Family
 
 PAGE = Path("docs/evaluation/language.md")
