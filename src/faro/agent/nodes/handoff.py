@@ -3,11 +3,10 @@ The handoff a node required, filed with the evidence the thread's tool calls lef
 """
 
 import uuid
-from typing import Any
 
 from faro.agent.filing import new_call_id
 from faro.agent.models import ModelFailedError
-from faro.agent.nodes.state import Outcome, State, decided, said
+from faro.agent.nodes.state import Outcome, State, Update, decided, said
 from faro.agent.payload import built, context, done, transcript, written
 from faro.agent.records import wall_time
 from faro.agent.scope import SCOPE
@@ -17,7 +16,7 @@ from faro.policy import POLICY_VERSION
 TURNS = 20
 
 
-async def handoff(state: State) -> dict[str, Any]:
+async def handoff(state: State) -> Update:
     """
     Files the handoff a node required. Code builds the payload from the evidence the thread's tool calls left in state,
     the model writes its free text, and file_handoff files it under the customer's own token, three attempts at most

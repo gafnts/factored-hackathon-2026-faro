@@ -4,7 +4,7 @@ The graph's state, and what every flow reads from it or builds into its updates.
 
 import uuid
 from collections.abc import Mapping
-from typing import Annotated, Any, Final, Literal, NotRequired, TypedDict
+from typing import Annotated, Final, Literal, NotRequired, TypedDict
 
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
 from langgraph.graph.message import add_messages
@@ -229,19 +229,6 @@ class Paging(TypedDict):
     window: Window
 
 
-class Routed(TypedDict, total=False):
-    """
-    Where a message's requests go (routing()), as a turn sets it or a handoff keeps it to serve after itself (then).
-    """
-
-    label: Label | None
-    case: Case
-    complaint: bool
-    text: str
-    no_request: NoRequest | None
-    queue: Queue | None
-
-
 class ChatState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
 
@@ -250,7 +237,11 @@ def kept(held: list[Cited], new: list[Cited]) -> list[Cited]:
     return [*held, *new][-CITED:]
 
 
-class State(ChatState, total=False):
+class Private(TypedDict, total=False):
+    """
+    What a turn keeps for its own steps, which never reaches the chat (ADR-0004, What the chat receives).
+    """
+
     language: Spoken
     read: int
     label: Label | None
@@ -267,7 +258,7 @@ class State(ChatState, total=False):
     complaint: bool
     listed: str | None
     handoff: HandoffRequest | None
-    then: Routed | None
+    then: "Update | None"
     offer: Offer | None
     evidence: Annotated[list[Cited], kept]
     country: str
@@ -281,6 +272,20 @@ class State(ChatState, total=False):
     parts: list[str]
     names: list[str]
     no_request: NoRequest | None
+
+
+class State(ChatState, Private):
+    """
+    The graph's state: the conversation, and what a turn keeps for its own steps.
+    """
+
+
+class Update(Private, total=False):
+    """
+    What a node returns: any of the state's keys, and the messages it adds.
+    """
+
+    messages: list[AnyMessage]
 
 
 def latest_text(state: State) -> str:
@@ -297,7 +302,7 @@ def request_text(state: State) -> str:
     return state.get("text") or latest_text(state)
 
 
-def routing(routed: RouterOutput, text: str) -> dict[str, Any]:
+def routing(routed: RouterOutput, text: str) -> Update:
     """
     The first request in POL-05's order, and the rest queued with the message that asked for them; a message with no
     request, like any new one, leaves nothing queued (POL-05, POL-06).
@@ -326,7 +331,7 @@ def routing(routed: RouterOutput, text: str) -> dict[str, Any]:
     }
 
 
-def heard(state: State, text: str, found: Language) -> dict[str, Any]:
+def heard(state: State, text: str, found: Language) -> Update:
     """
     The conversation's language after a model call read text as found (POL-50). Only the latest message sets it, so a
     queued request served later can't move it back, and only its first reading does, so a later call that reads the

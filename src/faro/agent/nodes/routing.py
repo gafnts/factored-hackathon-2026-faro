@@ -3,8 +3,6 @@ Where a message's requests go: the router's labels in POL-05's order, the queue,
 asked (POL-06), and the requests the chat doesn't serve (POL-41 to POL-44).
 """
 
-from typing import Any
-
 from faro.agent.language import DEFAULT, OTHER
 from faro.agent.models import Label, ModelFailedError
 from faro.agent.nodes.calls import tool
@@ -13,6 +11,7 @@ from faro.agent.nodes.state import (
     CASES,
     OFFERED,
     State,
+    Update,
     decided,
     heard,
     latest_text,
@@ -28,7 +27,7 @@ from faro.agent.scope import SCOPE
 from faro.agent.texts import FIXED
 
 
-async def begin(state: State) -> dict[str, Any]:
+async def begin(state: State) -> Update:
     """
     Opens the turn's state; the language stays until the model call that reads the message says otherwise (POL-50).
     """
@@ -55,7 +54,7 @@ async def begin(state: State) -> dict[str, Any]:
     }
 
 
-async def route(state: State) -> dict[str, Any]:
+async def route(state: State) -> Update:
     scope = SCOPE.get()
     text = latest_text(state)
     try:
@@ -68,7 +67,7 @@ async def route(state: State) -> dict[str, Any]:
     return {**heard(state, text, routed.language), **routing(routed, text)}
 
 
-async def next_request(state: State) -> dict[str, Any]:
+async def next_request(state: State) -> Update:
     """
     Serves the next queued request, from the message that asked for it, once the one before it ended (POL-05).
     """
@@ -94,7 +93,7 @@ async def next_request(state: State) -> dict[str, Any]:
     }
 
 
-async def list_cards(state: State) -> dict[str, Any]:
+async def list_cards(state: State) -> Update:
     """
     Reads the customer's cards and whether they are served in full, before a request for a person or one the chat may
     not serve (POL-12). A customer who isn't is handed off without the status being named, in one case for every request
@@ -138,7 +137,7 @@ async def list_cards(state: State) -> dict[str, Any]:
     }
 
 
-async def unsupported(state: State) -> dict[str, Any]:
+async def unsupported(state: State) -> Update:
     """
     What the chat doesn't serve (POL-41 to POL-43): an unblock is handed off, since it needs stronger proof of identity
     than a chat session gives; a replacement, a PIN, a limit increase, or another card service is declined with a person
@@ -194,7 +193,7 @@ async def unsupported(state: State) -> dict[str, Any]:
     }
 
 
-async def aside(state: State) -> dict[str, Any]:
+async def aside(state: State) -> Update:
     """
     A message the step that asked read as no answer to its question, read as a new one (POL-06): one with no request
     gets its short reply and the question again, which counts toward no limit (POL-17), and a new request ends the
@@ -224,7 +223,7 @@ async def aside(state: State) -> dict[str, Any]:
             ],
             "decision": {**decision, "rules": [*decision["rules"], "POL-06"]},
         }
-    served = {
+    served: Update = {
         **turn,
         **routing(routed, text),
         "asking": None,
@@ -254,8 +253,12 @@ async def aside(state: State) -> dict[str, Any]:
             cards=cites["cards"],
         ),
         "then": {
-            k: served[k]
-            for k in ("label", "case", "complaint", "text", "no_request", "queue")
+            "label": served["label"],
+            "case": served["case"],
+            "complaint": served["complaint"],
+            "text": served["text"],
+            "no_request": served["no_request"],
+            "queue": served["queue"],
         },
     }
 

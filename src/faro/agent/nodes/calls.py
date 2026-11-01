@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from faro.agent.gateway import ToolCall
-from faro.agent.nodes.state import State
+from faro.agent.nodes.state import State, Update
 from faro.agent.scope import SCOPE, Scope
 from faro.tools.provenance import OUTCOMES
 
@@ -61,7 +61,7 @@ async def tool(scope: Scope, name: str, **arguments: Any) -> ToolCall:
     return call
 
 
-Node = Callable[..., Awaitable[dict[str, Any]]]
+Node = Callable[..., Awaitable[Update]]
 
 
 def citing(node: Node) -> Node:
@@ -71,7 +71,7 @@ def citing(node: Node) -> Node:
     """
 
     @functools.wraps(node)
-    async def run(state: State, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    async def run(state: State, *args: Any, **kwargs: Any) -> Update:
         update = await node(state, *args, **kwargs)
         calls = SCOPE.get().turn.drain()
         return {**update, "evidence": calls} if calls else update

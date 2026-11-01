@@ -4,7 +4,7 @@ reads' answers the model writes and code checks (ADR-0004, decision 8).
 """
 
 import uuid
-from typing import Any, cast
+from typing import cast
 
 from langchain_core.callbacks import adispatch_custom_event
 from langchain_core.messages import AIMessage
@@ -21,6 +21,7 @@ from faro.agent.nodes.state import (
     Decision,
     Outcome,
     State,
+    Update,
     Written,
     decided,
     offering,
@@ -159,7 +160,7 @@ async def answer(
     return fill(text, facts).strip(), []
 
 
-async def conclude(state: State) -> dict[str, Any]:
+async def conclude(state: State) -> Update:
     """
     Ends the request being served: its part of the turn's reply, from the fixed texts and the answer its nodes left, and
     its decision, with the requests still queued after it (POL-05). A read or a model call that failed can't be answered
@@ -219,7 +220,7 @@ async def conclude(state: State) -> dict[str, Any]:
     }
 
 
-async def reply(state: State, config: RunnableConfig) -> dict[str, Any]:
+async def reply(state: State, config: RunnableConfig) -> Update:
     """
     The turn's reply, one message: a part for each request it served and, while a request waits on the customer, a
     sentence naming the ones queued after it (POL-05).

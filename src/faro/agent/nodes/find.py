@@ -2,7 +2,7 @@
 The transaction a charge or a decline is about, and the decline explained (POL-27 to POL-32, POL-39).
 """
 
-from typing import Any, cast
+from typing import cast
 
 from faro.agent.language import OTHER
 from faro.agent.models import Label, ModelFailedError
@@ -11,9 +11,11 @@ from faro.agent.nodes.cards import Transaction, card_facts, listing, seen, shown
 from faro.agent.nodes.state import (
     OFFERED,
     QUESTIONS,
+    Charge,
     Said,
     State,
     Target,
+    Update,
     decided,
     heard,
     latest_text,
@@ -34,7 +36,7 @@ KINDS_OF_TRANSACTION = {
 }
 
 
-async def find_transaction(state: State) -> dict[str, Any]:
+async def find_transaction(state: State) -> Update:
     """
     Looks for the transaction the customer means among the card's transactions in the 90-day window, in any status: a
     charge they don't recognize (POL-39, as in POL-27), or a decline (POL-27). The model reads them numbered and says
@@ -53,7 +55,7 @@ async def find_transaction(state: State) -> dict[str, Any]:
         asked["label"] if answering else state.get("label")
     ) or "unrecognized_charge"
     say = state.get("say", [])
-    turn: dict[str, Any] = {"label": label, "case": "fixed", "asking": None}
+    turn: Update = {"label": label, "case": "fixed", "asking": None}
     card = card_facts(target)
     country = state.get("country", "")
     declined = label == "decline_reason"
@@ -165,7 +167,7 @@ async def find_transaction(state: State) -> dict[str, Any]:
         lead = said(("charge_unread", {"card": card}))
     else:
         lead = said(("charge_not_found", {"card": card}))
-    charge = {
+    charge: Charge = {
         "calls": calls,
         "transactions": [] if found is None else [found["transaction_id"]],
     }
@@ -197,11 +199,11 @@ async def find_transaction(state: State) -> dict[str, Any]:
 
 async def explained(
     state: State,
-    turn: dict[str, Any],
+    turn: Update,
     target: Target,
     fitting: list[Transaction],
     calls: list[str],
-) -> dict[str, Any]:
+) -> Update:
     """
     A decline found, explained (POL-02, POL-27 to POL-30, POL-32): a Declined one by its code's meaning and nothing
     else, or abstained on with a person offered when the code is missing or unlisted; a Pending, Reversed, or Approved

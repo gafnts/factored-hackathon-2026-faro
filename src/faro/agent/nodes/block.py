@@ -4,7 +4,7 @@ A block: its confirmation and the control that shows it, the block once confirme
 
 import asyncio
 import uuid
-from typing import Any
+from typing import cast
 
 from faro.agent.confirmations import new_record
 from faro.agent.filing import new_call_id
@@ -14,8 +14,10 @@ from faro.agent.nodes.state import (
     CONTROL,
     MISSING,
     OFFERED,
+    BlockOutput,
     State,
     Target,
+    Update,
     cited,
     decided,
     offering,
@@ -29,7 +31,7 @@ from faro.policy.handoffs import HANDOFFS
 DRAFTED = (*MISSING, "unrecognized_charge")
 
 
-async def confirm(state: State) -> dict[str, Any]:
+async def confirm(state: State) -> Update:
     scope = SCOPE.get()
     target = state["target"]
     assert target is not None
@@ -142,7 +144,7 @@ async def drafted(
     return handoff_id
 
 
-async def block(state: State) -> dict[str, Any]:
+async def block(state: State) -> Update:
     scope = SCOPE.get()
     pending = state["pending"]
     assert pending is not None
@@ -169,13 +171,14 @@ async def block(state: State) -> dict[str, Any]:
         "block": {
             "call_id": call.call_id,
             "outcome": call.outcome,
-            "result": call.result,
+            # The gateway checked the output against block_card's contract.
+            "result": cast(BlockOutput | None, call.result),
             "planned": bool((call.error or {}).get("planned")),
         }
     }
 
 
-async def verify(state: State) -> dict[str, Any]:
+async def verify(state: State) -> Update:
     """
     Reads the card again for the reply's and the handoff's evidence. The reply says it is blocked only when the block's
     read-back and this read both show it; otherwise the case is handed off, with the block's outcome as its action when
@@ -188,7 +191,7 @@ async def verify(state: State) -> dict[str, Any]:
     facts = {"card": pending["card"]}
     result = tried["result"] or {}
     status = (call.result or {}).get("card", {}).get("product_status")
-    turn: dict[str, Any] = {"pending": None, "case": "fixed"}
+    turn: Update = {"pending": None, "case": "fixed"}
     if "denied" in (tried["outcome"], call.outcome):
         return turn | {"case": "refused"}
     if tried["outcome"] == "refused" and result.get("refusal") == "not_active":

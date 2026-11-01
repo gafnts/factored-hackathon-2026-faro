@@ -2,7 +2,7 @@
 The reads a card request may ask for: its status, its available credit, and its recent transactions.
 """
 
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from faro.agent.gateway import ToolCall
 from faro.agent.models import Label
@@ -11,8 +11,10 @@ from faro.agent.nodes.cards import Card, CardRecord, Credit, card_facts, seen
 from faro.agent.nodes.state import (
     OFFERED,
     Outcome,
+    Paging,
     Said,
     State,
+    Update,
     decided,
     offering,
     said,
@@ -22,7 +24,7 @@ from faro.agent.payload import offered, required
 from faro.agent.scope import SCOPE
 
 
-async def read(state: State) -> dict[str, Any]:
+async def read(state: State) -> Update:
     """
     A read's answer follows what the turn already said, such as a confirmation a new request ended.
     """
@@ -33,7 +35,7 @@ async def read(state: State) -> dict[str, Any]:
     return update
 
 
-def failed_read(call: ToolCall) -> dict[str, Any] | None:
+def failed_read(call: ToolCall) -> Update | None:
     """
     A read that didn't answer: denied is a refusal (POL-49), a customer not served in full the tool refused is handed off
     by the caller, and anything else can't be answered now (POL-48).
@@ -47,7 +49,7 @@ def failed_read(call: ToolCall) -> dict[str, Any] | None:
     return None
 
 
-def not_served(state: State, label: Label, calls: list[str]) -> dict[str, Any]:
+def not_served(state: State, label: Label, calls: list[str]) -> Update:
     return {
         "case": "handoff",
         "queue": None,
@@ -68,7 +70,7 @@ def conflict_offer(
     calls: list[str],
     cards: list[str],
     say: list[Said],
-) -> dict[str, Any]:
+) -> Update:
     """
     POL-31: a person is offered only when the customer asks which of two conflicting facts is right.
     """
@@ -82,7 +84,7 @@ def conflict_offer(
     }
 
 
-async def read_status(state: State) -> dict[str, Any]:
+async def read_status(state: State) -> Update:
     """
     Each card meant, read with get_card for its expiration (POL-01, POL-14, POL-21). An Active card past its expiration
     is reported with both facts (POL-31).
@@ -103,7 +105,7 @@ async def read_status(state: State) -> dict[str, Any]:
         cards.append(call.result["card"])
     rules = ["POL-01", "POL-21"]
     every = (state.get("details") or {}).get("cards") == "all"
-    places: dict[str, Any] = {}
+    places: Update = {}
     if len(cards) == 1 and not every:
         say = writable("card_status", {"card": cards[0]}, seen(cards[0]))
     else:
@@ -171,7 +173,7 @@ def figures(figured: list[Figure], country: str, as_of: str) -> list[Said]:
     )
 
 
-async def read_credit(state: State) -> dict[str, Any]:
+async def read_credit(state: State) -> Update:
     """
     Each card meant, read with get_available_credit, which computes the figure (POL-01, POL-18, POL-19, POL-22 to
     POL-24): an active credit card's credit, within or over its limit; a debit card or one that isn't active declined
@@ -228,7 +230,7 @@ async def read_credit(state: State) -> dict[str, Any]:
         *notes,
     ]
     outcome: Outcome = "answer" if figured else "abstain" if missing else "decline"
-    places = (
+    places: Update = (
         {"shown_cards": [f["card"]["card_id"] for f in figured]}
         if len(figured) > 1
         else {}
@@ -246,7 +248,7 @@ async def read_credit(state: State) -> dict[str, Any]:
     }
 
 
-async def read_transactions(state: State) -> dict[str, Any]:
+async def read_transactions(state: State) -> Update:
     """
     A page of the card's transactions in the window, newest first, 10 at a time, or the page after the one shown last
     when the customer asks for the next 10, with the window's dates; a card with none, or none left, is answered so
@@ -283,7 +285,7 @@ async def read_transactions(state: State) -> dict[str, Any]:
     if failed is not None or call.result is None or "transactions" not in call.result:
         return failed or {"case": "unavailable"}
     result = call.result
-    bookmark = {
+    bookmark: Paging = {
         "card_id": target["card_id"],
         "cursor": result["next_cursor"],
         "window": result["window"],

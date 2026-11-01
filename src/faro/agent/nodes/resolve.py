@@ -3,7 +3,7 @@ The card a request is about, and the reason for a block (POL-13 to POL-17, POL-3
 """
 
 import re
-from typing import Any, cast
+from typing import Literal, cast
 
 from faro.agent.formats import moment
 from faro.agent.language import OTHER
@@ -15,7 +15,10 @@ from faro.agent.nodes.state import (
     QUESTIONS,
     READS,
     Asking,
+    Facts,
     State,
+    Target,
+    Update,
     decided,
     heard,
     latest_text,
@@ -129,13 +132,13 @@ def match(
 def question(
     state: State,
     asked: Asking | None,
-    detail: str,
+    detail: Literal["card", "reason"],
     name: str,
-    facts: dict[str, Any],
+    facts: Facts,
     rules: list[str],
     cites: tuple[str | None, list[str]],
-    **held: Any,
-) -> dict[str, Any]:
+    held: Asking,
+) -> Update:
     """
     Asks for a detail, or stops once two questions haven't settled it and offers a handoff (POL-17), citing the listing
     and the cards the questions were about (cites). For a charge the customer doesn't recognize, a card that can't be
@@ -208,7 +211,7 @@ EMPTY: Details = {
 }
 
 
-async def resolve_card(state: State) -> dict[str, Any]:
+async def resolve_card(state: State) -> Update:
     """
     The card a request is about (POL-13 to POL-17). For a charge or a read, the customer's status comes first (POL-12),
     and a customer not served in full is handed off once for everything the message asked. A read about someone else's
@@ -222,7 +225,7 @@ async def resolve_card(state: State) -> dict[str, Any]:
     label: Label = asked.get("label") or state.get("label") or "block_card"
     charge = label == "unrecognized_charge"
     reading = label in READS
-    turn: dict[str, Any] = {"label": label, "case": "fixed"}
+    turn: Update = {"label": label, "case": "fixed"}
     say = state.get("say", [])
     call = await tool(scope, "list_cards")
     if call.outcome == "denied":
@@ -414,18 +417,25 @@ async def resolve_card(state: State) -> dict[str, Any]:
                     facts,
                     rules,
                     (call.call_id, [c["card_id"] for c in meant]),
-                    candidates=[c["card_id"] for c in meant],
-                    card_type=card_type if found == "which_card" else None,
-                    last_four=last_four if found != "no_match" else None,
-                    reason=reason,
-                    label=label,
-                    text=asked.get("text") or request_text(state),
+                    Asking(
+                        candidates=[c["card_id"] for c in meant],
+                        card_type=card_type if found == "which_card" else None,
+                        last_four=last_four if found != "no_match" else None,
+                        reason=reason,
+                        label=label,
+                        text=asked.get("text") or request_text(state),
+                    ),
                 ),
             }
         card = meant[0]
     turn["recent"] = card["card_id"]
-    target = {
-        **card,
+    target: Target = {
+        "card_id": card["card_id"],
+        "product_type": card["product_type"],
+        "last_four": card["last_four"],
+        "product_status": card["product_status"],
+        "past_expiration": card["past_expiration"],
+        "updated_after_as_of": card["updated_after_as_of"],
         "served_in_full": call.result["customer"]["served_in_full"],
         "listed": call.call_id,
     }
@@ -465,7 +475,7 @@ async def resolve_card(state: State) -> dict[str, Any]:
     return {**turn, "case": "confirm", "target": {**target, "reason": reason}}
 
 
-async def ask_reason(state: State) -> dict[str, Any]:
+async def ask_reason(state: State) -> Update:
     target = state["target"]
     assert target is not None
     return question(
@@ -476,5 +486,5 @@ async def ask_reason(state: State) -> dict[str, Any]:
         {"card": card_facts(target)},
         ["POL-13", "POL-35"],
         (state.get("listed"), [target["card_id"]]),
-        card_id=target["card_id"],
+        Asking(card_id=target["card_id"]),
     )
