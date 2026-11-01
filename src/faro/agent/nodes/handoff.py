@@ -7,7 +7,7 @@ from typing import Any
 
 from faro.agent.filing import new_call_id
 from faro.agent.models import ModelFailedError
-from faro.agent.nodes.state import State, concluded, said
+from faro.agent.nodes.state import Outcome, State, decided, said
 from faro.agent.payload import built, context, done, transcript, written
 from faro.agent.records import wall_time
 from faro.agent.scope import SCOPE
@@ -69,7 +69,7 @@ async def handoff(state: State) -> dict[str, Any]:
     result = call.result or {}
     say, rules = state.get("say", []), request["decided"]
     if call.outcome != "ok" or result.get("status") not in ("filed", "already_filed"):
-        outcome = "abstain"
+        outcome: Outcome = "abstain"
         say, rules = [*say, *said(("handoff_failed", {}))], [*rules, "POL-48"]
     else:
         await scope.turn.write(
@@ -92,10 +92,10 @@ async def handoff(state: State) -> dict[str, Any]:
         # The request the handoff ends gets its own decision, before the new one is served (POL-05).
         after = [then["label"], *((then.get("queue") or {}).get("labels", []))]
         scope.turn.decide(
-            **concluded(
-                request["label"],
+            **decided(
                 outcome,
                 list(dict.fromkeys([*state.get("rules", []), *rules])),
+                request["label"],
             ),
             pending_labels=[label for label in after if label is not None],
             language=state["language"],
@@ -105,5 +105,5 @@ async def handoff(state: State) -> dict[str, Any]:
         "case": "fixed",
         "handoff": None,
         "say": say,
-        "decision": concluded(request["label"], outcome, rules),
+        "decision": decided(outcome, rules, request["label"]),
     }

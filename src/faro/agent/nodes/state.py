@@ -3,7 +3,7 @@ The graph's state, and what every flow reads from it or builds into its updates.
 """
 
 import uuid
-from typing import Annotated, Any, Literal, NotRequired, TypedDict
+from typing import Annotated, Any, Final, Literal, NotRequired, TypedDict
 
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
 from langgraph.graph.message import add_messages
@@ -26,8 +26,8 @@ from faro.agent.scope import SCOPE
 QUESTIONS = 2
 # A lost or stolen card left unblocked is handed to a person (POL-38).
 MISSING = ("lost", "stolen")
-CONTROL = "confirm_control"
-OFFERED = "handoff_control"
+CONTROL: Final = "confirm_control"
+OFFERED: Final = "handoff_control"
 # The tool calls a handoff may cite, the thread's latest first to go; a payload holds 60 at most.
 CITED = 40
 READS = ("card_status", "available_credit", "recent_transactions", "decline_reason")
@@ -53,6 +53,10 @@ Ending = Literal[
     "no_request", "unavailable", "refused", "other_person", "third_language"
 ]
 Case = Step | Ending
+Outcome = Literal["answer", "clarify", "abstain", "decline", "block", "hand_off"]
+Awaiting = Literal[
+    "none", "card", "reason", "transaction", "confirm_control", "handoff_control"
+]
 # Where each request starts: every request but a block reads list_cards first (POL-12).
 CASES: dict[Label, Step] = {
     "block_card": "block",
@@ -89,6 +93,17 @@ class Target(Card):
     charge: NotRequired[Charge]
 
 
+class Decision(TypedDict):
+    """
+    A request's decision, as the turn's record writes it (execution-record.schema.json, decision_entry).
+    """
+
+    request_label: Label | None
+    outcome_class: Outcome
+    awaiting: Awaiting
+    rules: list[str]
+
+
 class Offer(TypedDict):
     """
     An offered handoff, as the thread holds it until the handoff control answers (offering()).
@@ -98,7 +113,7 @@ class Offer(TypedDict):
     reason_code: str
     request: HandoffRequest
     origin_jti: str
-    outcome_class: str
+    outcome_class: Outcome
 
 
 class ChatState(TypedDict):
@@ -116,7 +131,7 @@ class State(ChatState, total=False):
     case: Case
     cards: list[Card]
     say: list[list[Any]]
-    decision: dict[str, Any] | None
+    decision: Decision | None
     rules: list[str]
     details: dict[str, Any] | None
     asking: dict[str, Any] | None
@@ -213,26 +228,15 @@ def said(*parts: tuple[str, dict[str, Any]]) -> list[list[Any]]:
 
 
 def decided(
-    outcome_class: str,
+    outcome_class: Outcome,
     rules: list[str],
-    awaiting: str = "none",
-    label: str = "block_card",
-) -> dict[str, Any]:
+    label: Label | None,
+    awaiting: Awaiting = "none",
+) -> Decision:
     return {
         "request_label": label,
         "outcome_class": outcome_class,
         "awaiting": awaiting,
-        "rules": rules,
-    }
-
-
-def concluded(
-    label: str | None, outcome_class: str, rules: list[str]
-) -> dict[str, Any]:
-    return {
-        "request_label": label,
-        "outcome_class": outcome_class,
-        "awaiting": "none",
         "rules": rules,
     }
 
@@ -245,7 +249,7 @@ def writable(template: str, facts: dict[str, Any], words: str) -> list[list[Any]
     return [[WRITE, {"template": template, "facts": facts, "shown": words}]]
 
 
-def offering(request: HandoffRequest, outcome_class: str) -> Offer:
+def offering(request: HandoffRequest, outcome_class: Outcome) -> Offer:
     """
     An offered handoff, as the thread holds it until the handoff control answers: the handoff it would file, the
     sign-in that saw it, since an offer lapses with the session, and the outcome of the turn that made it, which a turn

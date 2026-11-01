@@ -8,7 +8,15 @@ from faro.agent.gateway import ToolCall
 from faro.agent.models import Label
 from faro.agent.nodes.calls import tool
 from faro.agent.nodes.cards import Card, CardRecord, Credit, card_facts, seen
-from faro.agent.nodes.state import OFFERED, State, decided, offering, said, writable
+from faro.agent.nodes.state import (
+    OFFERED,
+    Outcome,
+    State,
+    decided,
+    offering,
+    said,
+    writable,
+)
 from faro.agent.payload import offered, required
 from faro.agent.scope import SCOPE
 
@@ -69,7 +77,7 @@ def conflict_offer(
     return {
         "say": [*say, *said(("conflict_unresolved", {}), ("handoff_offer", {}))],
         "offer": offering(request, "answer"),
-        "decision": decided("answer", rules, OFFERED, label),
+        "decision": decided("answer", rules, label, OFFERED),
     }
 
 
@@ -112,7 +120,7 @@ async def read_status(state: State) -> dict[str, Any]:
     if not conflicted:
         return {
             "say": say,
-            "decision": decided("answer", rules, label=label),
+            "decision": decided("answer", rules, label),
             **places,
         }
     rules += ["POL-30", "POL-31"]
@@ -123,7 +131,7 @@ async def read_status(state: State) -> dict[str, Any]:
             ),
             **places,
         }
-    return {"say": say, "decision": decided("answer", rules, label=label), **places}
+    return {"say": say, "decision": decided("answer", rules, label), **places}
 
 
 class Figure(TypedDict):
@@ -218,21 +226,21 @@ async def read_credit(state: State) -> dict[str, Any]:
         *others,
         *notes,
     ]
-    outcome = "answer" if figured else "abstain" if missing else "decline"
+    outcome: Outcome = "answer" if figured else "abstain" if missing else "decline"
     places = (
         {"shown_cards": [f["card"]["card_id"] for f in figured]}
         if len(figured) > 1
         else {}
     )
     if not missing:
-        return {"say": say, "decision": decided(outcome, rules, label=label), **places}
+        return {"say": say, "decision": decided(outcome, rules, label), **places}
     request = offered(
         "missing_data", label, ["POL-24"], rules, calls=calls, cards=missing
     )
     return {
         "say": [*say, *said(("handoff_offer", {}))],
         "offer": offering(request, outcome),
-        "decision": decided(outcome, rules, OFFERED, label),
+        "decision": decided(outcome, rules, label, OFFERED),
         **places,
     }
 
@@ -260,7 +268,7 @@ async def read_transactions(state: State) -> dict[str, Any]:
             "say": said(
                 ("transactions_no_more", {"card": card, "window": paging["window"]})
             ),
-            "decision": decided("answer", rules, label=label),
+            "decision": decided("answer", rules, label),
         }
     call = await tool(
         scope,
@@ -284,7 +292,7 @@ async def read_transactions(state: State) -> dict[str, Any]:
         return {
             "paging": bookmark,
             "say": said((name, {"card": card, "window": result["window"]})),
-            "decision": decided("answer", rules, label=label),
+            "decision": decided("answer", rules, label),
         }
     facts = {
         "card": card,
@@ -307,5 +315,5 @@ async def read_transactions(state: State) -> dict[str, Any]:
     return {
         "paging": bookmark,
         "say": say,
-        "decision": decided("answer", rules, label=label),
+        "decision": decided("answer", rules, label),
     }

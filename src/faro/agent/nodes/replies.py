@@ -16,7 +16,12 @@ from faro.agent.nodes.state import (
     OFFERED,
     READS,
     WRITE,
+    Awaiting,
+    Case,
+    Decision,
+    Outcome,
     State,
+    decided,
     offering,
     queued,
     request_text,
@@ -82,7 +87,7 @@ SHAPES = {
     ),
 }
 # The decisions of turns whose reply is fixed text only, by case.
-OUTCOMES_BY_CASE: dict[str, tuple[str, list[str]]] = {
+OUTCOMES_BY_CASE: dict[str, tuple[Outcome, list[str]]] = {
     "no_request": ("answer", ["POL-06"]),
     "unavailable": ("abstain", ["POL-48"]),
     "refused": ("decline", ["POL-08", "POL-49"]),
@@ -91,24 +96,23 @@ OUTCOMES_BY_CASE: dict[str, tuple[str, list[str]]] = {
 }
 # A request about someone else's card gets the refusal's words (POL-08).
 FIXED["other_person"] = FIXED["refused"]
-ASKED = {"card": "card", "reason": "reason", "transaction": "transaction"}
+ASKED: dict[str, Awaiting] = {
+    "card": "card",
+    "reason": "reason",
+    "transaction": "transaction",
+}
 
 
-def decision(state: State, case: str) -> dict[str, Any]:
+def ending(state: State, case: Case) -> Decision:
     outcome_class, rules = OUTCOMES_BY_CASE[case]
     label = None if case in ("no_request", "third_language") else state.get("label")
     asking = state.get("asking")
-    awaiting = (
+    awaiting: Awaiting = (
         ASKED[asking["detail"]]
         if case == "third_language" and asking is not None
         else "none"
     )
-    return {
-        "request_label": label,
-        "outcome_class": outcome_class,
-        "awaiting": awaiting,
-        "rules": rules,
-    }
+    return decided(outcome_class, rules, label, awaiting)
 
 
 def instructions(
@@ -185,7 +189,7 @@ async def conclude(state: State) -> dict[str, Any]:
         names.append(name)
         parts.append(FIXED[name][language])
     explicit = state.get("decision")
-    outcome = decision(state, case) if explicit is None or case in FIXED else explicit
+    outcome = ending(state, case) if explicit is None or case in FIXED else explicit
     offer = state.get("offer") if case != "unavailable" else None
     if case == "unavailable" and label is not None:
         # A routed request whose read or model call failed; a failed router leaves no label to offer under (POL-48).

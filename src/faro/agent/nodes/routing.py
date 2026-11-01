@@ -179,7 +179,7 @@ async def unsupported(state: State) -> dict[str, Any]:
     if service == "outside_cards":
         return {
             "say": [*state.get("say", []), *said(("outside_cards", {}))],
-            "decision": decided("decline", ["POL-43"], label=label),
+            "decision": decided("decline", ["POL-43"], label),
         }
     request = offered(
         "unsupported_request", label, ["POL-42"], ["POL-42"], calls=listed
@@ -190,7 +190,7 @@ async def unsupported(state: State) -> dict[str, Any]:
             *said(("unsupported_service", {"service": service}), ("handoff_offer", {})),
         ],
         "offer": offering(request, "decline"),
-        "decision": decided("decline", ["POL-42"], OFFERED, label),
+        "decision": decided("decline", ["POL-42"], label, OFFERED),
     }
 
 

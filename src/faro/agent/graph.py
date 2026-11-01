@@ -97,13 +97,15 @@ def after_conclude(state: State) -> str:
     """
     The next queued request is served once the one before it waits on nothing (POL-05).
     """
-    awaiting = (state.get("decision") or {}).get("awaiting", "none")
+    decision = state.get("decision")
+    awaiting = "none" if decision is None else decision["awaiting"]
     idle = all(state.get(k) is None for k in ("pending", "offer", "asking"))
     return "next_request" if awaiting == "none" and idle and queued(state) else "reply"
 
 
 def after_reply(state: State) -> str:
-    awaiting = (state.get("decision") or {}).get("awaiting")
+    decision = state.get("decision")
+    awaiting = None if decision is None else decision["awaiting"]
     if awaiting == CONTROL and state.get("pending"):
         return "await_control"
     if awaiting == OFFERED and state.get("offer"):

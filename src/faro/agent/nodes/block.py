@@ -88,7 +88,7 @@ async def confirm(state: State) -> dict[str, Any]:
             "handoff_id": handoff_id,
         },
         "say": [*state.get("say", []), *say],
-        "decision": decided("block", rules, CONTROL, label),
+        "decision": decided("block", rules, label, CONTROL),
     }
 
 
@@ -200,7 +200,7 @@ async def verify(state: State) -> dict[str, Any]:
         )
         return turn | {
             "say": said((name, {"card": card})),
-            "decision": decided("decline", ["POL-34"]),
+            "decision": decided("decline", ["POL-34"], "block_card"),
         }
     actions: list[Action] = []
     if result.get("block_outcome") is not None:
@@ -236,7 +236,7 @@ async def verify(state: State) -> dict[str, Any]:
             return turn | {
                 "say": say,
                 "offer": offering(request, "block"),
-                "decision": decided("block", rules, OFFERED),
+                "decision": decided("block", rules, "block_card", OFFERED),
             }
         if pending["reason"] == "unrecognized_charge":
             # The block is verified, and the charge goes to dispute intake all the same (POL-39).
@@ -253,7 +253,7 @@ async def verify(state: State) -> dict[str, Any]:
                     handoff_id=pending.get("handoff_id"),
                 ),
             }
-        return turn | {"say": say, "decision": decided("block", rules)}
+        return turn | {"say": say, "decision": decided("block", rules, "block_card")}
     # POL-39's handoff is the request's only one: a block for the charge, offered or asked for, that isn't verified is
     # recorded in it.
     charge = pending["reason"] == "unrecognized_charge"

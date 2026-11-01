@@ -172,11 +172,11 @@ def question(
             "asking": None,
             "say": [*say, *said(("handoff_offer", {}))],
             "offer": offering(request, "abstain"),
-            "decision": decided("abstain", stopped, OFFERED, label),
+            "decision": decided("abstain", stopped, label, OFFERED),
         }
     listed, cards = cites
     decision = decided(
-        "clarify", rules, "card" if detail == "card" else "reason", label
+        "clarify", rules, label, "card" if detail == "card" else "reason"
     )
     return {
         "case": "fixed",
@@ -295,7 +295,7 @@ async def resolve_card(state: State) -> dict[str, Any]:
                     )
                 ),
             ],
-            "decision": decided("decline", ["POL-25"], label=label),
+            "decision": decided("decline", ["POL-25"], label),
         }
     card_type, last_four = hints(details)
     if last_four is None and asked.get("detail") != "reason":
@@ -370,7 +370,7 @@ async def resolve_card(state: State) -> dict[str, Any]:
                 "decision": decided(
                     "answer" if label == "card_status" else "decline",
                     ["POL-13", "POL-16"],
-                    label=label,
+                    label,
                 ),
             }
         if found == "ambiguous":
@@ -456,7 +456,7 @@ async def resolve_card(state: State) -> dict[str, Any]:
             **turn,
             "asking": None,
             "say": [*say, *said((name, {"card": card_facts(card)}))],
-            "decision": decided("decline", ["POL-13", "POL-34"]),
+            "decision": decided("decline", ["POL-13", "POL-34"], "block_card"),
         }
     if reason is None:
         return {**turn, "case": "ask_reason", "target": target}

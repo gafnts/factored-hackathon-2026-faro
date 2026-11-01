@@ -126,7 +126,7 @@ async def find_transaction(state: State) -> dict[str, Any]:
                 "country": country,
             },
         ]
-        decision = decided("clarify", rules, "transaction", label)
+        decision = decided("clarify", rules, label, "transaction")
         return {
             **turn,
             "asking": {
@@ -225,13 +225,13 @@ async def explained(
             **turn,
             "say": [*say, *said(("clarification_stopped", {}), ("handoff_offer", {}))],
             "offer": offering(request, "abstain"),
-            "decision": decided("abstain", stopped, OFFERED, label),
+            "decision": decided("abstain", stopped, label, OFFERED),
         }
     if not fitting:
         return {
             **turn,
             "say": [*say, *said(("decline_not_found", {"card": card}))],
-            "decision": decided("answer", ["POL-27"], label=label),
+            "decision": decided("answer", ["POL-27"], label),
         }
     found = fitting[0]
     facts = {"card": card, "transaction": found, "country": country}
@@ -275,7 +275,7 @@ async def explained(
                 *said(("handoff_offer", {})),
             ],
             "offer": offering(request, "abstain"),
-            "decision": decided("abstain", rules, OFFERED, label),
+            "decision": decided("abstain", rules, label, OFFERED),
         }
     else:
         parts = writable("decline_explained", facts, seen(card, found))
@@ -301,10 +301,10 @@ async def explained(
                 *said(("conflict_unresolved", {}), ("handoff_offer", {})),
             ],
             "offer": offering(request, "answer"),
-            "decision": decided("answer", rules, OFFERED, label),
+            "decision": decided("answer", rules, label, OFFERED),
         }
     return {
         **turn,
         "say": [*say, *parts, *conflicts],
-        "decision": decided("answer", rules, label=label),
+        "decision": decided("answer", rules, label),
     }
