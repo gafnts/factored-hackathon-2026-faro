@@ -27,7 +27,7 @@ from faro.agent.nodes.cards import (
     Transaction,
     Window,
 )
-from faro.agent.payload import HandoffRequest
+from faro.agent.payload import Action, ActionOutcome, HandoffRequest
 from faro.agent.records import Cited
 from faro.agent.scope import SCOPE
 
@@ -416,6 +416,22 @@ def offering(request: HandoffRequest, outcome_class: Outcome) -> Offer:
         "request": request,
         "origin_jti": SCOPE.get().claims.origin_jti,
         "outcome_class": outcome_class,
+    }
+
+
+def action(pending: Pending, outcome: ActionOutcome, *evidence: str) -> Action:
+    """
+    The block a handoff records: taken, with its outcome and the call that took it, or a confirmation that ended unused,
+    cancelled with the control or lapsed (POL-36, POL-37).
+    """
+    return {
+        "action": "block_card",
+        "card_id": pending["card_id"],
+        "reason": pending["reason"],
+        "confirmation_id": pending["confirmation_id"],
+        "outcome": outcome,
+        "confirmed_at": pending.get("confirmed_at"),
+        "evidence": list(evidence),
     }
 
 

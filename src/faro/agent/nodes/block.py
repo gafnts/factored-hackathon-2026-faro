@@ -18,6 +18,7 @@ from faro.agent.nodes.state import (
     State,
     Target,
     Update,
+    action,
     cited,
     decided,
     offering,
@@ -207,17 +208,7 @@ async def verify(state: State) -> Update:
         }
     actions: list[Action] = []
     if result.get("block_outcome") is not None:
-        actions.append(
-            {
-                "action": "block_card",
-                "card_id": pending["card_id"],
-                "reason": pending["reason"],
-                "confirmation_id": pending["confirmation_id"],
-                "outcome": result["block_outcome"],
-                "confirmed_at": pending["confirmed_at"],
-                "evidence": [tried["call_id"]],
-            }
-        )
+        actions.append(action(pending, result["block_outcome"], tried["call_id"]))
     if result.get("block_outcome") == "verified" and status == "Blocked":
         say = said(("block_verified", facts))
         rules = ["POL-36", "POL-37"]

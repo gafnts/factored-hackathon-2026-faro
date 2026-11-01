@@ -25,6 +25,7 @@ from faro.agent.nodes.state import (
     Said,
     State,
     Update,
+    action,
     cited,
     decided,
     new_turn,
@@ -34,7 +35,7 @@ from faro.agent.nodes.state import (
     routing,
     said,
 )
-from faro.agent.payload import Action, ActionOutcome, HandoffRequest, offered, required
+from faro.agent.payload import HandoffRequest, offered, required
 from faro.agent.records import wall_time
 from faro.agent.scope import SCOPE, Scope
 
@@ -89,21 +90,6 @@ def offer_waits(offer: Offer, rules: list[str]) -> Decision:
     return decided(offer["outcome_class"], rules, offer["request"]["label"], OFFERED)
 
 
-def unused(pending: Pending, outcome: ActionOutcome = "lapsed") -> Action:
-    """
-    A confirmation that ended unused, as a handoff's action: cancelled with the control, or lapsed.
-    """
-    return {
-        "action": "block_card",
-        "card_id": pending["card_id"],
-        "reason": pending["reason"],
-        "confirmation_id": pending["confirmation_id"],
-        "outcome": outcome,
-        "confirmed_at": None,
-        "evidence": [],
-    }
-
-
 def owed(pending: Pending, cause: str, rules: list[str]) -> HandoffRequest | None:
     """
     The handoff a confirmation's unused end requires, which files its draft: POL-39's however it ended, and POL-38's
@@ -122,7 +108,7 @@ def owed(pending: Pending, cause: str, rules: list[str]) -> HandoffRequest | Non
         list(dict.fromkeys([*rules, rule])),
         **cited(pending),
         actions=[
-            unused(pending, "declined_by_customer" if cause == "control" else "lapsed")
+            action(pending, "declined_by_customer" if cause == "control" else "lapsed")
         ],
         handoff_id=pending.get("handoff_id"),
     )
@@ -306,7 +292,7 @@ async def answered_offer(state: State, scope: Scope, resumed: ControlAnswer) -> 
         say = await lapsed(scope, pending, "handoff_accepted")
         # The accepted handoff files the confirmation's draft, if it had one, so none is left to expire.
         request = request | {
-            "actions": [*request["actions"], unused(pending)],
+            "actions": [*request["actions"], action(pending, "lapsed")],
             "handoff_id": pending.get("handoff_id"),
         }
         update |= {"pending": None, "say": say}
