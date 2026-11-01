@@ -26,7 +26,7 @@ DATASET_BACKEND := -backend-config=backend.tfbackend
 	data snapshot personas tiny-export pipeline export contracts analysis \
 	iam-init iam-plan iam-apply iam-output iam-destroy \
 	dataset-init dataset-plan dataset-apply dataset-destroy \
-	init model-key plan apply destroy outputs lock \
+	init model-key plan apply destroy outputs cut release lock \
 	_check-backend _check-profile
 
 # Targets tagged `## ...` are listed under the nearest `##@ Section` header.
@@ -300,6 +300,15 @@ destroy: _check-profile _check-backend build ## Destroy ENV (explicit ENV; proto
 outputs: _check-profile _check-backend ## Write ENV's outputs to build/ENV.outputs.json
 	@mkdir -p build
 	$(TF_AWS) output -json > $(OUTPUTS)
+
+
+##@ Release
+
+cut: ## Cut Unreleased into the next version, a promotion's first step (BUMP=minor or patch)
+	uv run python -m faro.release cut --bump $(or $(BUMP),minor)
+
+release: ## Tag main's head and release it once its deploy run passed (DRY=1 previews)
+	uv run python -m faro.release release $(if $(DRY),--dry-run)
 
 
 ##@ Maintenance

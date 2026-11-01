@@ -3,6 +3,7 @@ The build writes the same bytes on every machine, from uv.lock's arm64 wheels an
 (ADR-0004, Deployment; OPS-07).
 """
 
+import hashlib
 import json
 import os
 import re
@@ -174,6 +175,10 @@ def test_main_builds_every_artifact_and_rewrites_the_gateway_tools(
     built = build.main(out, tools, Recorder(), COMMIT)
 
     assert [p.name for p in built] == [f"{a.name}.zip" for a in build.ARTIFACTS]
+    sums = (out / "SHA256SUMS").read_text(encoding="utf-8").splitlines()
+    assert sums == [
+        f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}" for p in built
+    ]
     assert tools.read_text(encoding="utf-8") == build.gateway_tools()
     assert "build/runtime.zip" in capsys.readouterr().out
 
