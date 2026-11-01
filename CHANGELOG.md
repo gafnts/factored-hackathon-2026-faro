@@ -6,6 +6,11 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Added
+
+- A monthly budget for the AWS account, 40 USD unless `monthly_budget_usd` sets another amount, which notifies a topic when its forecast passes 80% and when the month's charges pass the amount; CONTRIBUTING says how to subscribe to it ([#156]).
+- A monthly spend limit with alerts on the project's Anthropic workspace, under a limit for the organization; CONTRIBUTING says where each is set ([#156]).
+
 ## [1.8.0] - 2026-11-01 (Promotion 14)
 
 ### Changed
@@ -159,6 +164,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#140]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/140
 [#141]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/141
 [#147]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/147
+[#156]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/156
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
