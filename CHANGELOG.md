@@ -14,7 +14,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 ### Changed
 
 - The agent's graph is a module per flow, under `faro.agent.nodes`, and `graph.py` keeps its overview and wiring; nothing the agent does changed. The next deploy updates the Runtime alone, under a new stamp, since its code moved ([#158]).
-- The graph's state is typed: each of its keys has a type of its own, a request's decision has one constructor, and mypy refuses an explicit `Any` in the nodes and the graph. Nothing the agent does changed, and a conversation open during the deploy still reads its checkpoint, since the state is stored as before. The next deploy updates the Runtime alone, under a new stamp.
+- The graph's state is typed: each of its keys has a type of its own, a request's decision has one constructor, and mypy refuses an explicit `Any` in the nodes and the graph. Nothing the agent does changed, and a conversation open during the deploy still reads its checkpoint, since the state is stored as before. The next deploy updates the Runtime alone, under a new stamp ([#159]).
 
 ## [1.8.0] - 2026-11-01 (Promotion 14)
 
@@ -171,6 +171,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#147]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/147
 [#156]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/156
 [#158]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/158
+[#159]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/159
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
