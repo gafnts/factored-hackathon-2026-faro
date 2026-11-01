@@ -4,7 +4,7 @@ requires = [ "uv-build>=0.13,<0.14" ]
 
 [project]
 name = "faro"
-version = "1.6.0"
+version = "1.7.0"
 description = "Faro, a card support agent in Spanish and Portuguese, built for the Factored AI & Data Hackathon 2026"
 readme = "README.md"
 license = "MIT"
@@ -14,7 +14,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "boto3[crt]>=1.43.103",
+  "boto3[crt]>=1.43.118",
   "duckdb>=1.5.5",
   "jsonschema>=4.26",
   "rfc3339-validator>=0.1.4",
@@ -22,8 +22,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-  "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,sts]>=1.43.103",
-  "moto[dynamodb,s3]>=5.2.3",
+  "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,sts]>=1.43.118",
+  "moto[dynamodb,s3]>=5.2.4",
   "mypy>=2.3.1",
   "playwright>=1.63",
   "pre-commit>=4.6.2",
@@ -40,13 +40,13 @@ dev = [
 agent = [
   "ag-ui-langgraph>=0.0.45",
   "ag-ui-protocol>=1",
-  "bedrock-agentcore>=1.23.1",
-  "fastapi>=0.141.1",
+  "bedrock-agentcore>=1.25",
+  "fastapi>=0.162",
   "httpx>=0.28.1",
   "jsonschema>=4.26",
   "langchain>=1.4.2",
   "langchain-anthropic>=1.7.4",
-  "langgraph>=1.2.12",
+  "langgraph>=1.2.17",
   "langgraph-checkpoint-aws>=1.2.3",
   "rfc3339-validator>=0.1.4",
 ]
