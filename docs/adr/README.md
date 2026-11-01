@@ -7,7 +7,7 @@ The decisions someone could question later, each with its context, the alternati
 | [0001](0001-deploy-to-us-east-1.md) | Deploy to us-east-1 | Accepted 2026-09-25 |
 | [0002](0002-mirror-dataset-into-pinned-snapshots.md) | Mirror the organizer dataset into pinned snapshots | Accepted 2026-09-26; amended 2026-10-30 |
 | [0003](0003-choose-workflow-from-evidence.md) | Choose the workflow from evidence | Accepted 2026-09-27; amended by ADR-0004 |
-| [0004](0004-agent-architecture-on-agentcore.md) | Explicit LangGraph workflow on AgentCore, with policy enforced in Gateway tools and Cedar | Accepted 2026-09-29; amended through 2026-10-31 |
+| [0004](0004-agent-architecture-on-agentcore.md) | Explicit LangGraph workflow on AgentCore, with policy enforced in Gateway tools and Cedar | Accepted 2026-09-29; amended through 2026-11-01 |
 | [0005](0005-offline-scenario-evaluation.md) | Offline scenario evaluation against an independent policy oracle | Accepted 2026-09-29; amended through 2026-10-03 |
 | [0006](0006-batch-medallion-pipeline.md) | Batch medallion pipeline in dbt-duckdb, exported per snapshot to the tools' store | Accepted 2026-09-29; amended through 2026-09-30 |
 | [0007](0007-role-gated-web-app.md) | Role-gated web app on one CloudFront origin, with a polled handoff console | Accepted 2026-09-29; amended through 2026-10-31 |
