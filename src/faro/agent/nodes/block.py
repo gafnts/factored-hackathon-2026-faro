@@ -15,6 +15,7 @@ from faro.agent.nodes.state import (
     MISSING,
     OFFERED,
     State,
+    Target,
     cited,
     decided,
     offering,
@@ -92,7 +93,7 @@ async def confirm(state: State) -> dict[str, Any]:
 
 
 async def drafted(
-    scope: Scope, language: str, target: dict[str, Any], confirmation_id: str
+    scope: Scope, language: str, target: Target, confirmation_id: str
 ) -> str:
     """
     Saves a draft of the handoff the confirmation's end may require, through file_handoff, since the Runtime's role

@@ -2,11 +2,11 @@
 The reads a card request may ask for: its status, its available credit, and its recent transactions.
 """
 
-from typing import Any
+from typing import Any, TypedDict
 
 from faro.agent.gateway import ToolCall
 from faro.agent.nodes.calls import tool
-from faro.agent.nodes.cards import card_facts, seen
+from faro.agent.nodes.cards import Card, CardRecord, Credit, card_facts, seen
 from faro.agent.nodes.state import OFFERED, State, decided, offering, said, writable
 from faro.agent.payload import offered, required
 from faro.agent.scope import SCOPE
@@ -80,7 +80,7 @@ async def read_status(state: State) -> dict[str, Any]:
     scope, label = SCOPE.get(), "card_status"
     listed = state.get("listed")
     calls = [listed] if listed else []
-    cards: list[dict[str, Any]] = []
+    cards: list[CardRecord] = []
     for card in state["targets"]:
         call = await tool(scope, "get_card", card_id=card["card_id"])
         calls.append(call.call_id)
@@ -124,7 +124,12 @@ async def read_status(state: State) -> dict[str, Any]:
     return {"say": say, "decision": decided("answer", rules, label=label), **places}
 
 
-def credit_seen(figure: dict[str, Any]) -> str:
+class Figure(TypedDict):
+    card: Card
+    credit: Credit
+
+
+def credit_seen(figure: Figure) -> str:
     over = figure["credit"]["availability"] == "over_limit"
     return seen(figure["card"]) + (
         " Its balance is over its limit, so it has no credit available."
@@ -133,7 +138,7 @@ def credit_seen(figure: dict[str, Any]) -> str:
     )
 
 
-def figures(figured: list[dict[str, Any]], country: str, as_of: str) -> list[list[Any]]:
+def figures(figured: list[Figure], country: str, as_of: str) -> list[list[Any]]:
     """
     The cards with a figure, in one model call: one in a sentence, and two or more in a list under one (POL-14).
     """
@@ -166,7 +171,7 @@ async def read_credit(state: State) -> dict[str, Any]:
     scope, label = SCOPE.get(), "available_credit"
     listed = state.get("listed")
     calls = [listed] if listed else []
-    figured: list[dict[str, Any]] = []
+    figured: list[Figure] = []
     others: list[list[Any]] = []
     notes: list[list[Any]] = []
     rules: list[str] = []

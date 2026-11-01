@@ -6,7 +6,7 @@ agent's own model calls.
 """
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
@@ -14,7 +14,7 @@ from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
 from faro.agent.check import failures
 from faro.agent.language import settled
 from faro.agent.models import Models
-from faro.agent.nodes.cards import listing, today
+from faro.agent.nodes.cards import Transaction, listing, today
 from faro.agent.nodes.replies import instructions
 from faro.agent.nodes.resolve import ASKS
 from faro.agent.nodes.state import MORE
@@ -260,7 +260,8 @@ LISTING = "\n".join(
     [
         "The customer reports a charge they don't recognize.",
         today("2026-06-17"),
-        listing(TRANSACTIONS),
+        # The rows hold only what listing() reads.
+        listing(cast(list[Transaction], TRANSACTIONS)),
     ]
 )
 

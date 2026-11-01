@@ -3,13 +3,14 @@ The graph's state, and what every flow reads from it or builds into its updates.
 """
 
 import uuid
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, NotRequired, TypedDict
 
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
 from langgraph.graph.message import add_messages
 
 from faro.agent.language import DEFAULT, settled
-from faro.agent.models import ORDER, RouterOutput
+from faro.agent.models import ORDER, BlockReason, RouterOutput
+from faro.agent.nodes.cards import Card
 from faro.agent.scope import SCOPE
 
 # POL-17: after two questions that don't settle the same detail, stop asking.
@@ -36,6 +37,27 @@ WRITE = "written"
 MORE = "The chat's last reply listed a page of a card's recent transactions and said the customer can ask for the next 10."
 
 
+class Charge(TypedDict):
+    """
+    The reads that looked for a charge the customer doesn't recognize, and the transaction found, if any (POL-39).
+    """
+
+    calls: list[str]
+    transactions: list[str]
+
+
+class Target(Card):
+    """
+    The card a request settled on, with the customer's status and the listing that read it; a block adds its reason,
+    and a charge's block the reads that looked for the charge.
+    """
+
+    served_in_full: bool
+    listed: str
+    reason: NotRequired[BlockReason]
+    charge: NotRequired[Charge]
+
+
 class ChatState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
 
@@ -49,13 +71,13 @@ class State(ChatState, total=False):
     read: int
     label: str | None
     case: str
-    cards: list[dict[str, Any]]
+    cards: list[Card]
     say: list[list[Any]]
     decision: dict[str, Any] | None
     rules: list[str]
     details: dict[str, Any] | None
     asking: dict[str, Any] | None
-    target: dict[str, Any] | None
+    target: Target | None
     pending: dict[str, Any] | None
     block: dict[str, Any] | None
     complaint: bool
@@ -65,7 +87,7 @@ class State(ChatState, total=False):
     offer: dict[str, Any] | None
     evidence: Annotated[list[dict[str, Any]], kept]
     country: str
-    targets: list[dict[str, Any]]
+    targets: list[Card]
     queue: dict[str, Any] | None
     text: str | None
     paging: dict[str, Any] | None

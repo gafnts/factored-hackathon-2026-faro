@@ -7,11 +7,12 @@ from typing import Any
 from faro.agent.language import OTHER
 from faro.agent.models import ModelFailedError
 from faro.agent.nodes.calls import tool
-from faro.agent.nodes.cards import card_facts, listing, seen, shown, today
+from faro.agent.nodes.cards import Transaction, card_facts, listing, seen, shown, today
 from faro.agent.nodes.state import (
     OFFERED,
     QUESTIONS,
     State,
+    Target,
     decided,
     heard,
     latest_text,
@@ -87,7 +88,7 @@ async def find_transaction(state: State) -> dict[str, Any]:
             f"{KINDS_OF_TRANSACTION[label]}\n{today(scope.business_date)}\n"
             + listing(candidates)
         )
-    fitting: list[dict[str, Any]] = []
+    fitting: list[Transaction] = []
     if candidates:
         text = latest_text(state) if answering else request_text(state)
         try:
@@ -195,8 +196,8 @@ async def find_transaction(state: State) -> dict[str, Any]:
 async def explained(
     state: State,
     turn: dict[str, Any],
-    target: dict[str, Any],
-    fitting: list[dict[str, Any]],
+    target: Target,
+    fitting: list[Transaction],
     calls: list[str],
 ) -> dict[str, Any]:
     """

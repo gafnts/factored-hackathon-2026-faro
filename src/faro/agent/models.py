@@ -122,6 +122,8 @@ class RouterOutput(BaseModel):
 # The model never sees the name customer_request, which it read as "the customer asked for the block" (D-006).
 OTHER_REASON = "other_reason"
 REASON_CODES = {OTHER_REASON: "customer_request"}
+# POL-35's reasons for a block, as details() gives them to the graph.
+BlockReason = Literal["lost", "stolen", "unrecognized_charge", "customer_request"]
 
 
 class RequestDetails(BaseModel):

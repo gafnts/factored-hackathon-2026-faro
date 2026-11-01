@@ -9,7 +9,7 @@ from faro.agent.formats import moment
 from faro.agent.language import OTHER
 from faro.agent.models import ModelFailedError
 from faro.agent.nodes.calls import tool
-from faro.agent.nodes.cards import TYPES, card_facts, fits, hints
+from faro.agent.nodes.cards import TYPES, Card, ProductType, card_facts, fits, hints
 from faro.agent.nodes.state import (
     OFFERED,
     QUESTIONS,
@@ -41,7 +41,7 @@ ASKS = {
 }
 
 
-def cards_named(cards: list[dict[str, Any]], ids: list[str]) -> str:
+def cards_named(cards: list[Card], ids: list[str]) -> str:
     """
     The cards the IDs name, in the IDs' order, as the chat listed them.
     """
@@ -53,7 +53,7 @@ def cards_named(cards: list[dict[str, Any]], ids: list[str]) -> str:
 
 
 def extraction_context(
-    state: State, asking: dict[str, Any], cards: list[dict[str, Any]], label: str
+    state: State, asking: dict[str, Any], cards: list[Card], label: str
 ) -> str:
     """
     What the extraction reads beside the message: the question it answers, if any, or the request with the cards the
@@ -78,7 +78,7 @@ def extraction_context(
     return f"{given}\n{EARLIER}\n{listed}" if listed else given
 
 
-def mentioned(text: str, cards: list[dict[str, Any]]) -> str | None:
+def mentioned(text: str, cards: list[Card]) -> str | None:
     """
     The last four digits a message gives bare, as in "la 4821", when exactly one of them ends a card of the customer's.
     """
@@ -87,24 +87,24 @@ def mentioned(text: str, cards: list[dict[str, Any]]) -> str | None:
     return found.pop() if len(found) == 1 else None
 
 
-def applies(label: str, card: dict[str, Any]) -> bool:
+def applies(label: str, card: Card) -> bool:
     """
     The cards a request applies to, which POL-13 prefers among several that fit: active cards for a block, and for the
     charge whose block is offered, credit cards for available credit, and any card otherwise.
     """
     if label in ("block_card", "unrecognized_charge"):
-        return bool(card["product_status"] == "Active")
+        return card["product_status"] == "Active"
     if label == "available_credit":
-        return bool(card["product_type"] == TYPES["credit"])
+        return card["product_type"] == TYPES["credit"]
     return True
 
 
 def match(
-    cards: list[dict[str, Any]],
-    card_type: str | None,
+    cards: list[Card],
+    card_type: ProductType | None,
     last_four: str | None,
     label: str = "block_card",
-) -> tuple[str, list[dict[str, Any]]]:
+) -> tuple[str, list[Card]]:
     """
     The card a request means (POL-13 to POL-16): the customer's cards that fit the hints, and among several, the ones
     the request applies to, if any.
@@ -239,7 +239,7 @@ async def resolve_card(state: State) -> dict[str, Any]:
         }
     turn["listed"] = call.call_id
     turn["country"] = country = call.result["customer"]["country"]
-    cards: list[dict[str, Any]] = call.result["cards"]
+    cards: list[Card] = call.result["cards"]
     ids = [c["card_id"] for c in cards]
     if (charge or reading) and not call.result["customer"]["served_in_full"]:
         return {
