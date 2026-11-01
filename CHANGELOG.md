@@ -6,6 +6,8 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+## [1.7.0] - 2026-10-31 (Promotion 13)
+
 ### Changed
 
 - The agent's Python dependencies: AgentCore 1.25.0, FastAPI 0.162.0 and LangGraph 1.2.17. Only the Runtime redeploys, and its stamp stays, since its own code didn't change ([#132]).
@@ -110,6 +112,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judged.
 
+[1.7.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.7.0
 [1.6.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.6.0
 [1.5.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.5.0
 [1.4.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.4.0
