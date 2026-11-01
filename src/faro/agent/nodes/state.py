@@ -3,13 +3,20 @@ The graph's state, and what every flow reads from it or builds into its updates.
 """
 
 import uuid
-from typing import Annotated, Any, NotRequired, TypedDict
+from typing import Annotated, Any, Literal, NotRequired, TypedDict
 
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
 from langgraph.graph.message import add_messages
 
-from faro.agent.language import DEFAULT, settled
-from faro.agent.models import ORDER, BlockReason, RouterOutput
+from faro.agent.language import DEFAULT, Spoken, settled
+from faro.agent.models import (
+    ORDER,
+    BlockReason,
+    Label,
+    Language,
+    NoRequest,
+    RouterOutput,
+)
 from faro.agent.nodes.cards import Card
 from faro.agent.payload import HandoffRequest
 from faro.agent.records import Cited
@@ -24,8 +31,30 @@ OFFERED = "handoff_control"
 # The tool calls a handoff may cite, the thread's latest first to go; a payload holds 60 at most.
 CITED = 40
 READS = ("card_status", "available_credit", "recent_transactions", "decline_reason")
+# Where a request goes next, and the cases that end it with a fixed reply.
+Step = Literal[
+    "block",
+    "read",
+    "status",
+    "find",
+    "reading",
+    "confirm",
+    "ask_reason",
+    "aside",
+    "handoff",
+    "unsupported",
+    "blocking",
+    "again",
+    "fixed",
+    "pointer",
+    "not_served",
+]
+Ending = Literal[
+    "no_request", "unavailable", "refused", "other_person", "third_language"
+]
+Case = Step | Ending
 # Where each request starts: every request but a block reads list_cards first (POL-12).
-CASES = {
+CASES: dict[Label, Step] = {
     "block_card": "block",
     "unrecognized_charge": "block",
     "card_status": "read",
@@ -81,10 +110,10 @@ def kept(held: list[Cited], new: list[Cited]) -> list[Cited]:
 
 
 class State(ChatState, total=False):
-    language: str
+    language: Spoken
     read: int
-    label: str | None
-    case: str
+    label: Label | None
+    case: Case
     cards: list[Card]
     say: list[list[Any]]
     decision: dict[str, Any] | None
@@ -110,7 +139,7 @@ class State(ChatState, total=False):
     shown_cards: list[str] | None
     parts: list[str]
     names: list[str]
-    no_request: str | None
+    no_request: NoRequest | None
 
 
 def latest_text(state: State) -> str:
@@ -156,7 +185,7 @@ def routing(routed: RouterOutput, text: str) -> dict[str, Any]:
     }
 
 
-def heard(state: State, text: str, found: str) -> dict[str, Any]:
+def heard(state: State, text: str, found: Language) -> dict[str, Any]:
     """
     The conversation's language after a model call read text as found (POL-50). Only the latest message sets it, so a
     queued request served later can't move it back, and only its first reading does, so a later call that reads the

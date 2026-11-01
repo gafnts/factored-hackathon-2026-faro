@@ -6,7 +6,7 @@ asked (POL-06), and the requests the chat doesn't serve (POL-41 to POL-44).
 from typing import Any
 
 from faro.agent.language import DEFAULT, OTHER
-from faro.agent.models import ModelFailedError
+from faro.agent.models import Label, ModelFailedError
 from faro.agent.nodes.calls import tool
 from faro.agent.nodes.cards import fits, hints
 from faro.agent.nodes.state import (
@@ -146,7 +146,7 @@ async def unsupported(state: State) -> dict[str, Any]:
     someone else's card or account is refused without saying whether it exists (POL-08).
     """
     scope = SCOPE.get()
-    label = "unsupported"
+    label: Label = "unsupported"
     text = request_text(state)
     try:
         extracted = await scope.models.extract(

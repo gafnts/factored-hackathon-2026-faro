@@ -5,7 +5,7 @@ The transaction a charge or a decline is about, and the decline explained (POL-2
 from typing import Any
 
 from faro.agent.language import OTHER
-from faro.agent.models import ModelFailedError
+from faro.agent.models import Label, ModelFailedError
 from faro.agent.nodes.calls import tool
 from faro.agent.nodes.cards import Transaction, card_facts, listing, seen, shown, today
 from faro.agent.nodes.state import (
@@ -48,7 +48,7 @@ async def find_transaction(state: State) -> dict[str, Any]:
     answering = asked.get("detail") == "transaction"
     target = asked["target"] if answering else state["target"]
     assert target is not None
-    label: str = (
+    label: Label = (
         asked["label"] if answering else state.get("label")
     ) or "unrecognized_charge"
     say = state.get("say", [])
@@ -207,7 +207,8 @@ async def explained(
     asks which fact is right (POL-30, POL-31). Several that two questions didn't settle offer a person (POL-17).
     """
     scope = SCOPE.get()
-    label, say = "decline_reason", state.get("say", [])
+    label: Label = "decline_reason"
+    say = state.get("say", [])
     country = state.get("country", "")
     card = card_facts(target)
     if len(fitting) > 1:

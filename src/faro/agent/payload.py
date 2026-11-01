@@ -13,7 +13,7 @@ from typing import Any, Literal, TypedDict
 
 from langchain_core.messages import AnyMessage, HumanMessage
 
-from faro.agent.models import BlockReason, HandoffText
+from faro.agent.models import BlockReason, HandoffText, Label
 from faro.masking import has_digit_run
 from faro.policy import handoff_schema
 from faro.policy.handoffs import HANDOFFS, MISSING, urgent
@@ -66,7 +66,7 @@ class HandoffRequest(TypedDict):
 
     reason_code: str
     trigger: Literal["required", "accepted_offer"]
-    label: str | None
+    label: Label | None
     rules: list[str]
     decided: list[str]
     outcome: Literal["hand_off"]
@@ -80,7 +80,7 @@ class HandoffRequest(TypedDict):
 
 def required(
     reason_code: str,
-    label: str | None,
+    label: Label | None,
     decided: list[str],
     *,
     calls: Sequence[str] = (),
@@ -114,7 +114,7 @@ def required(
 
 def offered(
     reason_code: str,
-    label: str | None,
+    label: Label | None,
     rules: list[str],
     decided: list[str],
     *,

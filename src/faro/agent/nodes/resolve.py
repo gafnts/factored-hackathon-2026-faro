@@ -7,7 +7,7 @@ from typing import Any
 
 from faro.agent.formats import moment
 from faro.agent.language import OTHER
-from faro.agent.models import ModelFailedError
+from faro.agent.models import Label, ModelFailedError
 from faro.agent.nodes.calls import tool
 from faro.agent.nodes.cards import TYPES, Card, ProductType, card_facts, fits, hints
 from faro.agent.nodes.state import (
@@ -53,7 +53,7 @@ def cards_named(cards: list[Card], ids: list[str]) -> str:
 
 
 def extraction_context(
-    state: State, asking: dict[str, Any], cards: list[Card], label: str
+    state: State, asking: dict[str, Any], cards: list[Card], label: Label
 ) -> str:
     """
     What the extraction reads beside the message: the question it answers, if any, or the request with the cards the
@@ -87,7 +87,7 @@ def mentioned(text: str, cards: list[Card]) -> str | None:
     return found.pop() if len(found) == 1 else None
 
 
-def applies(label: str, card: Card) -> bool:
+def applies(label: Label, card: Card) -> bool:
     """
     The cards a request applies to, which POL-13 prefers among several that fit: active cards for a block, and for the
     charge whose block is offered, credit cards for available credit, and any card otherwise.
@@ -103,7 +103,7 @@ def match(
     cards: list[Card],
     card_type: ProductType | None,
     last_four: str | None,
-    label: str = "block_card",
+    label: Label = "block_card",
 ) -> tuple[str, list[Card]]:
     """
     The card a request means (POL-13 to POL-16): the customer's cards that fit the hints, and among several, the ones
@@ -141,7 +141,7 @@ def question(
     """
     asked = asked or {}
     before = asked.get("questions", 0) if asked.get("detail") == detail else 0
-    label = held.get("label") or "block_card"
+    label: Label = held.get("label") or "block_card"
     if before >= QUESTIONS:
         listed, cards = cites
         stopped = [*rules, "POL-17"]
@@ -217,7 +217,7 @@ async def resolve_card(state: State) -> dict[str, Any]:
     """
     scope = SCOPE.get()
     asked = state.get("asking") or {}
-    label = asked.get("label") or state.get("label") or "block_card"
+    label: Label = asked.get("label") or state.get("label") or "block_card"
     charge = label == "unrecognized_charge"
     reading = label in READS
     turn: dict[str, Any] = {"label": label, "case": "fixed"}

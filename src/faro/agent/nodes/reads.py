@@ -5,6 +5,7 @@ The reads a card request may ask for: its status, its available credit, and its 
 from typing import Any, TypedDict
 
 from faro.agent.gateway import ToolCall
+from faro.agent.models import Label
 from faro.agent.nodes.calls import tool
 from faro.agent.nodes.cards import Card, CardRecord, Credit, card_facts, seen
 from faro.agent.nodes.state import OFFERED, State, decided, offering, said, writable
@@ -37,7 +38,7 @@ def failed_read(call: ToolCall) -> dict[str, Any] | None:
     return None
 
 
-def not_served(state: State, label: str, calls: list[str]) -> dict[str, Any]:
+def not_served(state: State, label: Label, calls: list[str]) -> dict[str, Any]:
     return {
         "case": "handoff",
         "queue": None,
@@ -53,7 +54,7 @@ def not_served(state: State, label: str, calls: list[str]) -> dict[str, Any]:
 
 def conflict_offer(
     state: State,
-    label: str,
+    label: Label,
     rules: list[str],
     calls: list[str],
     cards: list[str],
@@ -77,7 +78,8 @@ async def read_status(state: State) -> dict[str, Any]:
     Each card meant, read with get_card for its expiration (POL-01, POL-14, POL-21). An Active card past its expiration
     is reported with both facts (POL-31).
     """
-    scope, label = SCOPE.get(), "card_status"
+    scope = SCOPE.get()
+    label: Label = "card_status"
     listed = state.get("listed")
     calls = [listed] if listed else []
     cards: list[CardRecord] = []
@@ -168,7 +170,8 @@ async def read_credit(state: State) -> dict[str, Any]:
     reported with both facts (POL-31). The cards with a figure come first, then each without one, then each past its
     expiration.
     """
-    scope, label = SCOPE.get(), "available_credit"
+    scope = SCOPE.get()
+    label: Label = "available_credit"
     listed = state.get("listed")
     calls = [listed] if listed else []
     figured: list[Figure] = []
@@ -240,7 +243,8 @@ async def read_transactions(state: State) -> dict[str, Any]:
     when the customer asks for the next 10, with the window's dates; a card with none, or none left, is answered so
     (POL-19, POL-25). The card and the cursor are kept for the next page.
     """
-    scope, label = SCOPE.get(), "recent_transactions"
+    scope = SCOPE.get()
+    label: Label = "recent_transactions"
     target = state["target"]
     assert target is not None
     card = card_facts(target)
