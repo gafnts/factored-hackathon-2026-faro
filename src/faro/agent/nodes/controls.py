@@ -303,22 +303,13 @@ async def answered_offer(state: State, scope: Scope, resumed: ControlAnswer) -> 
         "label": request["label"],
     }
     if pending is not None:
-        if await asyncio.to_thread(
-            scope.confirmations.lapse,
-            pending["confirmation_id"],
-            "handoff_accepted",
-            scope.now(),
-        ):
-            await ended(scope, pending, "lapsed", "handoff_accepted")
+        say = await lapsed(scope, pending, "handoff_accepted")
         # The accepted handoff files the confirmation's draft, if it had one, so none is left to expire.
         request = request | {
             "actions": [*request["actions"], unused(pending)],
             "handoff_id": pending.get("handoff_id"),
         }
-        update |= {
-            "pending": None,
-            "say": said(("confirmation_lapsed", {"card": pending["card"]})),
-        }
+        update |= {"pending": None, "say": say}
     return update | {"handoff": request}
 
 
