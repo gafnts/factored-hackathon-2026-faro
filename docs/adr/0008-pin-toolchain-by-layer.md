@@ -7,7 +7,7 @@ Accepted (2026-10-31).
 Amended as built, each correction applied in the section it names:
 
 - 2026-10-31: jq joins the system layer ([Decision](#decision)): the deploy's scripts read Terraform's outputs with it, since no Python runs with the deploy role ([ADR-0009](0009-release-checked-deploys.md)).
-- 2026-11-01: osv-scanner joins the dev environment, and pnpm no longer checks its own version against `packageManager`, which kept the lockfile in two documents that hid it from GitHub ([Decision](#decision)); Dependabot reads the composite action ([Consequences](#consequences)) ([ADR-0010](0010-gate-merges-on-advisories.md)).
+- 2026-10-31: osv-scanner joins the dev environment, and pnpm no longer checks its own version against `packageManager`, which kept the lockfile in two documents that hid it from GitHub ([Decision](#decision)); Dependabot reads the composite action ([Consequences](#consequences)) ([ADR-0010](0010-gate-merges-on-advisories.md)).
 
 ## Context
 

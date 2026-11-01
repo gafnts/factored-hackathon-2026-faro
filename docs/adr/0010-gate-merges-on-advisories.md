@@ -2,15 +2,19 @@
 
 ## Status
 
-Accepted (2026-11-01). Its open decisions were settled that day, each on the option we leaned towards, and are listed under [Settled at acceptance](#settled-at-acceptance) with the alternatives we didn't take.
+Accepted (2026-10-31). Its open decisions were settled that day, each on the option we leaned towards, and are listed under [Settled at acceptance](#settled-at-acceptance) with the alternatives we didn't take.
+
+Amended as built, each correction applied in the section it names:
+
+- 2026-10-31: secret scanning's validity checks left out of GitHub's free extras ([Decision](#decision)): GitHub offers them on a user-owned repository only under Enterprise Cloud with Enterprise Managed Users, and turning them on here leaves them off.
 
 ## Context
 
 Our dependencies are pinned in lockfiles and updated by Dependabot ([ADR-0008](0008-pin-toolchain-by-layer.md)), and nothing checks what those pins contain. Five forces make that worth deciding:
 
 - **Nothing stops a PR from adding a known-vulnerable version.** Dependabot raises an alert once a vulnerable version is on `develop`, the branch it scans, so the alert comes after the merge ([#112](https://github.com/gafnts/factored-hackathon-2026-faro/issues/112)). Our rule is that a security fix is done when it's promoted (CONTRIBUTING), and no check holds `main` to it.
-- **GitHub can't see the web app's packages.** pnpm 12 writes `web/pnpm-lock.yaml` as two YAML documents when `packageManager` pins pnpm 12 or newer: a boot document holding pnpm itself, then the project. GitHub's dependency graph reads only the first (GitHub's changelog, 2026-10-20), so on 2026-11-01 it listed 184 PyPI packages and 16 npm packages, all of them pnpm's own binaries, against 659 in the lockfile. The lockfile has had two documents since the scaffold, so the web app has never had a Dependabot alert or security update.
-- **Six advisories went unnoticed.** On 2026-11-01, osv-scanner found six advisories in the web lockfile and none in `uv.lock`: source-map-js 1.2.1 (one high), fast-uri 3.1.8 (two moderate, two low), and minimatch 10.2.6 and 3.1.5 (one moderate). All six come in through build and development tools (Tailwind's Vite plugin, jsdom, Vitest, ajv, ESLint). The fixed fast-uri and source-map-js fall inside their parents' ranges; minimatch's only fix is 11.0.1, a major that ESLint (`^10.2.5`) and jsx-a11y (`^3.1.2`) don't accept yet.
+- **GitHub can't see the web app's packages.** pnpm 12 writes `web/pnpm-lock.yaml` as two YAML documents when `packageManager` pins pnpm 12 or newer: a boot document holding pnpm itself, then the project. GitHub's dependency graph reads only the first (GitHub's changelog, 2026-10-20), so on 2026-10-31 it listed 184 PyPI packages and 16 npm packages, all of them pnpm's own binaries, against 659 in the lockfile. The lockfile has had two documents since the scaffold, so the web app has never had a Dependabot alert or security update.
+- **Six advisories went unnoticed.** On 2026-10-31, osv-scanner found six advisories in the web lockfile and none in `uv.lock`: source-map-js 1.2.1 (one high), fast-uri 3.1.8 (two moderate, two low), and minimatch 10.2.6 and 3.1.5 (one moderate). All six come in through build and development tools (Tailwind's Vite plugin, jsdom, Vitest, ajv, ESLint). The fixed fast-uri and source-map-js fall inside their parents' ranges; minimatch's only fix is 11.0.1, a major that ESLint (`^10.2.5`) and jsx-a11y (`^3.1.2`) don't accept yet.
 - **GitHub's own gate reads the same graph.** `actions/dependency-review-action` compares a PR's dependency changes through the dependency graph, so it would see no web change at all. On a private repository it also needs GitHub Advanced Security, which a personal account can't buy, and ADR-0008 means its conventions to carry over to such projects.
 - **`develop` takes any commit.** It has no ruleset, so a PR merges with its checks red or still running, and anyone with write access can push to it directly. Auto-merging Dependabot's tooling groups ([#116](https://github.com/gafnts/factored-hackathon-2026-faro/issues/116)) would need required checks there first. Since [ADR-0009](0009-release-checked-deploys.md), no workflow holds a token that can write to the repository.
 
@@ -37,12 +41,12 @@ In practice:
 - **The web lockfile is one document.** `pmOnFail: ignore` in `web/pnpm-workspace.yaml` stops pnpm from checking its own version against `packageManager`, and with it from writing the boot document. pnpm's documentation names this setting for a project whose pnpm is installed by a version manager such as mise, which ADR-0008 made ours: mise installs the pnpm `packageManager` names, and a test keeps the two equal. GitHub then sees the web app's packages, so Dependabot's alerts and security updates cover them too. The setting goes once GitHub reads both documents. minimatch's alert, which opens once GitHub sees the web app's packages, is dismissed as a tolerable risk with its entry's reason, so an open alert always means a decision not yet taken.
 - **No auto-merge.** Dependabot's tooling PRs merge by hand. #116 closes with the reasons below.
 - **No license check.** None of our dependencies' licenses has been a question so far; osv-scanner can check them later with one flag.
-- **GitHub's free extras where they're free.** Faro is public, so CodeQL's default setup and secret scanning's validity checks are on. Neither is required, since a private copy of this setup can't have them.
+- **GitHub's free extras where they're free.** Faro is public, so CodeQL's default setup is on. It isn't required, since a private copy of this setup can't have it. Secret scanning's validity checks aren't available to a repository on a personal account.
 - **Dependabot reads the composite action.** `.github/dependabot.yml` lists `.github/actions/*` beside `/`, as ADR-0008's consequences asked, so the pins in `.github/actions/toolchain` stop going stale.
 
 ### Settled at acceptance
 
-Each decision left open while this record was proposed, as settled on 2026-11-01, with the alternative we didn't take.
+Each decision left open while this record was proposed, as settled on 2026-10-31, with the alternative we didn't take.
 
 1. **No bypass on `develop`.** Every commit on `develop` has passed the gates; a small docs change goes through a PR, and the fast-forward needs no bypass. Not taken: administrators bypassing the ruleset, so a docs commit could still go straight in, recorded as a bypass.
 2. **minimatch's date: 2027-01-15**, after January's quarterly round, by which ESLint and jsx-a11y may accept minimatch 11. Not taken: the full 90 days, 2027-01-30.

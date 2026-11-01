@@ -6,6 +6,8 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+## [1.6.0] - 2026-10-31 (Promotion 12)
+
 ### Security
 
 - source-map-js 1.2.2 fixes a denial of service through indexed source maps ([GHSA-68fv-2mgg-jv7q], high), and fast-uri 3.1.9 fixes four flaws in how it reads a URI's scheme, host, and path ([GHSA-w74x-v6f9-j3xg], [GHSA-wjr9-j795-jxcr], moderate; [GHSA-xhq7-xmqj-769h], [GHSA-333x-w4r6-6crp], low). Both come in through the web app's build and test tools, and the site's files are unchanged ([#141]).
@@ -19,6 +21,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - Releases ([ADR-0009](docs/adr/0009-release-checked-deploys.md)). A promotion is cut on `develop` first with `make cut`, which numbers it and dates its section, and named last with `make release`, which tags the merge commit once its deploy has passed and makes a GitHub release whose notes list the build's SHA-256. The submission is `1.0.0`, Promotions 7 to 11 are `1.1.0` to `1.5.0`, and `pyproject.toml`'s version follows the last cut ([#139]).
 - After each deploy to `prototype`, CI checks that each Lambda and the Runtime run the build's zips, then signs a standing smoke user in through the site and asks about its cards; either failing turns the run red, and a red run gets no release ([#139]).
 - A promotion into `main` is refused unless its release is cut ([#139]).
+- CodeQL scans the Python, the TypeScript, and the workflows, a free extra on this public repository and not a required check.
 
 ### Changed
 
@@ -37,6 +40,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 ### Fixed
 
 - The README's badges point at the renamed repository, and CONTRIBUTING no longer mentions `make data ADOPT=1` ([#136]).
+- A release's notes keep the links of its changelog section: the PR and advisory links it uses, and its relative paths, pointed at the release's tag. Before, they didn't resolve on the release's page ([#140]).
 - The same commit builds the same zips from any checkout. Each zip listed its packages' console scripts, whose first line names the Python that built them, so a new checkout path or a new Python changed two of the zips ([#137]).
 
 ## [1.5.0] - 2026-10-31 (Promotion 11)
@@ -101,6 +105,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judged.
 
+[1.6.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.6.0
 [1.5.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.5.0
 [1.4.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.4.0
 [1.3.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.3.0
@@ -132,6 +137,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#136]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/136
 [#137]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/137
 [#139]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/139
+[#140]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/140
 [#141]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/141
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c

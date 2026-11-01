@@ -63,4 +63,4 @@ Each was weighed and left as it is for a solo ten-day build; none is hidden:
 - The four `*.tfbackend` files hold AWS account IDs: identifiers, not credentials, and accepted as such.
 - The system layer isn't pinned: the AWS CLI, the GitHub CLI, jq, git, and mise itself outside CI are whatever each machine has ([ADR-0008](../adr/0008-pin-toolchain-by-layer.md)), so the deploy relies on the runner's AWS CLI knowing AgentCore's API.
 - The full setup has run from one account only; a reproduction from a fork in a fresh account is untested.
-- The repository's history was scanned for secrets, and secret scanning and push protection are on, before it went public. CodeQL and secret scanning's validity checks are on too, as free extras on a public repository, not required checks.
+- The repository's history was scanned for secrets, and secret scanning and push protection are on, before it went public. CodeQL scans the code too, a free extra on a public repository and not a required check. Secret scanning's validity checks, which would ask a provider whether a found secret still works, aren't available to a repository on a personal account.
