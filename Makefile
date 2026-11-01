@@ -21,7 +21,7 @@ DATASET_BACKEND := -backend-config=backend.tfbackend
 .PHONY: help install tflint-init \
 	check lint format type tf-format \
 	test integration browser probe judges \
-	build web web-dev site \
+	build web web-dev site upload \
 	bootstrap backend doctor provision teardown \
 	data snapshot personas tiny-export pipeline export contracts analysis \
 	iam-init iam-plan iam-apply iam-output iam-destroy \
@@ -106,7 +106,9 @@ build: ## Build the zips and rewrite the Gateway's tools.json
 web: ## Build the web app
 	pnpm --dir web build
 
-site: _check-profile outputs web ## Build the web app and upload it to ENV's site
+site: _check-profile web upload ## Build the web app and upload it to ENV's site
+
+upload: _check-profile outputs ## Upload the built web app to ENV's site
 	@if [ "$(ENV)" = "prototype" ] && [ "$(I_KNOW)" != "1" ]; then \
 		echo "Refusing to deploy prototype's site from local. CI owns prototype."; exit 1; fi
 	@bash scripts/site.sh $(OUTPUTS)
@@ -279,7 +281,7 @@ init: _check-profile ## Initialize ENV's backend
 model-key: _check-profile ## Store ANTHROPIC_API_KEY from .env in ENV's secret
 	uv run python -m faro.model_key --env $(ENV)
 
-plan: _check-profile build ## Build, then plan ENV and save the plan
+plan: _check-profile $(if $(BUILT),,build) ## Build, then plan ENV and save the plan (BUILT=1 plans build/ as it is)
 	$(TF_AWS) plan $(VARS) -out=../$(PLAN)
 
 apply: _check-profile _check-backend ## Apply the saved plan (prototype needs I_KNOW=1)

@@ -4,6 +4,10 @@
 
 Accepted (2026-10-31).
 
+Amended as built, each correction applied in the section it names:
+
+- 2026-10-31: jq joins the system layer ([Decision](#decision)): the deploy's scripts read Terraform's outputs with it, since no Python runs with the deploy role ([ADR-0009](0009-release-checked-deploys.md)).
+
 ## Context
 
 Every tool that builds, checks, or deploys Faro has a version, and so far each version has lived wherever its tool happened to look. Five forces make that worth deciding:
@@ -66,7 +70,7 @@ flowchart BT
 |---|---|---|---|
 | Dependencies | The Python packages and the Python-based tools (ruff, mypy, pre-commit, zizmor); the web app's packages and tools; Terraform's providers; tflint's AWS ruleset; the hooks pre-commit fetches | `uv.lock`; `web/pnpm-lock.yaml`; each root's `.terraform.lock.hcl`; `.tflint.hcl`; `.pre-commit-config.yaml`, by commit SHA | uv, pnpm, `terraform init`, `tflint --init`, pre-commit |
 | Dev environment | Python, uv, Node, pnpm, Terraform, tflint, trivy | `mise.toml`, with `mise.lock` | mise |
-| System | The OS, mise itself, the AWS CLI, the GitHub CLI, direnv, git; in production, AWS's runtimes | Not pinned: any recent version works | Each of us, or AWS |
+| System | The OS, mise itself, the AWS CLI, the GitHub CLI, jq, direnv, git; in production, AWS's runtimes | Not pinned: any recent version works | Each of us, or AWS |
 
 A tool belongs to the dev environment when a different version could change our lockfiles, our results, or a deploy; otherwise it belongs to the system. CI is a second machine, not a layer: it rebuilds the same layers from the same files.
 
