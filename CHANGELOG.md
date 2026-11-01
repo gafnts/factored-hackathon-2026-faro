@@ -6,6 +6,10 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Changed
+
+- An AWS account per environment is no longer planned for this project; CONTRIBUTING says why both environments stay in one ([#147]).
+
 ## [1.7.0] - 2026-10-31 (Promotion 13)
 
 ### Changed
@@ -151,6 +155,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#139]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/139
 [#140]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/140
 [#141]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/141
+[#147]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/147
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
