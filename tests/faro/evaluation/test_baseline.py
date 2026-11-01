@@ -12,9 +12,10 @@ import pytest
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
 
 from faro.agent.check import failures
-from faro.agent.graph import ASKS, instructions, listing, today
+from faro.agent.graph import ASKS, instructions
 from faro.agent.language import settled
 from faro.agent.models import Models
+from faro.agent.nodes.cards import listing, today
 from faro.agent.nodes.state import MORE
 from faro.agent.payload import context, required, transcript, written
 from faro.agent.texts import FIXED, LANGUAGE_NAMES, placeholders

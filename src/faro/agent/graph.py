@@ -45,6 +45,17 @@ from faro.agent.gateway import ToolCall
 from faro.agent.language import DEFAULT, OTHER, settled
 from faro.agent.models import ModelFailedError, RouterOutput
 from faro.agent.nodes.calls import bound, citing, tool
+from faro.agent.nodes.cards import (
+    KINDS,
+    TYPES,
+    card_facts,
+    fits,
+    hints,
+    listing,
+    seen,
+    shown,
+    today,
+)
 from faro.agent.nodes.state import (
     CASES,
     CONTROL,
@@ -87,9 +98,6 @@ from faro.tools.transactions import window
 
 # The wrapper turns this event into one TEXT_MESSAGE_START, CONTENT, and END, so a reply reaches the chat whole.
 EMIT_MESSAGE = "manually_emit_message"
-TYPES = {"credit": "Tarjeta Crédito", "debit": "Tarjeta Débito"}
-KINDS = {product_type: kind for kind, product_type in TYPES.items()}
-LAST_FOUR = re.compile(r"^[0-9]{4}$")
 # Four digits on their own: not part of a longer number, and not an amount's whole part ("1177.00").
 FOUR_DIGITS = re.compile(r"(?<![0-9])(?<![0-9][.,])[0-9]{4}(?![0-9])(?![.,][0-9])")
 # The blocks whose confirmation's end may require a handoff, drafted when the control shows (POL-38, POL-39).
@@ -155,25 +163,6 @@ SHAPES = {
     ),
 }
 EARLIER = "Earlier in the conversation, the chat listed these cards, in this order:"
-
-
-def card_facts(card: dict[str, Any]) -> dict[str, Any]:
-    return {k: card[k] for k in ("product_type", "last_four", "product_status")}
-
-
-def kind(card: dict[str, Any]) -> str:
-    return "credit" if card["product_type"] == TYPES["credit"] else "debit"
-
-
-def seen(card: dict[str, Any], transaction: dict[str, Any] | None = None) -> str:
-    """
-    The values the reply's model may choose words around: a card's type and status, and a transaction's status. Never
-    an amount, a date, last four digits, a merchant, a country, or a code's meaning, which stands on a line of its own.
-    """
-    text = f"A {kind(card)} card whose status is {card['product_status']}."
-    if transaction is not None:
-        text += f" The transaction's status is {transaction['transaction_status']}."
-    return text
 
 
 async def begin(state: State) -> dict[str, Any]:
@@ -388,12 +377,6 @@ def extraction_context(
     return f"{context}\n{EARLIER}\n{listed}" if listed else context
 
 
-def hints(details: dict[str, Any]) -> tuple[str | None, str | None]:
-    last_four = details.get("last_four")
-    last_four = last_four if last_four and LAST_FOUR.match(last_four) else None
-    return TYPES.get(details.get("card_type") or ""), last_four
-
-
 def mentioned(text: str, cards: list[dict[str, Any]]) -> str | None:
     """
     The last four digits a message gives bare, as in "la 4821", when exactly one of them ends a card of the customer's.
@@ -401,12 +384,6 @@ def mentioned(text: str, cards: list[dict[str, Any]]) -> str | None:
     endings = {c["last_four"] for c in cards}
     found = {m for m in FOUR_DIGITS.findall(text) if m in endings}
     return found.pop() if len(found) == 1 else None
-
-
-def fits(card: dict[str, Any], card_type: str | None, last_four: str | None) -> bool:
-    return (card_type is None or card["product_type"] == card_type) and (
-        last_four is None or card["last_four"] == last_four
-    )
 
 
 def applies(label: str, card: dict[str, Any]) -> bool:
@@ -783,56 +760,6 @@ async def resolve_card(state: State) -> dict[str, Any]:
     if reason is None:
         return {**turn, "case": "ask_reason", "target": target}
     return {**turn, "case": "confirm", "target": {**target, "reason": reason}}
-
-
-WEEKDAYS = (
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-)
-
-
-def weekday(timestamp: str) -> str:
-    return WEEKDAYS[datetime.strptime(timestamp[:10], "%Y-%m-%d").weekday()]
-
-
-def today(business_date: str) -> str:
-    """
-    POL-19: what the customer's "yesterday" or "last Friday" counts from, which code gives the model with each listed
-    transaction's weekday, so the model matches words to dates and never computes one.
-    """
-    return (
-        f"Today is {weekday(business_date)} {business_date}, the bank's business date."
-    )
-
-
-def listing(transactions: list[dict[str, Any]]) -> str:
-    """
-    The window's transactions as the model reads them: numbered, never by ID.
-    """
-    return "\n".join(
-        f"{n}. {weekday(t['transaction_date'])} {t['transaction_date']}, {t['transaction_type']}, "
-        f"{t['amount']} {t['currency']}, "
-        f"{t['merchant_name'] or 'merchant not recorded'}, {t['transaction_status']}, {t['transaction_country']}"
-        for n, t in enumerate(transactions, 1)
-    )
-
-
-def shown(transaction: dict[str, Any]) -> dict[str, Any]:
-    return {
-        k: transaction[k]
-        for k in (
-            "transaction_date",
-            "transaction_type",
-            "merchant_name",
-            "amount",
-            "currency",
-        )
-    }
 
 
 KINDS_OF_TRANSACTION = {
