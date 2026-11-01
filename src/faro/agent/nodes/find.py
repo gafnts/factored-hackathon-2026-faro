@@ -2,16 +2,20 @@
 The transaction a charge or a decline is about, and the decline explained (POL-27 to POL-32, POL-39).
 """
 
-from typing import Any
+from typing import cast
 
 from faro.agent.language import OTHER
-from faro.agent.models import ModelFailedError
+from faro.agent.models import Label, ModelFailedError
 from faro.agent.nodes.calls import tool
-from faro.agent.nodes.cards import card_facts, listing, seen, shown, today
+from faro.agent.nodes.cards import Transaction, card_facts, listing, seen, shown, today
 from faro.agent.nodes.state import (
     OFFERED,
     QUESTIONS,
+    Charge,
+    Said,
     State,
+    Target,
+    Update,
     decided,
     heard,
     latest_text,
@@ -32,7 +36,7 @@ KINDS_OF_TRANSACTION = {
 }
 
 
-async def find_transaction(state: State) -> dict[str, Any]:
+async def find_transaction(state: State) -> Update:
     """
     Looks for the transaction the customer means among the card's transactions in the 90-day window, in any status: a
     charge they don't recognize (POL-39, as in POL-27), or a decline (POL-27). The model reads them numbered and says
@@ -47,19 +51,20 @@ async def find_transaction(state: State) -> dict[str, Any]:
     answering = asked.get("detail") == "transaction"
     target = asked["target"] if answering else state["target"]
     assert target is not None
-    label: str = (
+    label: Label = (
         asked["label"] if answering else state.get("label")
     ) or "unrecognized_charge"
     say = state.get("say", [])
-    turn: dict[str, Any] = {"label": label, "case": "fixed", "asking": None}
+    turn: Update = {"label": label, "case": "fixed", "asking": None}
     card = card_facts(target)
     country = state.get("country", "")
     declined = label == "decline_reason"
     failed = False
     if answering:
         turn["text"] = asked.get("text")
-        calls, candidates = asked["calls"], asked["candidates"]
-        context = (
+        # A transaction question's candidates are the transactions it listed.
+        calls, candidates = asked["calls"], cast(list[Transaction], asked["candidates"])
+        given = (
             f"{KINDS_OF_TRANSACTION[label]}\n{today(scope.business_date)}\n"
             "The customer is answering which of these transactions they mean:\n"
             + listing(candidates)
@@ -83,15 +88,15 @@ async def find_transaction(state: State) -> dict[str, Any]:
             cursor = call.result.get("next_cursor")
             if cursor is None:
                 break
-        context = (
+        given = (
             f"{KINDS_OF_TRANSACTION[label]}\n{today(scope.business_date)}\n"
             + listing(candidates)
         )
-    fitting: list[dict[str, Any]] = []
+    fitting: list[Transaction] = []
     if candidates:
         text = latest_text(state) if answering else request_text(state)
         try:
-            chosen = await scope.models.choose(text, context)
+            chosen = await scope.models.choose(text, given)
         except ModelFailedError:
             failed = True
         else:
@@ -117,15 +122,15 @@ async def find_transaction(state: State) -> dict[str, Any]:
         return {**turn, "case": "unavailable"}
     if len(fitting) > 1 and before < QUESTIONS:
         listed = fitting[:SHOWN]
-        which = [
+        which: Said = (
             "which_decline" if declined else "which_charge",
             {
                 "card": card,
                 "transactions": [shown(t) for t in listed],
                 "country": country,
             },
-        ]
-        decision = decided("clarify", rules, "transaction", label)
+        )
+        decision = decided("clarify", rules, label, "transaction")
         return {
             **turn,
             "asking": {
@@ -162,7 +167,7 @@ async def find_transaction(state: State) -> dict[str, Any]:
         lead = said(("charge_unread", {"card": card}))
     else:
         lead = said(("charge_not_found", {"card": card}))
-    charge = {
+    charge: Charge = {
         "calls": calls,
         "transactions": [] if found is None else [found["transaction_id"]],
     }
@@ -194,11 +199,11 @@ async def find_transaction(state: State) -> dict[str, Any]:
 
 async def explained(
     state: State,
-    turn: dict[str, Any],
-    target: dict[str, Any],
-    fitting: list[dict[str, Any]],
+    turn: Update,
+    target: Target,
+    fitting: list[Transaction],
     calls: list[str],
-) -> dict[str, Any]:
+) -> Update:
     """
     A decline found, explained (POL-02, POL-27 to POL-30, POL-32): a Declined one by its code's meaning and nothing
     else, or abstained on with a person offered when the code is missing or unlisted; a Pending, Reversed, or Approved
@@ -206,7 +211,8 @@ async def explained(
     asks which fact is right (POL-30, POL-31). Several that two questions didn't settle offer a person (POL-17).
     """
     scope = SCOPE.get()
-    label, say = "decline_reason", state.get("say", [])
+    label: Label = "decline_reason"
+    say = state.get("say", [])
     country = state.get("country", "")
     card = card_facts(target)
     if len(fitting) > 1:
@@ -223,18 +229,18 @@ async def explained(
             **turn,
             "say": [*say, *said(("clarification_stopped", {}), ("handoff_offer", {}))],
             "offer": offering(request, "abstain"),
-            "decision": decided("abstain", stopped, OFFERED, label),
+            "decision": decided("abstain", stopped, label, OFFERED),
         }
     if not fitting:
         return {
             **turn,
             "say": [*say, *said(("decline_not_found", {"card": card}))],
-            "decision": decided("answer", ["POL-27"], label=label),
+            "decision": decided("answer", ["POL-27"], label),
         }
     found = fitting[0]
     facts = {"card": card, "transaction": found, "country": country}
     rules = ["POL-27"]
-    conflicts: list[list[Any]] = []
+    conflicts: list[Said] = []
     if found["before_card_opening"]:
         conflicts += said(("before_opening", {"card": card}))
     if (
@@ -244,9 +250,9 @@ async def explained(
     ):
         call = await tool(scope, "get_card", card_id=target["card_id"])
         calls.append(call.call_id)
-        read = (call.result or {}).get("card")
-        if call.outcome == "ok" and read and read["expiration_date"] is not None:
-            conflicts += said(("code_conflict", {"card": read}))
+        record = (call.result or {}).get("card")
+        if call.outcome == "ok" and record and record["expiration_date"] is not None:
+            conflicts += said(("code_conflict", {"card": record}))
     if conflicts:
         rules += ["POL-30"]
     if found["transaction_status"] != "Declined":
@@ -273,7 +279,7 @@ async def explained(
                 *said(("handoff_offer", {})),
             ],
             "offer": offering(request, "abstain"),
-            "decision": decided("abstain", rules, OFFERED, label),
+            "decision": decided("abstain", rules, label, OFFERED),
         }
     else:
         parts = writable("decline_explained", facts, seen(card, found))
@@ -299,10 +305,10 @@ async def explained(
                 *said(("conflict_unresolved", {}), ("handoff_offer", {})),
             ],
             "offer": offering(request, "answer"),
-            "decision": decided("answer", rules, OFFERED, label),
+            "decision": decided("answer", rules, label, OFFERED),
         }
     return {
         **turn,
         "say": [*say, *parts, *conflicts],
-        "decision": decided("answer", rules, label=label),
+        "decision": decided("answer", rules, label),
     }

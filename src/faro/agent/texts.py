@@ -9,6 +9,7 @@ too (POL-45).
 """
 
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from faro.agent.formats import (
@@ -416,7 +417,7 @@ def joined(items: list[str], language: str) -> str:
     return f"{', '.join(items[:-1])} {AND[language]} {items[-1]}"
 
 
-def values(language: str, facts: dict[str, Any]) -> dict[str, str]:
+def values(language: str, facts: Mapping[str, Any]) -> dict[str, str]:
     """
     Each placeholder's text, from the facts a node read: a card, a transaction, or a list of either, the credit, the
     window, and the date they are as of, formatted for the conversation's language and the customer's country.
@@ -508,5 +509,5 @@ def fill(text: str, filled: dict[str, str]) -> str:
     return PLACEHOLDER.sub(value, text)
 
 
-def render(name: str, language: str, facts: dict[str, Any]) -> str:
+def render(name: str, language: str, facts: Mapping[str, Any]) -> str:
     return fill(FIXED[name][language], values(language, facts))

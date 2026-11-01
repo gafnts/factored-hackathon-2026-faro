@@ -5,7 +5,7 @@ The confirm and handoff controls: waiting on them, and every answer they get, a 
 
 import asyncio
 from datetime import UTC, datetime
-from typing import Any
+from typing import Literal, Required, TypedDict
 
 from langchain_core.messages import HumanMessage
 from langgraph.types import interrupt
@@ -19,9 +19,13 @@ from faro.agent.nodes.state import (
     MISSING,
     OFFERED,
     QUESTIONS,
+    Decision,
+    Offer,
+    Pending,
+    Said,
     State,
+    Update,
     cited,
-    concluded,
     decided,
     offering,
     paged,
@@ -29,20 +33,33 @@ from faro.agent.nodes.state import (
     routing,
     said,
 )
-from faro.agent.payload import offered, required
+from faro.agent.payload import Action, ActionOutcome, HandoffRequest, offered, required
 from faro.agent.records import wall_time
 from faro.agent.scope import SCOPE, Scope
 
 
-def controls(state: State) -> dict[str, Any]:
+class ControlAnswer(TypedDict, total=False):
+    """
+    How the entrypoint resumes the controls' interrupt (request.py): a confirm or a cancel naming the confirmation, an
+    accept or a decline naming the offer, or a message typed while they show.
+    """
+
+    kind: Required[Literal["confirm", "cancel", "accept", "decline", "message"]]
+    confirmation_id: str
+    offer_id: str
+    message_id: str
+    text: str
+
+
+def controls(state: State) -> dict[str, object]:
     """
     The interrupt's value, built from the state alone: await_control runs again from its start when resumed. A pending
     confirmation and an offer show together when POL-36 offers a handoff while the confirmation is pending.
     """
     pending, offer = state.get("pending"), state.get("offer")
-    shown: list[dict[str, Any]] = []
+    showing: list[dict[str, object]] = []
     if pending is not None:
-        shown.append(
+        showing.append(
             {
                 "kind": "block_confirmation",
                 "confirmation_id": pending["confirmation_id"],
@@ -57,24 +74,21 @@ def controls(state: State) -> dict[str, Any]:
             }
         )
     if offer is not None:
-        shown.append(
+        showing.append(
             {
                 "kind": "handoff_offer",
                 "offer_id": offer["offer_id"],
                 "reason_code": offer["reason_code"],
             }
         )
-    return {"reason": "controls", "language": state["language"], "controls": shown}
+    return {"reason": "controls", "language": state["language"], "controls": showing}
 
 
-def offer_waits(offer: dict[str, Any], rules: list[str]) -> dict[str, Any]:
-    return {
-        **concluded(offer["request"]["label"], offer["outcome_class"], rules),
-        "awaiting": OFFERED,
-    }
+def offer_waits(offer: Offer, rules: list[str]) -> Decision:
+    return decided(offer["outcome_class"], rules, offer["request"]["label"], OFFERED)
 
 
-def unused(pending: dict[str, Any], outcome: str = "lapsed") -> dict[str, Any]:
+def unused(pending: Pending, outcome: ActionOutcome = "lapsed") -> Action:
     """
     A confirmation that ended unused, as a handoff's action: cancelled with the control, or lapsed.
     """
@@ -89,9 +103,7 @@ def unused(pending: dict[str, Any], outcome: str = "lapsed") -> dict[str, Any]:
     }
 
 
-def owed(
-    pending: dict[str, Any], cause: str, rules: list[str]
-) -> dict[str, Any] | None:
+def owed(pending: Pending, cause: str, rules: list[str]) -> HandoffRequest | None:
     """
     The handoff a confirmation's unused end requires, which files its draft: POL-39's however it ended, and POL-38's
     when a lost or stolen card's block lapsed at its time limit or with the sign-in, since the customer left without
@@ -115,7 +127,7 @@ def owed(
     )
 
 
-async def ended(scope: Scope, pending: dict[str, Any], to: str, cause: str) -> None:
+async def ended(scope: Scope, pending: Pending, to: str, cause: str) -> None:
     await scope.turn.write(
         "confirmation",
         confirmation_id=pending["confirmation_id"],
@@ -127,7 +139,7 @@ async def ended(scope: Scope, pending: dict[str, Any], to: str, cause: str) -> N
     )
 
 
-async def lapsed(scope: Scope, pending: dict[str, Any], cause: str) -> list[list[Any]]:
+async def lapsed(scope: Scope, pending: Pending, cause: str) -> list[Said]:
     """
     Ends the confirmation unused, and says so; owed() says whether a person takes the case.
     """
@@ -138,7 +150,7 @@ async def lapsed(scope: Scope, pending: dict[str, Any], cause: str) -> list[list
     return said(("confirmation_lapsed", {"card": pending["card"]}))
 
 
-def lapse_rules(pending: dict[str, Any], cause: str) -> list[str]:
+def lapse_rules(pending: Pending, cause: str) -> list[str]:
     rules = ["POL-36"]
     if cause == "session_end":
         rules.insert(0, "POL-09")
@@ -147,11 +159,11 @@ def lapse_rules(pending: dict[str, Any], cause: str) -> list[str]:
     return rules
 
 
-async def await_control(state: State) -> dict[str, Any]:
-    answer: dict[str, Any] = interrupt(controls(state))
+async def await_control(state: State) -> Update:
+    resumed: ControlAnswer = interrupt(controls(state))
     scope = SCOPE.get()
     pending, offer = state.get("pending"), state.get("offer")
-    turn: dict[str, Any] = {
+    turn: Update = {
         "label": "block_card"
         if pending is not None or offer is None
         else offer["request"]["label"],
@@ -170,19 +182,19 @@ async def await_control(state: State) -> dict[str, Any]:
         "parts": [],
         "names": [],
     }
-    if answer["kind"] == "message":
-        return {**turn, **(await typed(state, scope, answer))}
-    if answer["kind"] in ("accept", "decline"):
-        return {**turn, **(await answered_offer(state, scope, answer))}
+    if resumed["kind"] == "message":
+        return {**turn, **(await typed(state, scope, resumed))}
+    if resumed["kind"] in ("accept", "decline"):
+        return {**turn, **(await answered_offer(state, scope, resumed))}
     assert pending is not None
     # A confirm or a cancel ends an offer shown beside the confirmation.
     turn["offer"] = None
     confirmation_id = pending["confirmation_id"]
-    if answer.get("confirmation_id") != confirmation_id:
+    if resumed.get("confirmation_id") != confirmation_id:
         # The entrypoint lets through only an answer naming the pending control.
         await scope.turn.write(
             "resume",
-            resume_kind=answer["kind"],
+            resume_kind=resumed["kind"],
             accepted=False,
             refusal="not_pending",
         )
@@ -190,16 +202,16 @@ async def await_control(state: State) -> dict[str, Any]:
             **turn,
             "offer": offer,
             "case": "again",
-            "decision": decided("block", ["POL-36"], CONTROL),
+            "decision": decided("block", ["POL-36"], "block_card", CONTROL),
         }
-    to = "confirmed" if answer["kind"] == "confirm" else "cancelled"
+    to = "confirmed" if resumed["kind"] == "confirm" else "cancelled"
     at = scope.now()
     refusal = await asyncio.to_thread(
         scope.confirmations.answer, confirmation_id, to, bound(scope), at
     )
     await scope.turn.write(
         "resume",
-        resume_kind=answer["kind"],
+        resume_kind=resumed["kind"],
         confirmation_id=confirmation_id,
         accepted=refusal is None,
         **({} if refusal is None else {"refusal": refusal}),
@@ -213,7 +225,7 @@ async def await_control(state: State) -> dict[str, Any]:
         }
     if refusal is None:
         await ended(scope, pending, "cancelled", "control")
-        cancelled = {
+        cancelled: Update = {
             **turn,
             "pending": None,
             "say": said(("confirmation_cancelled", {"card": pending["card"]})),
@@ -221,12 +233,12 @@ async def await_control(state: State) -> dict[str, Any]:
         request = owed(pending, "control", ["POL-36"])
         if request is not None:
             return cancelled | {"case": "handoff", "handoff": request}
-        return cancelled | {"decision": decided("answer", ["POL-36"])}
+        return cancelled | {"decision": decided("answer", ["POL-36"], "block_card")}
     cause = {"expired": "time_limit", "other_sign_in": "session_end"}.get(
         refusal, "message"
     )
     rules = lapse_rules(pending, cause)
-    ended_unused = {
+    ended_unused: Update = {
         **turn,
         "pending": None,
         "say": await lapsed(scope, pending, cause),
@@ -234,12 +246,10 @@ async def await_control(state: State) -> dict[str, Any]:
     request = owed(pending, cause, rules)
     if request is not None:
         return ended_unused | {"case": "handoff", "handoff": request}
-    return ended_unused | {"decision": decided("answer", rules)}
+    return ended_unused | {"decision": decided("answer", rules, "block_card")}
 
 
-async def answered_offer(
-    state: State, scope: Scope, answer: dict[str, Any]
-) -> dict[str, Any]:
+async def answered_offer(state: State, scope: Scope, resumed: ControlAnswer) -> Update:
     """
     The handoff control's answer (POL-45). Accepting files the offered handoff and ends a confirmation shown beside it
     unused (POL-36); declining ends the offer, and a confirmation beside it stays pending. From another sign-in, the
@@ -247,15 +257,15 @@ async def answered_offer(
     """
     offer, pending = state["offer"], state.get("pending")
     assert offer is not None
-    if answer.get("offer_id") != offer["offer_id"]:
+    if resumed.get("offer_id") != offer["offer_id"]:
         await scope.turn.write(
             "resume",
-            resume_kind=answer["kind"],
+            resume_kind=resumed["kind"],
             accepted=False,
             refusal="not_pending",
         )
         waits = (
-            decided("block", ["POL-36"], CONTROL)
+            decided("block", ["POL-36"], "block_card", CONTROL)
             if pending is not None
             else offer_waits(offer, ["POL-45"])
         )
@@ -263,13 +273,13 @@ async def answered_offer(
     if offer["origin_jti"] != scope.claims.origin_jti:
         await scope.turn.write(
             "resume",
-            resume_kind=answer["kind"],
+            resume_kind=resumed["kind"],
             offer_id=offer["offer_id"],
             accepted=False,
             refusal="other_sign_in",
         )
         say, rules = said(("offer_lapsed", {})), ["POL-09", "POL-45"]
-        update: dict[str, Any] = {"offer": None, "pending": None}
+        update: Update = {"offer": None, "pending": None}
         if pending is not None:
             say = [*(await lapsed(scope, pending, "session_end")), *say]
             rules = [*lapse_rules(pending, "session_end"), "POL-45"]
@@ -278,22 +288,24 @@ async def answered_offer(
                 return update | {"say": say, "case": "handoff", "handoff": request}
         return update | {
             "say": say,
-            "decision": concluded(offer["request"]["label"], "answer", rules),
+            "decision": decided("answer", rules, offer["request"]["label"]),
         }
     await scope.turn.write(
         "resume",
-        resume_kind=answer["kind"],
+        resume_kind=resumed["kind"],
         offer_id=offer["offer_id"],
         accepted=True,
     )
-    if answer["kind"] == "decline":
-        declined = {"offer": None, "say": said(("offer_declined", {}))}
+    if resumed["kind"] == "decline":
+        declined: Update = {"offer": None, "say": said(("offer_declined", {}))}
         if pending is not None:
             return declined | {
-                "decision": decided("block", ["POL-36", "POL-45"], CONTROL)
+                "decision": decided(
+                    "block", ["POL-36", "POL-45"], "block_card", CONTROL
+                )
             }
         return declined | {
-            "decision": concluded(offer["request"]["label"], "answer", ["POL-45"])
+            "decision": decided("answer", ["POL-45"], offer["request"]["label"])
         }
     request = offer["request"]
     update = {
@@ -310,8 +322,7 @@ async def answered_offer(
         ):
             await ended(scope, pending, "lapsed", "handoff_accepted")
         # The accepted handoff files the confirmation's draft, if it had one, so none is left to expire.
-        request = {
-            **request,
+        request = request | {
             "actions": [*request["actions"], unused(pending)],
             "handoff_id": pending.get("handoff_id"),
         }
@@ -322,7 +333,7 @@ async def answered_offer(
     return update | {"handoff": request}
 
 
-async def typed(state: State, scope: Scope, answer: dict[str, Any]) -> dict[str, Any]:
+async def typed(state: State, scope: Scope, resumed: ControlAnswer) -> Update:
     """
     A message typed while a control shows (POL-06, POL-36, POL-45). A new request ends what shows and moves on, and so
     does another card or reason for a pending block; anything else, a typed yes included, leaves the controls as they
@@ -330,9 +341,9 @@ async def typed(state: State, scope: Scope, answer: dict[str, Any]) -> dict[str,
     and the message is served as a new one.
     """
     pending, offer = state.get("pending"), state.get("offer")
-    text = answer["text"]
-    update: dict[str, Any] = {
-        "messages": [HumanMessage(id=answer["message_id"], content=text)]
+    text = resumed["text"]
+    update: Update = {
+        "messages": [HumanMessage(id=resumed["message_id"], content=text)]
     }
     await scope.turn.write(
         "resume",
@@ -352,7 +363,7 @@ async def typed(state: State, scope: Scope, answer: dict[str, Any]) -> dict[str,
         if pending is not None:
             pointer, waits = (
                 "control_pointer",
-                decided("block", ["POL-51", "POL-36"], CONTROL),
+                decided("block", ["POL-51", "POL-36"], "block_card", CONTROL),
             )
         else:
             assert offer is not None
@@ -369,11 +380,9 @@ async def typed(state: State, scope: Scope, answer: dict[str, Any]) -> dict[str,
     return update | (await typed_to_confirmation(scope, pending, offer, text, routed))
 
 
-async def typed_to_offer(
-    scope: Scope, offer: dict[str, Any], routed: dict[str, Any] | None
-) -> dict[str, Any]:
+async def typed_to_offer(scope: Scope, offer: Offer, routed: Update | None) -> Update:
     if offer["origin_jti"] != scope.claims.origin_jti:
-        update: dict[str, Any] = {
+        update: Update = {
             "offer": None,
             "say": said(("offer_lapsed", {})),
             "rules": ["POL-09", "POL-45"],
@@ -381,9 +390,7 @@ async def typed_to_offer(
         if routed is None:
             return update | {"case": "unavailable", "label": None}
         if routed["case"] == "no_request":
-            return update | {
-                "decision": concluded(None, "answer", ["POL-09", "POL-45"])
-            }
+            return update | {"decision": decided("answer", ["POL-09", "POL-45"], None)}
         return update | routed
     if routed is None:
         return {
@@ -402,11 +409,11 @@ async def typed_to_offer(
 
 async def typed_to_confirmation(
     scope: Scope,
-    pending: dict[str, Any],
-    offer: dict[str, Any] | None,
+    pending: Pending,
+    offer: Offer | None,
     text: str,
-    routed: dict[str, Any] | None,
-) -> dict[str, Any]:
+    routed: Update | None,
+) -> Update:
     """
     An offer shown beside the confirmation ends with it. The second time the chat points to the confirm control, it
     also offers a handoff, since a person can block the card, unless POL-39 already requires one (POL-36).
@@ -418,7 +425,7 @@ async def typed_to_confirmation(
         cause = "session_end"
     if cause is not None:
         say, rules = await lapsed(scope, pending, cause), lapse_rules(pending, cause)
-        update: dict[str, Any] = {
+        update: Update = {
             "pending": None,
             "offer": None,
             "say": say,
@@ -427,26 +434,24 @@ async def typed_to_confirmation(
         request = owed(pending, cause, rules)
         if request is not None:
             # Filed first; a new request in the message is served after it.
-            onward = (
-                None if routed is None or routed["case"] == "no_request" else routed
-            )
-            return update | {"case": "handoff", "handoff": request, "then": onward}
+            then = None if routed is None or routed["case"] == "no_request" else routed
+            return update | {"case": "handoff", "handoff": request, "then": then}
         if routed is None:
             return update | {"case": "unavailable", "label": None}
         if routed["case"] == "no_request":
-            return update | {"decision": decided("answer", rules)}
+            return update | {"decision": decided("answer", rules, "block_card")}
         return update | routed
     if routed is None:
         return {
             "case": "pointer",
             "say": said(("unavailable", {})),
-            "decision": decided("abstain", ["POL-48"], CONTROL),
+            "decision": decided("abstain", ["POL-48"], "block_card", CONTROL),
         }
     if routed["case"] not in ("block", "no_request") or routed["label"] not in (
         None,
         "block_card",
     ):
-        moved: dict[str, Any] = {
+        moved: Update = {
             "pending": None,
             "offer": None,
             "say": await lapsed(scope, pending, "message"),
@@ -477,18 +482,18 @@ async def typed_to_confirmation(
                 "card_type": KINDS[pending["card"]["product_type"]],
                 "last_four": pending["card"]["last_four"],
             }
-        another: dict[str, Any] = {
+        another: Update = {
             "pending": None,
             "offer": None,
             "say": say,
             "rules": ["POL-36"],
             "details": details | {"block_reason": reason or pending["reason"]},
         }
-        onward = {"case": "block", "label": "block_card"}
+        then = {"case": "block", "label": "block_card"}
         request = owed(pending, "message", ["POL-36"])
         if request is not None:
-            return another | {"case": "handoff", "handoff": request, "then": onward}
-        return another | onward
+            return another | {"case": "handoff", "handoff": request, "then": then}
+        return another | then
     pointers = pending["typed"] + 1
     rules = ["POL-06", "POL-36"]
     say = said(("control_pointer", {}))
@@ -503,7 +508,7 @@ async def typed_to_confirmation(
                 "block_card",
                 ["POL-36"],
                 rules,
-                calls=[pending["listed"]] if pending.get("listed") else [],
+                calls=[pending["listed"]] if pending["listed"] else [],
                 cards=[pending["card_id"]],
             ),
             "block",
@@ -514,11 +519,11 @@ async def typed_to_confirmation(
         "pending": {**pending, "typed": pointers},
         "offer": offer,
         "say": say,
-        "decision": decided("block", rules, CONTROL),
+        "decision": decided("block", rules, "block_card", CONTROL),
     }
 
 
-async def hold(state: State) -> dict[str, Any]:
+async def hold(state: State) -> Update:
     """
     Records the decision of a turn that changed nothing and ends it at the control again.
     """

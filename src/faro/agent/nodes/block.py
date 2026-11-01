@@ -4,7 +4,7 @@ A block: its confirmation and the control that shows it, the block once confirme
 
 import asyncio
 import uuid
-from typing import Any
+from typing import cast
 
 from faro.agent.confirmations import new_record
 from faro.agent.filing import new_call_id
@@ -14,13 +14,16 @@ from faro.agent.nodes.state import (
     CONTROL,
     MISSING,
     OFFERED,
+    BlockOutput,
     State,
+    Target,
+    Update,
     cited,
     decided,
     offering,
     said,
 )
-from faro.agent.payload import offered, required
+from faro.agent.payload import Action, offered, required
 from faro.agent.scope import SCOPE, Scope
 from faro.policy.handoffs import HANDOFFS
 
@@ -28,7 +31,7 @@ from faro.policy.handoffs import HANDOFFS
 DRAFTED = (*MISSING, "unrecognized_charge")
 
 
-async def confirm(state: State) -> dict[str, Any]:
+async def confirm(state: State) -> Update:
     scope = SCOPE.get()
     target = state["target"]
     assert target is not None
@@ -87,12 +90,12 @@ async def confirm(state: State) -> dict[str, Any]:
             "handoff_id": handoff_id,
         },
         "say": [*state.get("say", []), *say],
-        "decision": decided("block", rules, CONTROL, label),
+        "decision": decided("block", rules, label, CONTROL),
     }
 
 
 async def drafted(
-    scope: Scope, language: str, target: dict[str, Any], confirmation_id: str
+    scope: Scope, language: str, target: Target, confirmation_id: str
 ) -> str:
     """
     Saves a draft of the handoff the confirmation's end may require, through file_handoff, since the Runtime's role
@@ -141,7 +144,7 @@ async def drafted(
     return handoff_id
 
 
-async def block(state: State) -> dict[str, Any]:
+async def block(state: State) -> Update:
     scope = SCOPE.get()
     pending = state["pending"]
     assert pending is not None
@@ -168,29 +171,30 @@ async def block(state: State) -> dict[str, Any]:
         "block": {
             "call_id": call.call_id,
             "outcome": call.outcome,
-            "result": call.result,
+            # The gateway checked the output against block_card's contract.
+            "result": cast(BlockOutput | None, call.result),
             "planned": bool((call.error or {}).get("planned")),
         }
     }
 
 
-async def verify(state: State) -> dict[str, Any]:
+async def verify(state: State) -> Update:
     """
     Reads the card again for the reply's and the handoff's evidence. The reply says it is blocked only when the block's
     read-back and this read both show it; otherwise the case is handed off, with the block's outcome as its action when
     the block returned one (POL-37, AI-05).
     """
     scope = SCOPE.get()
-    pending, done = state["pending"], state["block"]
-    assert pending is not None and done is not None
+    pending, tried = state["pending"], state["block"]
+    assert pending is not None and tried is not None
     call = await tool(scope, "get_card", card_id=pending["card_id"])
     facts = {"card": pending["card"]}
-    result = done["result"] or {}
-    read = (call.result or {}).get("card", {}).get("product_status")
-    turn: dict[str, Any] = {"pending": None, "case": "fixed"}
-    if "denied" in (done["outcome"], call.outcome):
+    result = tried["result"] or {}
+    status = (call.result or {}).get("card", {}).get("product_status")
+    turn: Update = {"pending": None, "case": "fixed"}
+    if "denied" in (tried["outcome"], call.outcome):
         return turn | {"case": "refused"}
-    if done["outcome"] == "refused" and result.get("refusal") == "not_active":
+    if tried["outcome"] == "refused" and result.get("refusal") == "not_active":
         card = {**pending["card"], "product_status": result["product_status"]}
         name = (
             "already_blocked"
@@ -199,9 +203,9 @@ async def verify(state: State) -> dict[str, Any]:
         )
         return turn | {
             "say": said((name, {"card": card})),
-            "decision": decided("decline", ["POL-34"]),
+            "decision": decided("decline", ["POL-34"], "block_card"),
         }
-    actions = []
+    actions: list[Action] = []
     if result.get("block_outcome") is not None:
         actions.append(
             {
@@ -211,10 +215,10 @@ async def verify(state: State) -> dict[str, Any]:
                 "confirmation_id": pending["confirmation_id"],
                 "outcome": result["block_outcome"],
                 "confirmed_at": pending["confirmed_at"],
-                "evidence": [done["call_id"]],
+                "evidence": [tried["call_id"]],
             }
         )
-    if result.get("block_outcome") == "verified" and read == "Blocked":
+    if result.get("block_outcome") == "verified" and status == "Blocked":
         say = said(("block_verified", facts))
         rules = ["POL-36", "POL-37"]
         if pending["reason"] in MISSING:
@@ -226,7 +230,7 @@ async def verify(state: State) -> dict[str, Any]:
                 "block_card",
                 ["POL-38"],
                 rules,
-                calls=[done["call_id"], call.call_id],
+                calls=[tried["call_id"], call.call_id],
                 cards=[pending["card_id"]],
                 actions=actions,
                 # Accepted, it files the block's draft, which is otherwise left to expire.
@@ -235,7 +239,7 @@ async def verify(state: State) -> dict[str, Any]:
             return turn | {
                 "say": say,
                 "offer": offering(request, "block"),
-                "decision": decided("block", rules, OFFERED),
+                "decision": decided("block", rules, "block_card", OFFERED),
             }
         if pending["reason"] == "unrecognized_charge":
             # The block is verified, and the charge goes to dispute intake all the same (POL-39).
@@ -247,19 +251,19 @@ async def verify(state: State) -> dict[str, Any]:
                     "unrecognized_charge",
                     pending.get("label") or "block_card",
                     rules,
-                    **cited(pending, done["call_id"], call.call_id),
+                    **cited(pending, tried["call_id"], call.call_id),
                     actions=actions,
                     handoff_id=pending.get("handoff_id"),
                 ),
             }
-        return turn | {"say": say, "decision": decided("block", rules)}
+        return turn | {"say": say, "decision": decided("block", rules, "block_card")}
     # POL-39's handoff is the request's only one: a block for the charge, offered or asked for, that isn't verified is
     # recorded in it.
     charge = pending["reason"] == "unrecognized_charge"
     scope.turn.emit(
         "block_not_verified",
         reason=pending["reason"],
-        planned=bool(done.get("planned") or (call.error or {}).get("planned")),
+        planned=bool(tried.get("planned") or (call.error or {}).get("planned")),
     )
     return turn | {
         "case": "handoff",
@@ -268,7 +272,7 @@ async def verify(state: State) -> dict[str, Any]:
             "unrecognized_charge" if charge else "action_not_verified",
             pending.get("label") or "block_card",
             ["POL-37", "POL-39"] if charge else ["POL-37"],
-            **cited(pending, done["call_id"], call.call_id),
+            **cited(pending, tried["call_id"], call.call_id),
             actions=actions,
             reported=pending["reason"],
             handoff_id=pending.get("handoff_id"),

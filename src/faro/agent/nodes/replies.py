@@ -4,7 +4,7 @@ reads' answers the model writes and code checks (ADR-0004, decision 8).
 """
 
 import uuid
-from typing import Any
+from typing import cast
 
 from langchain_core.callbacks import adispatch_custom_event
 from langchain_core.messages import AIMessage
@@ -16,7 +16,14 @@ from faro.agent.nodes.state import (
     OFFERED,
     READS,
     WRITE,
+    Awaiting,
+    Case,
+    Decision,
+    Outcome,
     State,
+    Update,
+    Written,
+    decided,
     offering,
     queued,
     request_text,
@@ -82,7 +89,7 @@ SHAPES = {
     ),
 }
 # The decisions of turns whose reply is fixed text only, by case.
-OUTCOMES_BY_CASE: dict[str, tuple[str, list[str]]] = {
+OUTCOMES_BY_CASE: dict[str, tuple[Outcome, list[str]]] = {
     "no_request": ("answer", ["POL-06"]),
     "unavailable": ("abstain", ["POL-48"]),
     "refused": ("decline", ["POL-08", "POL-49"]),
@@ -91,29 +98,26 @@ OUTCOMES_BY_CASE: dict[str, tuple[str, list[str]]] = {
 }
 # A request about someone else's card gets the refusal's words (POL-08).
 FIXED["other_person"] = FIXED["refused"]
-ASKED = {"card": "card", "reason": "reason", "transaction": "transaction"}
+ASKED: dict[str, Awaiting] = {
+    "card": "card",
+    "reason": "reason",
+    "transaction": "transaction",
+}
 
 
-def decision(state: State, case: str) -> dict[str, Any]:
+def ending(state: State, case: Case) -> Decision:
     outcome_class, rules = OUTCOMES_BY_CASE[case]
     label = None if case in ("no_request", "third_language") else state.get("label")
     asking = state.get("asking")
-    awaiting = (
+    awaiting: Awaiting = (
         ASKED[asking["detail"]]
         if case == "third_language" and asking is not None
         else "none"
     )
-    return {
-        "request_label": label,
-        "outcome_class": outcome_class,
-        "awaiting": awaiting,
-        "rules": rules,
-    }
+    return decided(outcome_class, rules, label, awaiting)
 
 
-def instructions(
-    state: State, label: str, part: dict[str, Any], facts: list[str]
-) -> str:
+def instructions(state: State, label: str, part: Written, facts: list[str]) -> str:
     """
     What the reply's model reads besides the request's message: the request, the records in words, the answer's shape,
     and each placeholder with what it holds, never its value.
@@ -128,7 +132,7 @@ def instructions(
 
 
 async def answer(
-    state: State, scope: Scope, label: str | None, part: dict[str, Any]
+    state: State, scope: Scope, label: str | None, part: Written
 ) -> tuple[str, list[str]]:
     """
     A read's answer: the model's, when its request is among WRITES and the reply check passes it, filled in; otherwise
@@ -156,7 +160,7 @@ async def answer(
     return fill(text, facts).strip(), []
 
 
-async def conclude(state: State) -> dict[str, Any]:
+async def conclude(state: State) -> Update:
     """
     Ends the request being served: its part of the turn's reply, from the fixed texts and the answer its nodes left, and
     its decision, with the requests still queued after it (POL-05). A read or a model call that failed can't be answered
@@ -173,7 +177,8 @@ async def conclude(state: State) -> dict[str, Any]:
             parts.append(render(name, language, facts))
             continue
         try:
-            text, used = await answer(state, scope, label, facts)
+            # WRITE's facts are what writable() built.
+            text, used = await answer(state, scope, label, cast(Written, facts))
         except ModelFailedError:
             # What was said before it stands, such as a confirmation that ended unused (POL-36).
             case = "unavailable"
@@ -185,7 +190,7 @@ async def conclude(state: State) -> dict[str, Any]:
         names.append(name)
         parts.append(FIXED[name][language])
     explicit = state.get("decision")
-    outcome = decision(state, case) if explicit is None or case in FIXED else explicit
+    outcome = ending(state, case) if explicit is None or case in FIXED else explicit
     offer = state.get("offer") if case != "unavailable" else None
     if case == "unavailable" and label is not None:
         # A routed request whose read or model call failed; a failed router leaves no label to offer under (POL-48).
@@ -215,7 +220,7 @@ async def conclude(state: State) -> dict[str, Any]:
     }
 
 
-async def reply(state: State, config: RunnableConfig) -> dict[str, Any]:
+async def reply(state: State, config: RunnableConfig) -> Update:
     """
     The turn's reply, one message: a part for each request it served and, while a request waits on the customer, a
     sentence naming the ones queued after it (POL-05).

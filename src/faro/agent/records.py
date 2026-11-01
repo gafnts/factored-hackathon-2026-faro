@@ -11,7 +11,7 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any, Protocol
+from typing import Any, Protocol, TypedDict
 
 from jsonschema import ValidationError
 
@@ -33,6 +33,21 @@ class RecordError(RuntimeError):
     def __init__(self, kind: str, error: ValidationError) -> None:
         path = "".join(f"/{p}" for p in error.absolute_path) or "/"
         super().__init__(f"a {kind} entry breaks {error.validator} at {path}")
+
+
+class Cited(TypedDict):
+    """
+    A tool call a handoff may cite, with the turn it is recorded in and the sign-in that made it (ADR-0004, The
+    handoff).
+    """
+
+    call_id: str
+    tool: str
+    called_at: str
+    outcome: str
+    turn: str
+    sign_in: str
+    result: dict[str, object] | None
 
 
 class RecordStore(Protocol):
@@ -72,7 +87,7 @@ class Turn:
         self.output_tokens = 0
         self.cost_usd: float | None = 0.0
         self.decisions: list[dict[str, Any]] = []
-        self.cited: list[dict[str, Any]] = []
+        self.cited: list[Cited] = []
 
     @property
     def prefix(self) -> str:
@@ -81,7 +96,7 @@ class Turn:
         """
         return f"{wall_time(self.started)}#{self.turn_id}"
 
-    def drain(self) -> list[dict[str, Any]]:
+    def drain(self) -> list[Cited]:
         """
         The tool calls made since the last drain, which a node hands to the graph's state as evidence a handoff may cite.
         """

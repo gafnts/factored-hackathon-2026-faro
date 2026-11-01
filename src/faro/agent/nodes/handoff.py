@@ -3,11 +3,10 @@ The handoff a node required, filed with the evidence the thread's tool calls lef
 """
 
 import uuid
-from typing import Any
 
 from faro.agent.filing import new_call_id
 from faro.agent.models import ModelFailedError
-from faro.agent.nodes.state import State, concluded, said
+from faro.agent.nodes.state import Outcome, State, Update, decided, said
 from faro.agent.payload import built, context, done, transcript, written
 from faro.agent.records import wall_time
 from faro.agent.scope import SCOPE
@@ -17,7 +16,7 @@ from faro.policy import POLICY_VERSION
 TURNS = 20
 
 
-async def handoff(state: State) -> dict[str, Any]:
+async def handoff(state: State) -> Update:
     """
     Files the handoff a node required. Code builds the payload from the evidence the thread's tool calls left in state,
     the model writes its free text, and file_handoff files it under the customer's own token, three attempts at most
@@ -28,7 +27,7 @@ async def handoff(state: State) -> dict[str, Any]:
     scope = SCOPE.get()
     request = state["handoff"]
     assert request is not None
-    cited = [
+    sources = [
         c
         for c in state.get("evidence", [])
         if c["call_id"] in request["calls"]
@@ -36,7 +35,7 @@ async def handoff(state: State) -> dict[str, Any]:
     ]
     payload = built(
         request,
-        cited,
+        sources,
         handoff_id=request.get("handoff_id") or str(uuid.uuid4()),
         created_at=wall_time(scope.now()),
         customer_id=scope.claims.customer_id,
@@ -51,7 +50,7 @@ async def handoff(state: State) -> dict[str, Any]:
         )
     except ModelFailedError:
         text = None
-    turns = sorted({c["turn"] for c in cited} - {scope.turn.prefix})
+    turns = sorted({c["turn"] for c in sources} - {scope.turn.prefix})
     call = await scope.filing.file(
         {
             "customer_id": scope.claims.customer_id,
@@ -69,7 +68,7 @@ async def handoff(state: State) -> dict[str, Any]:
     result = call.result or {}
     say, rules = state.get("say", []), request["decided"]
     if call.outcome != "ok" or result.get("status") not in ("filed", "already_filed"):
-        outcome = "abstain"
+        outcome: Outcome = "abstain"
         say, rules = [*say, *said(("handoff_failed", {}))], [*rules, "POL-48"]
     else:
         await scope.turn.write(
@@ -90,12 +89,13 @@ async def handoff(state: State) -> dict[str, Any]:
     then = state.get("then")
     if then is not None:
         # The request the handoff ends gets its own decision, before the new one is served (POL-05).
-        after = [then["label"], *((then.get("queue") or {}).get("labels", []))]
+        queue = then.get("queue")
+        after = [then["label"], *([] if queue is None else queue["labels"])]
         scope.turn.decide(
-            **concluded(
-                request["label"],
+            **decided(
                 outcome,
                 list(dict.fromkeys([*state.get("rules", []), *rules])),
+                request["label"],
             ),
             pending_labels=[label for label in after if label is not None],
             language=state["language"],
@@ -105,5 +105,5 @@ async def handoff(state: State) -> dict[str, Any]:
         "case": "fixed",
         "handoff": None,
         "say": say,
-        "decision": concluded(request["label"], outcome, rules),
+        "decision": decided(outcome, rules, request["label"]),
     }

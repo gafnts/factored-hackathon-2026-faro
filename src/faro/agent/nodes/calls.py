@@ -6,10 +6,9 @@ import dataclasses
 import functools
 import uuid
 from collections.abc import Awaitable, Callable
-from typing import Any
 
 from faro.agent.gateway import ToolCall
-from faro.agent.nodes.state import State
+from faro.agent.nodes.state import Update
 from faro.agent.scope import SCOPE, Scope
 from faro.tools.provenance import OUTCOMES
 
@@ -22,7 +21,7 @@ def bound(scope: Scope) -> dict[str, str]:
     }
 
 
-async def tool(scope: Scope, name: str, **arguments: Any) -> ToolCall:
+async def tool(scope: Scope, name: str, **arguments: object) -> ToolCall:
     """
     A failed attempt is tried again as decision 18 says, under the same call ID, and never a denied one (POL-48,
     POL-49); a handoff cites the call once, by its last attempt.
@@ -61,18 +60,15 @@ async def tool(scope: Scope, name: str, **arguments: Any) -> ToolCall:
     return call
 
 
-Node = Callable[..., Awaitable[dict[str, Any]]]
-
-
-def citing(node: Node) -> Node:
+def citing[**P](node: Callable[P, Awaitable[Update]]) -> Callable[P, Awaitable[Update]]:
     """
     Hands the tool calls a node made to the state's evidence, with the turn each is recorded in, so a handoff filed in
     a later turn can cite them (ADR-0004, The handoff; ADR-0007's amendment of 2026-09-30).
     """
 
     @functools.wraps(node)
-    async def run(state: State, *args: Any, **kwargs: Any) -> dict[str, Any]:
-        update = await node(state, *args, **kwargs)
+    async def run(*args: P.args, **kwargs: P.kwargs) -> Update:
+        update = await node(*args, **kwargs)
         calls = SCOPE.get().turn.drain()
         return {**update, "evidence": calls} if calls else update
 

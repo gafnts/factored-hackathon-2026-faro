@@ -23,8 +23,6 @@ record, and the entrypoint writes them after the controls' interrupt, when there
 message, one part per request it served.
 """
 
-from typing import Any
-
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -97,13 +95,15 @@ def after_conclude(state: State) -> str:
     """
     The next queued request is served once the one before it waits on nothing (POL-05).
     """
-    awaiting = (state.get("decision") or {}).get("awaiting", "none")
+    decision = state.get("decision")
+    awaiting = "none" if decision is None else decision["awaiting"]
     idle = all(state.get(k) is None for k in ("pending", "offer", "asking"))
     return "next_request" if awaiting == "none" and idle and queued(state) else "reply"
 
 
 def after_reply(state: State) -> str:
-    awaiting = (state.get("decision") or {}).get("awaiting")
+    decision = state.get("decision")
+    awaiting = None if decision is None else decision["awaiting"]
     if awaiting == CONTROL and state.get("pending"):
         return "await_control"
     if awaiting == OFFERED and state.get("offer"):
@@ -122,8 +122,8 @@ def after_control(state: State) -> str:
 
 
 def build(
-    checkpointer: BaseCheckpointSaver[Any],
-) -> CompiledStateGraph[Any, Any, Any, Any]:
+    checkpointer: BaseCheckpointSaver[str],
+) -> CompiledStateGraph[State, None, ChatState, ChatState]:
     graph = StateGraph(State, input_schema=ChatState, output_schema=ChatState)
     for node in (
         begin, route, next_request, list_cards, unsupported, resolve_card, read,
