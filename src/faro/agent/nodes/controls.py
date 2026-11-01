@@ -21,6 +21,7 @@ from faro.agent.nodes.state import (
     QUESTIONS,
     Decision,
     Offer,
+    Outcome,
     Pending,
     Said,
     State,
@@ -88,6 +89,10 @@ def controls(state: State) -> dict[str, object]:
 
 def offer_waits(offer: Offer, rules: list[str]) -> Decision:
     return decided(offer["outcome_class"], rules, offer["request"]["label"], OFFERED)
+
+
+def confirmation_waits(rules: list[str], outcome_class: Outcome = "block") -> Decision:
+    return decided(outcome_class, rules, "block_card", CONTROL)
 
 
 def owed(pending: Pending, cause: str, rules: list[str]) -> HandoffRequest | None:
@@ -177,7 +182,7 @@ async def await_control(state: State) -> Update:
             **turn,
             "offer": offer,
             "case": "again",
-            "decision": decided("block", ["POL-36"], "block_card", CONTROL),
+            "decision": confirmation_waits(["POL-36"]),
         }
     to = "confirmed" if resumed["kind"] == "confirm" else "cancelled"
     at = scope.now()
@@ -240,7 +245,7 @@ async def answered_offer(state: State, scope: Scope, resumed: ControlAnswer) -> 
             refusal="not_pending",
         )
         waits = (
-            decided("block", ["POL-36"], "block_card", CONTROL)
+            confirmation_waits(["POL-36"])
             if pending is not None
             else offer_waits(offer, ["POL-45"])
         )
@@ -274,11 +279,7 @@ async def answered_offer(state: State, scope: Scope, resumed: ControlAnswer) -> 
     if resumed["kind"] == "decline":
         declined: Update = {"offer": None, "say": said(("offer_declined", {}))}
         if pending is not None:
-            return declined | {
-                "decision": decided(
-                    "block", ["POL-36", "POL-45"], "block_card", CONTROL
-                )
-            }
+            return declined | {"decision": confirmation_waits(["POL-36", "POL-45"])}
         return declined | {
             "decision": decided("answer", ["POL-45"], offer["request"]["label"])
         }
@@ -329,7 +330,7 @@ async def typed(state: State, scope: Scope, resumed: ControlAnswer) -> Update:
         if pending is not None:
             pointer, waits = (
                 "control_pointer",
-                decided("block", ["POL-51", "POL-36"], "block_card", CONTROL),
+                confirmation_waits(["POL-51", "POL-36"]),
             )
         else:
             assert offer is not None
@@ -407,7 +408,7 @@ async def typed_to_confirmation(
     if routed is None:
         return {
             "say": said(("unavailable", {})),
-            "decision": decided("abstain", ["POL-48"], "block_card", CONTROL),
+            "decision": confirmation_waits(["POL-48"], "abstain"),
         }
     if routed["case"] not in ("block", "no_request") or routed["label"] not in (
         None,
@@ -480,7 +481,7 @@ async def typed_to_confirmation(
         "pending": {**pending, "typed": pointers},
         "offer": offer,
         "say": say,
-        "decision": decided("block", rules, "block_card", CONTROL),
+        "decision": confirmation_waits(rules),
     }
 
 
