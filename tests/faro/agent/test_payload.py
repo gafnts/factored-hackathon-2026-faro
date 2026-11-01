@@ -4,19 +4,22 @@ the latest read of each field, never a fact file_handoff alone may state, the qu
 model's text only where it passes the schema's rules (ADR-0004, The handoff; POL-11, POL-46, POL-47; CTL-05, OPS-05).
 """
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from jsonschema import Draft202012Validator, FormatChecker
 from langchain_core.messages import AIMessage, HumanMessage
 
-from faro.agent.models import HandoffText
+from faro.agent.models import BlockReason, HandoffText
 from faro.agent.payload import (
     DONE,
     FACTS,
     FIELDS,
     NOTHING_DONE,
     READ,
+    Action,
+    ActionOutcome,
+    HandoffRequest,
     built,
     context,
     done,
@@ -64,7 +67,7 @@ def card(card_id: str = CARD, status: str = "Active") -> dict[str, Any]:
     }
 
 
-def payload_of(request: dict[str, Any], cited: list[dict[str, Any]]) -> dict[str, Any]:
+def payload_of(request: HandoffRequest, cited: list[dict[str, Any]]) -> dict[str, Any]:
     return built(
         request,
         cited,
@@ -182,7 +185,10 @@ def test_a_failed_call_states_no_fact() -> None:
     ],
 )
 def test_the_priority_follows_pol_47(
-    code: str, reported: str | None, actions: list[str], priority: str
+    code: str,
+    reported: BlockReason | None,
+    actions: list[ActionOutcome],
+    priority: str,
 ) -> None:
     request = required(
         code,
@@ -194,7 +200,7 @@ def test_the_priority_follows_pol_47(
             {
                 "action": "block_card",
                 "card_id": CARD,
-                "reason": reported,
+                "reason": cast(BlockReason, reported),
                 "confirmation_id": "7c1e2a94-3b5d-4f08-a6e2-9d4b0c8f1e37",
                 "outcome": outcome,
                 "confirmed_at": "2026-10-02T15:41:37.102Z",
@@ -275,9 +281,9 @@ def test_a_digit_run_the_model_writes_never_reaches_the_payload() -> None:
     "outcome", ["verified", "not_verified", "declined_by_customer", "lapsed"]
 )
 def test_the_model_reads_what_the_chat_did_about_the_card_after_the_context(
-    outcome: str,
+    outcome: ActionOutcome,
 ) -> None:
-    action: dict[str, Any] = {
+    action: Action = {
         "action": "block_card",
         "card_id": CARD,
         "reason": "unrecognized_charge",

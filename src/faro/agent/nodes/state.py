@@ -11,6 +11,8 @@ from langgraph.graph.message import add_messages
 from faro.agent.language import DEFAULT, settled
 from faro.agent.models import ORDER, BlockReason, RouterOutput
 from faro.agent.nodes.cards import Card
+from faro.agent.payload import HandoffRequest
+from faro.agent.records import Cited
 from faro.agent.scope import SCOPE
 
 # POL-17: after two questions that don't settle the same detail, stop asking.
@@ -58,11 +60,23 @@ class Target(Card):
     charge: NotRequired[Charge]
 
 
+class Offer(TypedDict):
+    """
+    An offered handoff, as the thread holds it until the handoff control answers (offering()).
+    """
+
+    offer_id: str
+    reason_code: str
+    request: HandoffRequest
+    origin_jti: str
+    outcome_class: str
+
+
 class ChatState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
 
 
-def kept(held: list[dict[str, Any]], new: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def kept(held: list[Cited], new: list[Cited]) -> list[Cited]:
     return [*held, *new][-CITED:]
 
 
@@ -82,10 +96,10 @@ class State(ChatState, total=False):
     block: dict[str, Any] | None
     complaint: bool
     listed: str | None
-    handoff: dict[str, Any] | None
+    handoff: HandoffRequest | None
     then: dict[str, Any] | None
-    offer: dict[str, Any] | None
-    evidence: Annotated[list[dict[str, Any]], kept]
+    offer: Offer | None
+    evidence: Annotated[list[Cited], kept]
     country: str
     targets: list[Card]
     queue: dict[str, Any] | None
@@ -202,7 +216,7 @@ def writable(template: str, facts: dict[str, Any], words: str) -> list[list[Any]
     return [[WRITE, {"template": template, "facts": facts, "shown": words}]]
 
 
-def offering(request: dict[str, Any], outcome_class: str) -> dict[str, Any]:
+def offering(request: HandoffRequest, outcome_class: str) -> Offer:
     """
     An offered handoff, as the thread holds it until the handoff control answers: the handoff it would file, the
     sign-in that saw it, since an offer lapses with the session, and the outcome of the turn that made it, which a turn

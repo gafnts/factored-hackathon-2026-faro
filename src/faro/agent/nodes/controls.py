@@ -19,6 +19,7 @@ from faro.agent.nodes.state import (
     MISSING,
     OFFERED,
     QUESTIONS,
+    Offer,
     State,
     cited,
     concluded,
@@ -29,7 +30,7 @@ from faro.agent.nodes.state import (
     routing,
     said,
 )
-from faro.agent.payload import offered, required
+from faro.agent.payload import Action, ActionOutcome, HandoffRequest, offered, required
 from faro.agent.records import wall_time
 from faro.agent.scope import SCOPE, Scope
 
@@ -67,14 +68,14 @@ def controls(state: State) -> dict[str, Any]:
     return {"reason": "controls", "language": state["language"], "controls": showing}
 
 
-def offer_waits(offer: dict[str, Any], rules: list[str]) -> dict[str, Any]:
+def offer_waits(offer: Offer, rules: list[str]) -> dict[str, Any]:
     return {
         **concluded(offer["request"]["label"], offer["outcome_class"], rules),
         "awaiting": OFFERED,
     }
 
 
-def unused(pending: dict[str, Any], outcome: str = "lapsed") -> dict[str, Any]:
+def unused(pending: dict[str, Any], outcome: ActionOutcome = "lapsed") -> Action:
     """
     A confirmation that ended unused, as a handoff's action: cancelled with the control, or lapsed.
     """
@@ -91,7 +92,7 @@ def unused(pending: dict[str, Any], outcome: str = "lapsed") -> dict[str, Any]:
 
 def owed(
     pending: dict[str, Any], cause: str, rules: list[str]
-) -> dict[str, Any] | None:
+) -> HandoffRequest | None:
     """
     The handoff a confirmation's unused end requires, which files its draft: POL-39's however it ended, and POL-38's
     when a lost or stolen card's block lapsed at its time limit or with the sign-in, since the customer left without
@@ -370,7 +371,7 @@ async def typed(state: State, scope: Scope, resumed: dict[str, Any]) -> dict[str
 
 
 async def typed_to_offer(
-    scope: Scope, offer: dict[str, Any], routed: dict[str, Any] | None
+    scope: Scope, offer: Offer, routed: dict[str, Any] | None
 ) -> dict[str, Any]:
     if offer["origin_jti"] != scope.claims.origin_jti:
         update: dict[str, Any] = {
@@ -403,7 +404,7 @@ async def typed_to_offer(
 async def typed_to_confirmation(
     scope: Scope,
     pending: dict[str, Any],
-    offer: dict[str, Any] | None,
+    offer: Offer | None,
     text: str,
     routed: dict[str, Any] | None,
 ) -> dict[str, Any]:

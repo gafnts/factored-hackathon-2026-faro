@@ -21,7 +21,7 @@ from faro.agent.nodes.state import (
     offering,
     said,
 )
-from faro.agent.payload import offered, required
+from faro.agent.payload import Action, offered, required
 from faro.agent.scope import SCOPE, Scope
 from faro.policy.handoffs import HANDOFFS
 
@@ -202,7 +202,7 @@ async def verify(state: State) -> dict[str, Any]:
             "say": said((name, {"card": card})),
             "decision": decided("decline", ["POL-34"]),
         }
-    actions = []
+    actions: list[Action] = []
     if result.get("block_outcome") is not None:
         actions.append(
             {
