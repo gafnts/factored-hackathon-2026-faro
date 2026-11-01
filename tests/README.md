@@ -14,7 +14,7 @@ Counts as of 2026-10-04.
 | Pipeline checks: 287 | [`pipeline/`](../pipeline/README.md), its models and `tests/` | In every build | Nulls, keys, references, dictionary values, the delivery against its lock, and the 90-day window. On the build `prototype` serves, every blocking check passed, and 19 warnings count what the delivered data holds, such as cards active past their expiration, which silver flags and never corrects ([manifest](../docs/pipeline/)) |
 | Integration: 104 | `integration/` | `make integration`, against a deployed stack | The boundaries on the real services (Cognito, the Runtime, the Gateway and Cedar, the Lambdas, DynamoDB, the site), with throwaway users |
 | Browser: 13 | `integration/test_browser.py` | `make browser`, against a deployed site | The chat and the console in Chromium, as a customer and a human agent use them in two tabs, the README's journey included |
-| Smoke: 1 | `smoke/` | `make smoke`, against a deployed site | The smoke user signs in through the form, reads its cards through the Gateway, and gets a reply that names each one, with no AWS credentials ([ADR-0009](../docs/adr/0009-release-checked-deploys.md)) |
+| Smoke: 1 | `smoke/` | `make smoke`, against a deployed site; in CI after each deploy to `prototype` | The smoke user signs in through the form, reads its cards through the Gateway, and gets a reply that names each one, with no AWS credentials ([ADR-0009](../docs/adr/0009-release-checked-deploys.md)) |
 | Live language check | `make language-check` | By hand; it calls the model, so it costs money | The model's reading of each message's language and of a block's reason, on every development paraphrase ([results](../docs/evaluation/language.md)) |
 
 ## What a judge might try

@@ -54,7 +54,7 @@ No path depends on the maintainers' AWS account or credentials. Resource names a
 | Environment | Deployed by | When | Purpose |
 |---|---|---|---|
 | `local` | You, from your laptop | When you run `make apply` | Iterating on infrastructure |
-| `prototype` | GitHub Actions | On merges to `main` that touch the stack | The hosted prototype linked from the submission |
+| `prototype` | GitHub Actions | On every promotion, a merge to `main` | The hosted prototype linked from the submission |
 
 Both live in the same AWS account. Each has its own Terraform state file, its own deploy role, and its own `Environment=<env>` tag, and a deploy role is denied any resource tagged for the other environment. `prototype` runs on synthetic data and mock banking tools, and is deliberately not called production.
 
@@ -72,7 +72,8 @@ flowchart LR
 
     develop -->|PR| main[main]
     main -->|CI plans prototype| planPrototype{{Plan prototype}}
-    planPrototype -->|merge| applyPrototype[CI applies prototype]
+    planPrototype -->|merge| applyPrototype[CI applies, verifies, and checks prototype]
+    applyPrototype -->|make release| release[Tag and release]
 ```
 
 ### Guardrails
@@ -84,9 +85,12 @@ The operations that can hurt are hard to trigger by mistake:
 | Applying or destroying `prototype`, or deploying its site, from a laptop | `make` refuses without `I_KNOW=1`; CI owns `prototype` |
 | A `local` target running as your admin profile | `make` refuses the targets that deploy or test `local` while `AWS_PROFILE` is unset, instead of falling back to the default profile |
 | `make destroy` hitting the wrong environment | It requires an explicit `ENV`, and refuses when Terraform is initialized for a different one |
-| Unfinished work reaching the prototype | A workflow fails any PR into `main` that doesn't come from `develop` |
+| Unfinished work reaching the prototype | A workflow fails any PR into `main` that doesn't come from `develop`, or whose release isn't cut |
 | Deploying from an unreviewed branch | The prototype deploy role only trusts jobs in the `prototype` GitHub Environment, which only `main` can use |
-| Write credentials on pull requests | PR plans run under a read-only role, without taking the state lock |
+| Write credentials on pull requests | PR plans run under a read-only role, without taking the state lock; the plan's comment is posted by a job with no AWS credentials |
+| Build code running with a deploy role | The build job, which runs `make build` and the web app's install and build, holds no credentials; the plan and apply jobs download what it made and run only Terraform, the AWS CLI, jq, and git ([ADR-0009](docs/adr/0009-release-checked-deploys.md)) |
+| A deploy that runs something other than its build, or breaks the chat | `make verify` compares what each Lambda and the Runtime run with the build's zips, and `make smoke` asks about the smoke user's cards; either failing turns the run red, and a red run gets no release |
+| A release tag that moves | Releases are immutable once published, and a ruleset lets only administrators create, move, or delete a `v*` tag |
 | CI changing its own permissions | `infra/iam/` is applied by hand with admin credentials; the deploy roles are denied IAM changes to themselves, and every role they create must carry a permissions boundary that excludes IAM |
 | One environment touching another's state | Each role is denied every other prefix in the state bucket (including the IAM and dataset roots'), and any change to the bucket itself; the roles they create are denied the bucket entirely |
 | One environment writing another's site or zips | Each deploy role, and every role it creates, is denied the other environment's buckets and CloudFront functions by name, since S3 object writes ignore tags and functions can't carry them |
@@ -222,7 +226,7 @@ Use your `AWS_ADMIN_PROFILE` as `source_profile` if it isn't `default`. Then act
 
 #### 3.5 Connect GitHub
 
-The deploy workflow needs a `prototype` environment and two repository variables. Until the variables exist, its jobs are skipped rather than failed, so CI stays green before AWS is ready.
+The deploy workflow needs a `prototype` environment, two repository variables, and the smoke user's secret and variable. Until the variables exist, its jobs are skipped rather than failed, so CI stays green before AWS is ready.
 
 1. In **Settings → Environments → New environment**, create `prototype`. Under **Deployment branches and tags**, choose **Selected branches and tags** and add `main`. The prototype deploy role only trusts jobs in this environment, which makes a merge to `main` the only path to a prototype apply. Leave required reviewers off: merges deploy straight away.
 2. Store the plan and deploy role ARNs from `make iam-output` as repository variables. They're variables, not secrets, because role ARNs aren't sensitive on their own:
@@ -233,8 +237,17 @@ The deploy workflow needs a `prototype` environment and two repository variables
    ```
 
    Or add them under **Settings → Secrets and variables → Actions → Variables**.
+3. Give the check after each deploy its customer, once `prototype` is deployed. With Terraform initialized for `prototype` (`AWS_PROFILE=default make init ENV=prototype`, and `make init` afterwards to return to `local`), create the smoke user with admin credentials, then store its password as the environment's secret and its username as the environment's variable:
 
-The apply job runs on merges to `main` that touch the stack's code (`infra/`, `src/`, `web/`), and deploys the site once Terraform has applied; the deployment then links the site's URL from the `prototype` environment, on your fork's own CloudFront domain. Store `prototype`'s model key before its first deploy ([step 3.7](#37-verify-and-deploy-local)), or the apply fails. If `main` already has the infrastructure when you set the variables, trigger the first deploy by hand: **Actions → Deploy · Prototype → Run workflow** on `main`, or `gh workflow run deploy-prototype.yml --ref main`.
+   ```bash
+   AWS_PROFILE=default make smoke-user ENV=prototype
+   jq -r .password data/smoke/prototype.json | gh secret set SMOKE_PASSWORD --env prototype
+   gh variable set SMOKE_USERNAME --env prototype --body "$(jq -r .username data/smoke/prototype.json)"
+   ```
+
+   Without them, the check is skipped with a notice, and `make release` refuses the deploy. To rotate the password, run the three commands again.
+
+The deploy runs on merges to `main` that touch the stack's code (`infra/`, `src/`, `web/`) or the changelog, which every promotion changes. A build job without credentials makes the zips and the site; the apply job deploys them, uploads the site once Terraform has applied, and checks that AWS runs the build's zips; and the check job asks about the smoke user's cards. The deployment then links the site's URL from the `prototype` environment, on your fork's own CloudFront domain. Store `prototype`'s model key before its first deploy ([step 3.7](#37-verify-and-deploy-local)), or the apply fails. If `main` already has the infrastructure when you set the variables, trigger the first deploy by hand: **Actions → Deploy · Prototype → Run workflow** on `main`, or `gh workflow run deploy-prototype.yml --ref main`.
 
 #### 3.6 Copy the dataset snapshot and the tools' data
 
@@ -343,7 +356,7 @@ A few habits keep PRs quick to review:
 - Mirror the package in `tests/`: the tests for `src/faro/<path>/<module>.py` live in `tests/faro/<path>/test_<module>.py`, and fixtures shared by a folder go in its `conftest.py`. The web app's tests mirror `web/src/` in `web/tests/` the same way (`<module>.test.ts`).
 - Add an ADR when the change makes a decision someone could reasonably question later (see [Record decisions](#record-decisions)).
 - Add a line under `Unreleased` in [CHANGELOG.md](CHANGELOG.md) when someone using the prototype, or maintaining it, would notice the change.
-- Keep work for later in [GitHub Issues](https://github.com/gafnts/factored-hackathon-2026-faro/issues), and close it from the PR that does it (`Closes #12`). It closes when the PR merges into `develop`, before the change is deployed; the changelog's `Unreleased` section shows what isn't yet.
+- Keep work for later in [GitHub Issues](https://github.com/gafnts/factored-hackathon-2026-faro/issues), and close it from the PR that does it (`Closes #12`). It closes when the PR merges into `develop`, before the change is deployed; the changelog shows what isn't yet: `Unreleased`, and a version with no release.
 
 ### Run the quality gates
 
@@ -455,22 +468,24 @@ make relabel-agreement          # Score the filled sheet against the labels
 
 ### Promote to prototype
 
-When `develop` is in a state you'd be happy for judges to see, open a PR from `develop` into `main`, naming the base, since new PRs target `develop`: `gh pr create --base main`. If the batch touches `infra/` (outside `infra/iam/` and `infra/dataset/`), CI posts a sticky **Terraform Plan · `prototype`** comment for reviewers. Merging applies the change to `prototype` and deploys the site; the deployment links its URL, the one the submission gives (SUB-02). Merge with **Create a merge commit**: a squash or rebase puts commits on `main` that `develop` never gets, and the next promotion then carries the whole history again.
+A promotion is a release ([ADR-0009](docs/adr/0009-release-checked-deploys.md)): cut on `develop` first, deployed and checked from `main`, and named last.
 
-Once the promotion's PR is open, move the changelog's `Unreleased` entries under a new `## Promotion N (#PR) - date` heading in a PR into `develop`, with a line for anything merged without one, such as Dependabot's PRs. The promotion picks it up, so `main` carries its own record.
+1. **Cut the release.** When `develop` is in a state you'd be happy for judges to see, add a line under `Unreleased` for anything merged without one, such as Dependabot's PRs, and run `make cut` on a branch from `develop`. It takes the next minor version, or with `BUMP=patch` the next patch, for a promotion that only fixes the last release; it sets `version` in `pyproject.toml` and `uv.lock` with uv and moves `Unreleased`'s entries under `## [x.y.z] - date (Promotion N)`, leaving `Unreleased` empty. Merge it into `develop` through a PR. `make cut` warns when the last version has no release: its check failed, or `make release` never ran.
+2. **Open the promotion** from `develop` into `main`, titled with the version and naming the base, since new PRs target `develop`: `gh pr create --base main --title v1.6.0`. It's final when it opens. **Restrict merges to main** refuses it unless the release is cut: `Unreleased` empty, the changelog's top version the same as `pyproject.toml`'s, and that version not yet tagged. CI builds the zips and the site without credentials, plans `prototype` from them, and posts a sticky **Terraform Plan · `prototype`** comment for reviewers.
+3. **Merge** with **Create a merge commit**: a squash or rebase puts commits on `main` that `develop` never gets, and the next promotion then carries the whole history again. The deploy run builds again, applies, uploads the site, checks that each Lambda and the Runtime run the build's zips (`make verify`), and then signs the smoke user in and asks about its cards (`make smoke`). The deployment links the site's URL, the one the submission gives (SUB-02). A red run gets no release, and nothing rolls back: the fix ships as a patch release, through `develop` like any change.
+4. **Name the release.** Once the deploy run for `main`'s head has passed, its check included, run `make release` (`DRY=1` previews it). It tags that commit `vx.y.z` and makes the GitHub release, whose notes are the version's section and the build's SHA-256, so anyone can check out the tag, build, and compare. It refuses unless the run passed and the heading, `pyproject.toml`, and the tag agree. No workflow holds a token that can write to the repository, so this step is ours.
+5. **Fast-forward `develop` to `main`.** The merge commit is the only commit `main` has that `develop` lacks, so after this step any commit on `main` and not on `develop` reached `main` some other way:
 
-Once the promotion merges, fast-forward `develop` to `main`. The merge commit is the only commit `main` has that `develop` lacks, so after this step any commit on `main` and not on `develop` reached `main` some other way:
+   ```bash
+   git fetch && git switch develop && git merge --ff-only origin/main && git push
+   ```
 
-```bash
-git fetch && git switch develop && git merge --ff-only origin/main && git push
-```
-
-If a PR merged into `develop` while the promotion was open, the fast-forward refuses; run `git merge origin/main` instead, which adds a merge commit with no file changes.
+   If a PR merged into `develop` while the promotion was open, the fast-forward refuses; run `git merge origin/main` instead, which adds a merge commit with no file changes.
 
 To redeploy `main` without an infrastructure change, run the workflow by hand: **Actions → Deploy · Prototype → Run workflow** with `main` picked under **Use workflow from**, or `gh workflow run deploy-prototype.yml --ref main`. Both default to `develop`, where every job skips.
 
 > [!NOTE]
-> The apply runs `terraform apply` against current state at merge time; the PR plan is informational, not the artifact applied, and there is no manual approval gate. A plan-bound, approval-gated production pipeline is remaining deployment work, not something this prototype operates.
+> The apply runs `terraform apply` against current state at merge time, on zips built again from the merge commit; the PR plan is informational, not the artifact applied, and there is no manual approval gate. A plan-bound, approval-gated production pipeline is remaining deployment work, not something this prototype operates.
 
 Changes under `infra/iam/` and `infra/dataset/` never deploy from CI. Apply them by hand with admin credentials (`make iam-plan`, then `make iam-apply`; or `make dataset-plan`, then `make dataset-apply`).
 
@@ -548,6 +563,10 @@ Run `make help` for every target.
 | `DATA_DIR` | `data` | The pipeline and evaluation targets, for a worktree whose `data/` is empty |
 | `SLOW` | Unset | Set to `1` to add the tests that wait out a token to `make integration` |
 | `WHAT`, `JUDGE` | `create`, every judge | `make judges`: `create`, `reset`, `sign-out`, `disable`, `enable`, or `delete` |
+| `BUILT` | Unset | Set to `1` to make `make plan` plan the zips already in `build/` instead of building them |
+| `BUMP` | `minor` | `make cut`: `minor` for a promotion, `patch` for one that only fixes the last release |
+| `DRY` | Unset | Set to `1` to make `make release` print what it would tag and the notes, and create nothing |
+| `SMOKE_*` | Read from `build/<env>.outputs.json` and `data/smoke/<env>.json` | `make smoke`; CI sets them from the deploy's outputs and the environment's secret and variable |
 
 The evaluation targets ([Evaluate](#evaluate)) take their own:
 
