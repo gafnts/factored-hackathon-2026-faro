@@ -181,9 +181,7 @@ def question(
             "offer": offering(request, "abstain"),
             "decision": decided("abstain", stopped, label, OFFERED),
         }
-    decision = decided(
-        "clarify", rules, label, "card" if detail == "card" else "reason"
-    )
+    decision = decided("clarify", rules, label, detail)
     return {
         "case": "fixed",
         "asking": {

@@ -86,7 +86,7 @@ async def confirm(state: State) -> Update:
             "expires_at": record["expires_at"],
             "origin_jti": scope.claims.origin_jti,
             "typed": 0,
-            "listed": state.get("listed") or target.get("listed"),
+            "listed": state.get("listed") or target["listed"],
             "label": label,
             "charge": target.get("charge"),
             "handoff_id": handoff_id,
@@ -224,7 +224,7 @@ async def verify(state: State) -> Update:
                 cards=[pending["card_id"]],
                 actions=actions,
                 # Accepted, it files the block's draft, which is otherwise left to expire.
-                handoff_id=pending.get("handoff_id"),
+                handoff_id=pending["handoff_id"],
             )
             return turn | {
                 "say": say,
@@ -239,11 +239,11 @@ async def verify(state: State) -> Update:
                 "case": "handoff",
                 "handoff": required(
                     "unrecognized_charge",
-                    pending.get("label") or "block_card",
+                    pending["label"],
                     rules,
                     **cited(pending, tried["call_id"], call.call_id),
                     actions=actions,
-                    handoff_id=pending.get("handoff_id"),
+                    handoff_id=pending["handoff_id"],
                 ),
             }
         return turn | {"say": say, "decision": decided("block", rules, "block_card")}
@@ -253,18 +253,18 @@ async def verify(state: State) -> Update:
     scope.turn.emit(
         "block_not_verified",
         reason=pending["reason"],
-        planned=bool(tried.get("planned") or (call.error or {}).get("planned")),
+        planned=bool(tried["planned"] or (call.error or {}).get("planned")),
     )
     return turn | {
         "case": "handoff",
         "say": said(("block_not_verified", facts)),
         "handoff": required(
             "unrecognized_charge" if charge else "action_not_verified",
-            pending.get("label") or "block_card",
+            pending["label"],
             ["POL-37", "POL-39"] if charge else ["POL-37"],
             **cited(pending, tried["call_id"], call.call_id),
             actions=actions,
             reported=pending["reason"],
-            handoff_id=pending.get("handoff_id"),
+            handoff_id=pending["handoff_id"],
         ),
     }

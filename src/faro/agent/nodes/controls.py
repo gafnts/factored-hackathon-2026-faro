@@ -110,13 +110,13 @@ def owed(pending: Pending, cause: str, rules: list[str]) -> HandoffRequest | Non
         return None
     return required(
         code,
-        pending.get("label") or "block_card",
+        pending["label"],
         list(dict.fromkeys([*rules, rule])),
         **cited(pending),
         actions=[
             action(pending, "declined_by_customer" if cause == "control" else "lapsed")
         ],
-        handoff_id=pending.get("handoff_id"),
+        handoff_id=pending["handoff_id"],
     )
 
 
@@ -293,7 +293,7 @@ async def answered_offer(state: State, scope: Scope, resumed: ControlAnswer) -> 
         # The accepted handoff files the confirmation's draft, if it had one, so none is left to expire.
         request = request | {
             "actions": [*request["actions"], action(pending, "lapsed")],
-            "handoff_id": pending.get("handoff_id"),
+            "handoff_id": pending["handoff_id"],
         }
         update |= {"pending": None, "say": say}
     return update | {"handoff": request}

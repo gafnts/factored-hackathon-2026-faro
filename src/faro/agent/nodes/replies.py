@@ -199,7 +199,6 @@ async def conclude(state: State) -> Update:
         parts.append(render("handoff_offer", language, {}))
         outcome = {**outcome, "awaiting": OFFERED}
     outcome = {
-        "awaiting": "none",
         **outcome,
         "rules": list(dict.fromkeys([*outcome["rules"], *state.get("rules", [])])),
     }

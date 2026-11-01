@@ -376,7 +376,7 @@ def queued(state: State) -> list[Label]:
 
 def paged(state: State) -> str | None:
     paging = state.get("paging")
-    return MORE if paging is not None and paging.get("cursor") else None
+    return MORE if paging is not None and paging["cursor"] else None
 
 
 def said(*parts: Said) -> list[Said]:
@@ -456,7 +456,7 @@ def cited(pending: Pending, *calls: str) -> Cites:
     What a handoff about the pending confirmation cites: the listing that settled its card, a charge's window reads
     and the charge found, if any, and the calls named.
     """
-    charge = pending.get("charge")
+    charge = pending["charge"]
     return {
         "calls": listed_calls(
             pending["listed"], *(charge["calls"] if charge else []), *calls

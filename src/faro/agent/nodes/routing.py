@@ -70,7 +70,7 @@ async def next_request(state: State) -> Update:
         "case": CASES[label],
         "queue": {**queue, "labels": rest} if rest else None,
         "text": queue["text"],
-        "complaint": queue.get("complaint", False),
+        "complaint": queue["complaint"],
     }
 
 
