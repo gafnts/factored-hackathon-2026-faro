@@ -96,8 +96,6 @@ OUTCOMES_BY_CASE: dict[str, tuple[Outcome, list[str]]] = {
     "other_person": ("decline", ["POL-08"]),
     "third_language": ("decline", ["POL-51"]),
 }
-# A request about someone else's card gets the refusal's words (POL-08).
-FIXED["other_person"] = FIXED["refused"]
 ASKED: dict[str, Awaiting] = {
     "card": "card",
     "reason": "reason",
