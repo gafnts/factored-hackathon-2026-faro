@@ -55,7 +55,6 @@ Step = Literal[
     "blocking",
     "again",
     "fixed",
-    "pointer",
     "not_served",
 ]
 Ending = Literal[

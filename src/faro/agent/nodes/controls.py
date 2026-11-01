@@ -369,7 +369,6 @@ async def typed(state: State, scope: Scope, resumed: ControlAnswer) -> Update:
             assert offer is not None
             pointer, waits = "offer_pointer", offer_waits(offer, ["POL-51", "POL-45"])
         return update | {
-            "case": "pointer",
             "say": said(("third_language", {}), (pointer, {})),
             "decision": waits,
         }
@@ -394,14 +393,12 @@ async def typed_to_offer(scope: Scope, offer: Offer, routed: Update | None) -> U
         return update | routed
     if routed is None:
         return {
-            "case": "pointer",
             "say": said(("unavailable", {})),
             "decision": offer_waits(offer, ["POL-48"]),
         }
     if routed["case"] != "no_request":
         return routed | {"offer": None, "rules": ["POL-45"]}
     return {
-        "case": "pointer",
         "say": said(("offer_pointer", {})),
         "decision": offer_waits(offer, ["POL-06", "POL-45"]),
     }
@@ -443,7 +440,6 @@ async def typed_to_confirmation(
         return update | routed
     if routed is None:
         return {
-            "case": "pointer",
             "say": said(("unavailable", {})),
             "decision": decided("abstain", ["POL-48"], "block_card", CONTROL),
         }
@@ -515,7 +511,6 @@ async def typed_to_confirmation(
         )
         say += said(("handoff_offer", {}))
     return {
-        "case": "pointer",
         "pending": {**pending, "typed": pointers},
         "offer": offer,
         "say": say,
