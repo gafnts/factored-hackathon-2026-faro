@@ -12,3 +12,5 @@ peerDependencyRules:
 overrides:
   "@ag-ui/client>zod": $zod
   "@ag-ui/proto>zod": $zod
+  # Rehearsal only, never merged: a version with known advisories.
+  fast-uri: 3.1.8
