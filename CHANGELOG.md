@@ -9,6 +9,9 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 ### Added
 
 - zizmor audits the workflows on every commit that touches `.github/`, and in CI with its online audits too ([#136]).
+- Releases ([ADR-0009](docs/adr/0009-release-checked-deploys.md)). A promotion is cut on `develop` first with `make cut`, which numbers it and dates its section, and named last with `make release`, which tags the merge commit once its deploy has passed and makes a GitHub release whose notes list the build's SHA-256. The submission is `1.0.0`, Promotions 7 to 11 are `1.1.0` to `1.5.0`, and `pyproject.toml`'s version follows the last cut ([#139]).
+- After each deploy to `prototype`, CI checks that each Lambda and the Runtime run the build's zips, then signs a standing smoke user in through the site and asks about its cards; either failing turns the run red, and a red run gets no release ([#139]).
+- A promotion into `main` is refused unless its release is cut ([#139]).
 
 ### Changed
 
@@ -18,6 +21,9 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - Each zip holds only what its functions run: the packages of ours that its entry points import, with the files they read, and its dependency group's distributions. A change to code the stack doesn't run (the evaluation, the pipeline, the analysis), to the docs, or to the dev tools no longer redeploys the Runtime or the Lambdas ([#137]).
 - The Runtime's stamp, which every execution record carries, is the last commit that changed its own code. Before, any change to `pyproject.toml` or `uv.lock` moved it; a change to its locked dependencies alone now deploys a new zip under the same stamp ([#137]).
 - The next deploy updates the Runtime and all six Lambdas once, for their new zips, with no change to what they run ([#137]).
+- The deploy builds the zips and the site in a job without credentials. The plan and apply jobs download them and run only Terraform, the AWS CLI, jq, and git, and the plan's comment is posted by a job with no AWS credentials ([#139]).
+- Every promotion deploys: its cut changes the changelog, which now triggers the workflow ([#139]).
+- `make site` is `make web`, then the new `make upload`, which reads Terraform's outputs with jq; setup now lists jq beside the AWS CLI ([#139]).
 
 ### Fixed
 
@@ -116,5 +122,6 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#129]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/129
 [#136]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/136
 [#137]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/137
+[#139]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/139
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
