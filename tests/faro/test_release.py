@@ -94,6 +94,20 @@ def test_a_versions_notes_are_its_section() -> None:
         release.notes(CHANGELOG, "1.4.0")
 
 
+def test_a_releases_notes_carry_the_links_their_section_uses() -> None:
+    changelog = CUT.replace(
+        "- A check after each deploy ([#2]).",
+        "- A check after each deploy ([ADR-0009](docs/adr/0009-release.md#decision), [#2]).",
+    )
+
+    assert release.linked(changelog, "1.6.0") == (
+        "### Added\n\n- A check after each deploy "
+        f"([ADR-0009]({REPO}/blob/v1.6.0/docs/adr/0009-release.md#decision), [#2]).\n\n"
+        f"[#2]: {REPO}/pull/2"
+    )
+    assert release.linked(changelog, "1.0.0") == "The prototype as submitted."
+
+
 def test_a_promotion_is_refused_until_its_release_is_cut() -> None:
     uncut, released = release.problems(CHANGELOG, "1.5.0", ["v1.5.0"])
     assert "Unreleased isn't empty" in uncut
@@ -215,6 +229,7 @@ def test_a_release_tags_mains_head_once_its_deploy_and_check_passed() -> None:
     notes = created[created.index("--notes") + 1]
     assert notes.startswith("### Added\n\n- A check after each deploy")
     assert notes.endswith("```\nab12  runtime.zip\n```\n")
+    assert f"[#2]: {REPO}/pull/2\n\n### Build" in notes
 
 
 @pytest.mark.parametrize(

@@ -34,6 +34,10 @@ HEADING = re.compile(
 LINK = re.compile(r"^\[(\d+\.\d+\.\d+)\]: (\S+)$", re.MULTILINE)
 # A section ends at the next heading of its level or at the link references below the last one.
 NEXT = re.compile(r"^(## |\[[^\]]+\]: )", re.MULTILINE)
+DEFINITION = re.compile(r"^\[([^\]]+)\]: (\S+)$", re.MULTILINE)
+# A reference-style link, as [#129], and not an inline link or a definition.
+REFERENCE = re.compile(r"\[([^\]]+)\](?![(\[:])")
+RELATIVE = re.compile(r"\]\((?!https?://|#|mailto:)([^)\s]+)\)")
 
 Run = Callable[[Sequence[str]], str]
 
@@ -84,6 +88,27 @@ def notes(changelog: str, version: str) -> str:
         if heading[1] == version:
             return body(changelog, heading.end())
     raise ReleaseError(f"the changelog has no section for {version}")
+
+
+def linked(changelog: str, version: str) -> str:
+    """
+    The version's section as a release page shows it: with the link definitions it uses, which sit below the last
+    section, and with its paths pointing at the files at its tag.
+    """
+    section = notes(changelog, version)
+    link = LINK.search(changelog)
+    if link is None:
+        raise ReleaseError("the changelog has no version link to follow")
+    repository = link[2].split("/releases/")[0]
+    section = RELATIVE.sub(
+        lambda path: f"]({repository}/blob/v{version}/{path[1]})", section
+    )
+    defined = dict(DEFINITION.findall(changelog))
+    used = dict.fromkeys(
+        label for label in REFERENCE.findall(section) if label in defined
+    )
+    definitions = "".join(f"\n[{label}]: {defined[label]}" for label in used)
+    return f"{section}\n{definitions}" if definitions else section
 
 
 def project_version(pyproject: str) -> str:
@@ -241,7 +266,7 @@ def release_command(dry_run: bool, run: Run = run) -> str:
             ]
         )
         sums = (Path(folder) / "SHA256SUMS").read_text(encoding="utf-8")
-    text = release_notes(notes(changelog, version), sums)
+    text = release_notes(linked(changelog, version), sums)
     tag = f"v{version}"
     if dry_run:
         return (
@@ -272,7 +297,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     commands.add_parser("check", help="refuse unless the release is cut")
     releasing = commands.add_parser("release", help="tag and release main's head")
     releasing.add_argument("--dry-run", action="store_true")
-    showing = commands.add_parser("notes", help="print a version's section")
+    showing = commands.add_parser(
+        "notes", help="print a version's section, as a release shows it"
+    )
     showing.add_argument("version")
     args = parser.parse_args(argv)
     try:
@@ -283,7 +310,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         elif args.command == "release":
             print(release_command(args.dry_run))
         else:
-            print(notes(CHANGELOG.read_text(encoding="utf-8"), args.version))
+            print(linked(CHANGELOG.read_text(encoding="utf-8"), args.version))
     except ReleaseError as error:
         raise SystemExit(f"error: {error}") from error
     except subprocess.CalledProcessError as error:
