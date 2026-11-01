@@ -97,7 +97,7 @@ The operations that can hurt are hard to trigger by mistake:
 | One environment touching another's state | Each role is denied every other prefix in the state bucket (including the IAM and dataset roots'), and any change to the bucket itself; the roles they create are denied the bucket entirely |
 | One environment writing another's site or zips | Each deploy role, and every role it creates, is denied the other environment's buckets and CloudFront functions by name, since S3 object writes ignore tags and functions can't carry them |
 | Deleting shared state | `iam-destroy` and `dataset-destroy` need `I_KNOW=1`, `dataset-destroy` stops while the data bucket holds anything, and `make teardown` makes you type the bucket name |
-| Secrets in commits | `gitleaks` and `detect-private-key` run on every commit, and `gitleaks-history` rescans the full history on every push and in CI; on this public repository, GitHub's secret scanning also checks whether a secret it finds still works |
+| Secrets in commits | `gitleaks` and `detect-private-key` run on every commit, and `gitleaks-history` rescans the full history on every push and in CI |
 | The model key reaching state, plans, or CI | The IAM root creates each environment's secret empty, `make model-key` stores the key from your `.env`, and the stack only looks the secret up by name ([step 3.7](#37-verify-and-deploy-local)) |
 | The dataset changing under an evaluation | `make data` checks every file against `dataset.lock` and copies in only files that match it, and the data bucket rejects any write that would overwrite a snapshot |
 

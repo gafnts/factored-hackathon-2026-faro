@@ -4,6 +4,10 @@
 
 Accepted (2026-10-31). Its open decisions were settled that day, each on the option we leaned towards, and are listed under [Settled at acceptance](#settled-at-acceptance) with the alternatives we didn't take.
 
+Amended as built, each correction applied in the section it names:
+
+- 2026-10-31: secret scanning's validity checks left out of GitHub's free extras ([Decision](#decision)): GitHub offers them on a user-owned repository only under Enterprise Cloud with Enterprise Managed Users, and turning them on here leaves them off.
+
 ## Context
 
 Our dependencies are pinned in lockfiles and updated by Dependabot ([ADR-0008](0008-pin-toolchain-by-layer.md)), and nothing checks what those pins contain. Five forces make that worth deciding:
@@ -37,7 +41,7 @@ In practice:
 - **The web lockfile is one document.** `pmOnFail: ignore` in `web/pnpm-workspace.yaml` stops pnpm from checking its own version against `packageManager`, and with it from writing the boot document. pnpm's documentation names this setting for a project whose pnpm is installed by a version manager such as mise, which ADR-0008 made ours: mise installs the pnpm `packageManager` names, and a test keeps the two equal. GitHub then sees the web app's packages, so Dependabot's alerts and security updates cover them too. The setting goes once GitHub reads both documents. minimatch's alert, which opens once GitHub sees the web app's packages, is dismissed as a tolerable risk with its entry's reason, so an open alert always means a decision not yet taken.
 - **No auto-merge.** Dependabot's tooling PRs merge by hand. #116 closes with the reasons below.
 - **No license check.** None of our dependencies' licenses has been a question so far; osv-scanner can check them later with one flag.
-- **GitHub's free extras where they're free.** Faro is public, so CodeQL's default setup and secret scanning's validity checks are on. Neither is required, since a private copy of this setup can't have them.
+- **GitHub's free extras where they're free.** Faro is public, so CodeQL's default setup is on. It isn't required, since a private copy of this setup can't have it. Secret scanning's validity checks aren't available to a repository on a personal account.
 - **Dependabot reads the composite action.** `.github/dependabot.yml` lists `.github/actions/*` beside `/`, as ADR-0008's consequences asked, so the pins in `.github/actions/toolchain` stop going stale.
 
 ### Settled at acceptance
