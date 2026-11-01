@@ -2,6 +2,8 @@
 minimumReleaseAge: 10080
 savePrefix: ""
 engineStrict: true
+# mise installs the pnpm packageManager names; skipping pnpm's own check keeps the lockfile one document, which GitHub reads (ADR-0010).
+pmOnFail: ignore
 # jsx-a11y hasn't widened its range, and runs on ESLint 10's flat config.
 peerDependencyRules:
   allowedVersions:
