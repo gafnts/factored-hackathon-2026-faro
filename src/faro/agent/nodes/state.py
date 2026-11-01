@@ -26,6 +26,7 @@ from faro.agent.nodes.cards import (
     ProductType,
     Transaction,
     Window,
+    card_facts,
 )
 from faro.agent.payload import Action, ActionOutcome, HandoffRequest
 from faro.agent.records import Cited
@@ -380,6 +381,14 @@ def paged(state: State) -> str | None:
 
 def said(*parts: Said) -> list[Said]:
     return list(parts)
+
+
+def not_active(card: CardFacts) -> Said:
+    """
+    What a block says of a card that isn't Active: that it's already blocked, or that it can't be (POL-34).
+    """
+    name = "already_blocked" if card["product_status"] == "Blocked" else "not_blockable"
+    return (name, {"card": card_facts(card)})
 
 
 def decided(

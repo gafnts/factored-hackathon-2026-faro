@@ -9,7 +9,7 @@ from typing import cast
 from faro.agent.confirmations import new_record
 from faro.agent.filing import new_call_id
 from faro.agent.nodes.calls import bound, tool
-from faro.agent.nodes.cards import card_facts
+from faro.agent.nodes.cards import CardFacts, card_facts
 from faro.agent.nodes.state import (
     CONTROL,
     MISSING,
@@ -21,6 +21,7 @@ from faro.agent.nodes.state import (
     action,
     cited,
     decided,
+    not_active,
     offering,
     said,
 )
@@ -196,14 +197,12 @@ async def verify(state: State) -> Update:
     if "denied" in (tried["outcome"], call.outcome):
         return turn | {"case": "refused"}
     if tried["outcome"] == "refused" and result.get("refusal") == "not_active":
-        card = {**pending["card"], "product_status": result["product_status"]}
-        name = (
-            "already_blocked"
-            if card["product_status"] == "Blocked"
-            else "not_blockable"
-        )
+        card: CardFacts = {
+            **pending["card"],
+            "product_status": result["product_status"],
+        }
         return turn | {
-            "say": said((name, {"card": card})),
+            "say": said(not_active(card)),
             "decision": decided("decline", ["POL-34"], "block_card"),
         }
     actions: list[Action] = []

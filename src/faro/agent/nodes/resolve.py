@@ -22,6 +22,7 @@ from faro.agent.nodes.state import (
     decided,
     heard,
     latest_text,
+    not_active,
     offering,
     paged,
     request_text,
@@ -459,15 +460,10 @@ async def resolve_card(state: State) -> Update:
             "text": asked.get("text") or state.get("text"),
         }
     if card["product_status"] != "Active":
-        name = (
-            "already_blocked"
-            if card["product_status"] == "Blocked"
-            else "not_blockable"
-        )
         return {
             **turn,
             "asking": None,
-            "say": [*say, *said((name, {"card": card_facts(card)}))],
+            "say": [*say, not_active(card)],
             "decision": decided("decline", ["POL-13", "POL-34"], "block_card"),
         }
     if reason is None:
