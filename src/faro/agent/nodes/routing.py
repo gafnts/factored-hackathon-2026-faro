@@ -241,7 +241,7 @@ async def aside(state: State) -> dict[str, Any]:
     }
     if asked.get("label") != "unrecognized_charge":
         return served
-    cited = asked["cited"]
+    cites = asked["cited"]
     return {
         **served,
         "label": "unrecognized_charge",
@@ -250,8 +250,8 @@ async def aside(state: State) -> dict[str, Any]:
             "unrecognized_charge",
             "unrecognized_charge",
             ["POL-06", "POL-39"],
-            calls=cited["calls"],
-            cards=cited["cards"],
+            calls=cites["calls"],
+            cards=cites["cards"],
         ),
         "then": {
             k: served[k]

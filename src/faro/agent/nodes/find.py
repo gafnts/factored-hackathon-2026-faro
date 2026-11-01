@@ -59,7 +59,7 @@ async def find_transaction(state: State) -> dict[str, Any]:
     if answering:
         turn["text"] = asked.get("text")
         calls, candidates = asked["calls"], asked["candidates"]
-        context = (
+        given = (
             f"{KINDS_OF_TRANSACTION[label]}\n{today(scope.business_date)}\n"
             "The customer is answering which of these transactions they mean:\n"
             + listing(candidates)
@@ -83,7 +83,7 @@ async def find_transaction(state: State) -> dict[str, Any]:
             cursor = call.result.get("next_cursor")
             if cursor is None:
                 break
-        context = (
+        given = (
             f"{KINDS_OF_TRANSACTION[label]}\n{today(scope.business_date)}\n"
             + listing(candidates)
         )
@@ -91,7 +91,7 @@ async def find_transaction(state: State) -> dict[str, Any]:
     if candidates:
         text = latest_text(state) if answering else request_text(state)
         try:
-            chosen = await scope.models.choose(text, context)
+            chosen = await scope.models.choose(text, given)
         except ModelFailedError:
             failed = True
         else:
@@ -244,9 +244,9 @@ async def explained(
     ):
         call = await tool(scope, "get_card", card_id=target["card_id"])
         calls.append(call.call_id)
-        read = (call.result or {}).get("card")
-        if call.outcome == "ok" and read and read["expiration_date"] is not None:
-            conflicts += said(("code_conflict", {"card": read}))
+        record = (call.result or {}).get("card")
+        if call.outcome == "ok" and record and record["expiration_date"] is not None:
+            conflicts += said(("code_conflict", {"card": record}))
     if conflicts:
         rules += ["POL-30"]
     if found["transaction_status"] != "Declined":

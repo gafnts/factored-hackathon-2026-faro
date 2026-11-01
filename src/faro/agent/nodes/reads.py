@@ -80,7 +80,7 @@ async def read_status(state: State) -> dict[str, Any]:
     scope, label = SCOPE.get(), "card_status"
     listed = state.get("listed")
     calls = [listed] if listed else []
-    shown: list[dict[str, Any]] = []
+    cards: list[dict[str, Any]] = []
     for card in state["targets"]:
         call = await tool(scope, "get_card", card_id=card["card_id"])
         calls.append(call.call_id)
@@ -89,29 +89,29 @@ async def read_status(state: State) -> dict[str, Any]:
             return failed
         if call.result is None or "card" not in call.result:
             return {"case": "unavailable"}
-        shown.append(call.result["card"])
+        cards.append(call.result["card"])
     rules = ["POL-01", "POL-21"]
     every = (state.get("details") or {}).get("cards") == "all"
-    listing: dict[str, Any] = {}
-    if len(shown) == 1 and not every:
-        say = writable("card_status", {"card": shown[0]}, seen(shown[0]))
+    places: dict[str, Any] = {}
+    if len(cards) == 1 and not every:
+        say = writable("card_status", {"card": cards[0]}, seen(cards[0]))
     else:
         rules.append("POL-14")
         say = writable(
-            "cards_status" if len(shown) > 1 else "only_card_status",
-            {"statuses": shown},
-            " ".join(seen(card) for card in shown),
+            "cards_status" if len(cards) > 1 else "only_card_status",
+            {"statuses": cards},
+            " ".join(seen(card) for card in cards),
         )
-        listing = {"shown_cards": [c["card_id"] for c in shown]}
+        places = {"shown_cards": [c["card_id"] for c in cards]}
     conflicted = [
-        c for c in shown if c["product_status"] == "Active" and c["past_expiration"]
+        c for c in cards if c["product_status"] == "Active" and c["past_expiration"]
     ]
     say += [part for c in conflicted for part in said(("past_expiration", {"card": c}))]
     if not conflicted:
         return {
             "say": say,
             "decision": decided("answer", rules, label=label),
-            **listing,
+            **places,
         }
     rules += ["POL-30", "POL-31"]
     if (state.get("details") or {}).get("conflict") == "asks_which":
@@ -119,9 +119,9 @@ async def read_status(state: State) -> dict[str, Any]:
             **conflict_offer(
                 state, label, rules, calls, [c["card_id"] for c in conflicted], say
             ),
-            **listing,
+            **places,
         }
-    return {"say": say, "decision": decided("answer", rules, label=label), **listing}
+    return {"say": say, "decision": decided("answer", rules, label=label), **places}
 
 
 def credit_seen(figure: dict[str, Any]) -> str:
@@ -211,13 +211,13 @@ async def read_credit(state: State) -> dict[str, Any]:
         *notes,
     ]
     outcome = "answer" if figured else "abstain" if missing else "decline"
-    listing = (
+    places = (
         {"shown_cards": [f["card"]["card_id"] for f in figured]}
         if len(figured) > 1
         else {}
     )
     if not missing:
-        return {"say": say, "decision": decided(outcome, rules, label=label), **listing}
+        return {"say": say, "decision": decided(outcome, rules, label=label), **places}
     request = offered(
         "missing_data", label, ["POL-24"], rules, calls=calls, cards=missing
     )
@@ -225,7 +225,7 @@ async def read_credit(state: State) -> dict[str, Any]:
         "say": [*say, *said(("handoff_offer", {}))],
         "offer": offering(request, outcome),
         "decision": decided(outcome, rules, OFFERED, label),
-        **listing,
+        **places,
     }
 
 
@@ -265,7 +265,7 @@ async def read_transactions(state: State) -> dict[str, Any]:
     if failed is not None or call.result is None or "transactions" not in call.result:
         return failed or {"case": "unavailable"}
     result = call.result
-    kept = {
+    bookmark = {
         "card_id": target["card_id"],
         "cursor": result["next_cursor"],
         "window": result["window"],
@@ -273,7 +273,7 @@ async def read_transactions(state: State) -> dict[str, Any]:
     if not result["transactions"]:
         name = "transactions_no_more" if following else "transactions_none"
         return {
-            "paging": kept,
+            "paging": bookmark,
             "say": said((name, {"card": card, "window": result["window"]})),
             "decision": decided("answer", rules, label=label),
         }
@@ -296,7 +296,7 @@ async def read_transactions(state: State) -> dict[str, Any]:
     if result["next_cursor"] is not None:
         say += said(("transactions_more", {}))
     return {
-        "paging": kept,
+        "paging": bookmark,
         "say": say,
         "decision": decided("answer", rules, label=label),
     }

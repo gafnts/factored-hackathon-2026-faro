@@ -181,16 +181,16 @@ async def verify(state: State) -> dict[str, Any]:
     the block returned one (POL-37, AI-05).
     """
     scope = SCOPE.get()
-    pending, done = state["pending"], state["block"]
-    assert pending is not None and done is not None
+    pending, tried = state["pending"], state["block"]
+    assert pending is not None and tried is not None
     call = await tool(scope, "get_card", card_id=pending["card_id"])
     facts = {"card": pending["card"]}
-    result = done["result"] or {}
-    read = (call.result or {}).get("card", {}).get("product_status")
+    result = tried["result"] or {}
+    status = (call.result or {}).get("card", {}).get("product_status")
     turn: dict[str, Any] = {"pending": None, "case": "fixed"}
-    if "denied" in (done["outcome"], call.outcome):
+    if "denied" in (tried["outcome"], call.outcome):
         return turn | {"case": "refused"}
-    if done["outcome"] == "refused" and result.get("refusal") == "not_active":
+    if tried["outcome"] == "refused" and result.get("refusal") == "not_active":
         card = {**pending["card"], "product_status": result["product_status"]}
         name = (
             "already_blocked"
@@ -211,10 +211,10 @@ async def verify(state: State) -> dict[str, Any]:
                 "confirmation_id": pending["confirmation_id"],
                 "outcome": result["block_outcome"],
                 "confirmed_at": pending["confirmed_at"],
-                "evidence": [done["call_id"]],
+                "evidence": [tried["call_id"]],
             }
         )
-    if result.get("block_outcome") == "verified" and read == "Blocked":
+    if result.get("block_outcome") == "verified" and status == "Blocked":
         say = said(("block_verified", facts))
         rules = ["POL-36", "POL-37"]
         if pending["reason"] in MISSING:
@@ -226,7 +226,7 @@ async def verify(state: State) -> dict[str, Any]:
                 "block_card",
                 ["POL-38"],
                 rules,
-                calls=[done["call_id"], call.call_id],
+                calls=[tried["call_id"], call.call_id],
                 cards=[pending["card_id"]],
                 actions=actions,
                 # Accepted, it files the block's draft, which is otherwise left to expire.
@@ -247,7 +247,7 @@ async def verify(state: State) -> dict[str, Any]:
                     "unrecognized_charge",
                     pending.get("label") or "block_card",
                     rules,
-                    **cited(pending, done["call_id"], call.call_id),
+                    **cited(pending, tried["call_id"], call.call_id),
                     actions=actions,
                     handoff_id=pending.get("handoff_id"),
                 ),
@@ -259,7 +259,7 @@ async def verify(state: State) -> dict[str, Any]:
     scope.turn.emit(
         "block_not_verified",
         reason=pending["reason"],
-        planned=bool(done.get("planned") or (call.error or {}).get("planned")),
+        planned=bool(tried.get("planned") or (call.error or {}).get("planned")),
     )
     return turn | {
         "case": "handoff",
@@ -268,7 +268,7 @@ async def verify(state: State) -> dict[str, Any]:
             "unrecognized_charge" if charge else "action_not_verified",
             pending.get("label") or "block_card",
             ["POL-37", "POL-39"] if charge else ["POL-37"],
-            **cited(pending, done["call_id"], call.call_id),
+            **cited(pending, tried["call_id"], call.call_id),
             actions=actions,
             reported=pending["reason"],
             handoff_id=pending.get("handoff_id"),

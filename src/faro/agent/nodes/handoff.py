@@ -28,7 +28,7 @@ async def handoff(state: State) -> dict[str, Any]:
     scope = SCOPE.get()
     request = state["handoff"]
     assert request is not None
-    cited = [
+    sources = [
         c
         for c in state.get("evidence", [])
         if c["call_id"] in request["calls"]
@@ -36,7 +36,7 @@ async def handoff(state: State) -> dict[str, Any]:
     ]
     payload = built(
         request,
-        cited,
+        sources,
         handoff_id=request.get("handoff_id") or str(uuid.uuid4()),
         created_at=wall_time(scope.now()),
         customer_id=scope.claims.customer_id,
@@ -51,7 +51,7 @@ async def handoff(state: State) -> dict[str, Any]:
         )
     except ModelFailedError:
         text = None
-    turns = sorted({c["turn"] for c in cited} - {scope.turn.prefix})
+    turns = sorted({c["turn"] for c in sources} - {scope.turn.prefix})
     call = await scope.filing.file(
         {
             "customer_id": scope.claims.customer_id,

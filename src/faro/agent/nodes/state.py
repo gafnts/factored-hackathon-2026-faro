@@ -172,12 +172,12 @@ def concluded(
     }
 
 
-def writable(template: str, facts: dict[str, Any], shown: str) -> list[list[Any]]:
+def writable(template: str, facts: dict[str, Any], words: str) -> list[list[Any]]:
     """
     A read's answer, which the model writes when its request is among WRITES, from the placeholders its fixed reply
-    states and what shown says of the records in words, never a figure (ADR-0004's amendment of 2026-10-01).
+    states and the words that say what the records show, never a figure (ADR-0004's amendment of 2026-10-01).
     """
-    return [[WRITE, {"template": template, "facts": facts, "shown": shown}]]
+    return [[WRITE, {"template": template, "facts": facts, "shown": words}]]
 
 
 def offering(request: dict[str, Any], outcome_class: str) -> dict[str, Any]:
@@ -218,10 +218,10 @@ def small_talk(state: State) -> str:
     first time the chat speaks and whenever the message is aimed at the chat itself, a bare injection included, and
     after that a line for a greeting, for thanks, or for a goodbye, and the capabilities for anything else.
     """
-    kind = state.get("no_request") or "other"
-    if kind in ("thanks", "closing"):
-        return kind
+    no_request = state.get("no_request") or "other"
+    if no_request in ("thanks", "closing"):
+        return no_request
     introduced = any(isinstance(m, AIMessage) for m in state["messages"])
-    if kind == "about" or not introduced:
+    if no_request == "about" or not introduced:
         return "no_request"
-    return "greeting" if kind == "greeting" else "capabilities"
+    return "greeting" if no_request == "greeting" else "capabilities"

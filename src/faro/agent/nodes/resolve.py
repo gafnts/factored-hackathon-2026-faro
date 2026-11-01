@@ -65,17 +65,17 @@ def extraction_context(
     if asking.get("detail") == "reason":
         return "The customer is answering why they want to block the card."
     if label == "recent_transactions":
-        shown = window({"as_of": SCOPE.get().as_of})
-        context = (
+        period = window({"as_of": SCOPE.get().as_of})
+        given = (
             "The customer asks about the recent transactions of one of their cards. The chat reads the period from "
-            f"{moment(shown['from'])} to {moment(shown['to'])}."
+            f"{moment(period['from'])} to {moment(period['to'])}."
         )
         more = paged(state)
-        context = context if more is None else f"{context} {more}"
+        given = given if more is None else f"{given} {more}"
     else:
-        context = ASKS[label]
+        given = ASKS[label]
     listed = cards_named(cards, state.get("shown_cards") or [])
-    return f"{context}\n{EARLIER}\n{listed}" if listed else context
+    return f"{given}\n{EARLIER}\n{listed}" if listed else given
 
 
 def mentioned(text: str, cards: list[dict[str, Any]]) -> str | None:
@@ -131,19 +131,19 @@ def question(
     name: str,
     facts: dict[str, Any],
     rules: list[str],
-    offer: tuple[str | None, list[str]],
-    **kept: Any,
+    cites: tuple[str | None, list[str]],
+    **held: Any,
 ) -> dict[str, Any]:
     """
     Asks for a detail, or stops once two questions haven't settled it and offers a handoff (POL-17), citing the listing
-    and the cards the questions were about (offer). For a charge the customer doesn't recognize, a card that can't be
+    and the cards the questions were about (cites). For a charge the customer doesn't recognize, a card that can't be
     settled goes to dispute intake at once instead, since that is the request's only handoff (POL-39).
     """
     asked = asked or {}
     before = asked.get("questions", 0) if asked.get("detail") == detail else 0
-    label = kept.get("label") or "block_card"
+    label = held.get("label") or "block_card"
     if before >= QUESTIONS:
-        listed, cards = offer
+        listed, cards = cites
         stopped = [*rules, "POL-17"]
         say = [*state.get("say", []), *said(("clarification_stopped", {}))]
         if label == "unrecognized_charge":
@@ -174,7 +174,7 @@ def question(
             "offer": offering(request, "abstain"),
             "decision": decided("abstain", stopped, OFFERED, label),
         }
-    listed, cards = offer
+    listed, cards = cites
     decision = decided(
         "clarify", rules, "card" if detail == "card" else "reason", label
     )
@@ -186,7 +186,7 @@ def question(
             "asked": [name, facts],
             "decision": decision,
             "cited": {"calls": [listed] if listed else [], "cards": cards},
-            **kept,
+            **held,
         },
         "say": [*state.get("say", []), *said((name, facts))],
         "decision": decision,
@@ -316,8 +316,8 @@ async def resolve_card(state: State) -> dict[str, Any]:
         and last_four is None
     ):
         asked = {**asked, "card_id": paging["card_id"]}
-    settled = next((c for c in cards if c["card_id"] == asked.get("card_id")), None)
-    if settled is None or not fits(settled, card_type, last_four):
+    card = next((c for c in cards if c["card_id"] == asked.get("card_id")), None)
+    if card is None or not fits(card, card_type, last_four):
         card_type = card_type or asked.get("card_type")
         last_four = last_four or asked.get("last_four")
         if (
@@ -420,10 +420,10 @@ async def resolve_card(state: State) -> dict[str, Any]:
                     text=asked.get("text") or request_text(state),
                 ),
             }
-        settled = meant[0]
-    turn["recent"] = settled["card_id"]
+        card = meant[0]
+    turn["recent"] = card["card_id"]
     target = {
-        **settled,
+        **card,
         "served_in_full": call.result["customer"]["served_in_full"],
         "listed": call.call_id,
     }
@@ -446,16 +446,16 @@ async def resolve_card(state: State) -> dict[str, Any]:
             "country": country,
             "text": asked.get("text") or state.get("text"),
         }
-    if settled["product_status"] != "Active":
+    if card["product_status"] != "Active":
         name = (
             "already_blocked"
-            if settled["product_status"] == "Blocked"
+            if card["product_status"] == "Blocked"
             else "not_blockable"
         )
         return {
             **turn,
             "asking": None,
-            "say": [*say, *said((name, {"card": card_facts(settled)}))],
+            "say": [*say, *said((name, {"card": card_facts(card)}))],
             "decision": decided("decline", ["POL-13", "POL-34"]),
         }
     if reason is None:
