@@ -23,8 +23,6 @@ record, and the entrypoint writes them after the controls' interrupt, when there
 message, one part per request it served.
 """
 
-from typing import Any
-
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -124,8 +122,8 @@ def after_control(state: State) -> str:
 
 
 def build(
-    checkpointer: BaseCheckpointSaver[Any],
-) -> CompiledStateGraph[Any, Any, Any, Any]:
+    checkpointer: BaseCheckpointSaver[str],
+) -> CompiledStateGraph[State, None, ChatState, ChatState]:
     graph = StateGraph(State, input_schema=ChatState, output_schema=ChatState)
     for node in (
         begin, route, next_request, list_cards, unsupported, resolve_card, read,

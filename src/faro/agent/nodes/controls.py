@@ -5,7 +5,7 @@ The confirm and handoff controls: waiting on them, and every answer they get, a 
 
 import asyncio
 from datetime import UTC, datetime
-from typing import Any
+from typing import Literal, Required, TypedDict
 
 from langchain_core.messages import HumanMessage
 from langgraph.types import interrupt
@@ -38,13 +38,26 @@ from faro.agent.records import wall_time
 from faro.agent.scope import SCOPE, Scope
 
 
-def controls(state: State) -> dict[str, Any]:
+class ControlAnswer(TypedDict, total=False):
+    """
+    How the entrypoint resumes the controls' interrupt (request.py): a confirm or a cancel naming the confirmation, an
+    accept or a decline naming the offer, or a message typed while they show.
+    """
+
+    kind: Required[Literal["confirm", "cancel", "accept", "decline", "message"]]
+    confirmation_id: str
+    offer_id: str
+    message_id: str
+    text: str
+
+
+def controls(state: State) -> dict[str, object]:
     """
     The interrupt's value, built from the state alone: await_control runs again from its start when resumed. A pending
     confirmation and an offer show together when POL-36 offers a handoff while the confirmation is pending.
     """
     pending, offer = state.get("pending"), state.get("offer")
-    showing: list[dict[str, Any]] = []
+    showing: list[dict[str, object]] = []
     if pending is not None:
         showing.append(
             {
@@ -147,7 +160,7 @@ def lapse_rules(pending: Pending, cause: str) -> list[str]:
 
 
 async def await_control(state: State) -> Update:
-    resumed: dict[str, Any] = interrupt(controls(state))
+    resumed: ControlAnswer = interrupt(controls(state))
     scope = SCOPE.get()
     pending, offer = state.get("pending"), state.get("offer")
     turn: Update = {
@@ -236,7 +249,7 @@ async def await_control(state: State) -> Update:
     return ended_unused | {"decision": decided("answer", rules, "block_card")}
 
 
-async def answered_offer(state: State, scope: Scope, resumed: dict[str, Any]) -> Update:
+async def answered_offer(state: State, scope: Scope, resumed: ControlAnswer) -> Update:
     """
     The handoff control's answer (POL-45). Accepting files the offered handoff and ends a confirmation shown beside it
     unused (POL-36); declining ends the offer, and a confirmation beside it stays pending. From another sign-in, the
@@ -320,7 +333,7 @@ async def answered_offer(state: State, scope: Scope, resumed: dict[str, Any]) ->
     return update | {"handoff": request}
 
 
-async def typed(state: State, scope: Scope, resumed: dict[str, Any]) -> Update:
+async def typed(state: State, scope: Scope, resumed: ControlAnswer) -> Update:
     """
     A message typed while a control shows (POL-06, POL-36, POL-45). A new request ends what shows and moves on, and so
     does another card or reason for a pending block; anything else, a typed yes included, leaves the controls as they

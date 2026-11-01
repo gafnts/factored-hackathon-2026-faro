@@ -94,6 +94,7 @@ overrides = [
     "faro.analysis.plotting",
     "faro.analysis.traffic_figures",
   ], disallow_untyped_calls = false },
+  { module = [ "faro.agent.graph", "faro.agent.nodes.*" ], disallow_any_explicit = true },
 ]
 
 [tool.pytest]
