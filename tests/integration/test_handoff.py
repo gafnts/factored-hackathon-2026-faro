@@ -19,7 +19,7 @@ from typing import Any
 import boto3
 import pytest
 
-from faro.agent.graph import PAGES
+from faro.agent.nodes.find import PAGES
 from faro.agent.texts import render
 from faro.contracts import validator
 
