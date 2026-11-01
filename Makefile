@@ -20,7 +20,7 @@ DATASET_BACKEND := -backend-config=backend.tfbackend
 
 .PHONY: help install tflint-init \
 	check lint format type tf-format \
-	test integration browser probe judges \
+	test integration browser probe judges smoke-user \
 	build web web-dev site upload \
 	bootstrap backend doctor provision teardown \
 	data snapshot personas tiny-export pipeline export contracts analysis \
@@ -96,6 +96,9 @@ probe: _check-profile outputs ## Time ENV's Runtime and check what it stores and
 # JUDGE, not USER: make inherits USER from the shell as the login name, so it is always set.
 judges: _check-profile outputs ## Manage the judges' users in ENV's pool (WHAT=, JUDGE=)
 	uv run python -m faro.judges $(or $(WHAT),create) --stack $(OUTPUTS) $(if $(JUDGE),--user $(JUDGE))
+
+smoke-user: _check-profile outputs ## Create or reset ENV's smoke user, the check's customer
+	uv run python -m faro.smoke_user --stack $(OUTPUTS)
 
 
 ##@ Build

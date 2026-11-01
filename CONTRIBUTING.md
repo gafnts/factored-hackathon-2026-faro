@@ -381,6 +381,7 @@ make integration        # Test the stack (SLOW=1 waits out a token, 15 min)
 make browser            # Play the chat and the console in Chromium
 make probe              # Time the Runtime and check what it stores and traces
 make judges             # Manage the judges' users, kept in data/judges/
+make smoke-user         # Create or reset the check's customer, kept in data/smoke/
 make web-dev            # Serve the web app on localhost:5173
 make destroy ENV=local  # Tear down your local resources
 ```
