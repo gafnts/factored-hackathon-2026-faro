@@ -6,8 +6,15 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Security
+
+- source-map-js 1.2.2 fixes a denial of service through indexed source maps ([GHSA-68fv-2mgg-jv7q], high), and fast-uri 3.1.9 fixes four flaws in how it reads a URI's scheme, host, and path ([GHSA-w74x-v6f9-j3xg], [GHSA-wjr9-j795-jxcr], moderate; [GHSA-xhq7-xmqj-769h], [GHSA-333x-w4r6-6crp], low). Both come in through the web app's build and test tools, and the site's files are unchanged ([#141]).
+- minimatch's denial of service through glob patterns ([GHSA-g3hv-75wg-m249], moderate) is accepted until 2027-01-15: ESLint matches only our own config's patterns with it, and no fixed version fits ESLint's range ([#141]).
+
 ### Added
 
+- CI checks `uv.lock` and `web/pnpm-lock.yaml` for known advisories with osv-scanner (`make advisories`) on every PR, every push, and every Monday, and fails on any severity; `main` and `develop` require it. An advisory we accept is listed in `osv-scanner.toml` with its reason and an end date at most 90 days away ([ADR-0010](docs/adr/0010-gate-merges-on-advisories.md)) ([#141]).
+- `develop` takes a commit only once the quality gates and the advisory scan have passed on it, so every change, small docs ones included, goes through a PR ([#141]).
 - zizmor audits the workflows on every commit that touches `.github/`, and in CI with its online audits too ([#136]).
 - Releases ([ADR-0009](docs/adr/0009-release-checked-deploys.md)). A promotion is cut on `develop` first with `make cut`, which numbers it and dates its section, and named last with `make release`, which tags the merge commit once its deploy has passed and makes a GitHub release whose notes list the build's SHA-256. The submission is `1.0.0`, Promotions 7 to 11 are `1.1.0` to `1.5.0`, and `pyproject.toml`'s version follows the last cut ([#139]).
 - After each deploy to `prototype`, CI checks that each Lambda and the Runtime run the build's zips, then signs a standing smoke user in through the site and asks about its cards; either failing turns the run red, and a red run gets no release ([#139]).
@@ -24,6 +31,8 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - The deploy builds the zips and the site in a job without credentials. The plan and apply jobs download them and run only Terraform, the AWS CLI, jq, and git, and the plan's comment is posted by a job with no AWS credentials ([#139]).
 - Every promotion deploys: its cut changes the changelog, which now triggers the workflow ([#139]).
 - `make site` is `make web`, then the new `make upload`, which reads Terraform's outputs with jq; setup now lists jq beside the AWS CLI ([#139]).
+- The web app's lockfile is one YAML document, so GitHub's dependency graph sees its packages, and Dependabot's alerts and security updates cover them. pnpm 12 wrote its own version in a first document, and GitHub read only that one; pnpm no longer checks its version, which mise installs ([#141]).
+- Dependabot also updates the actions the toolchain's composite action uses ([#141]).
 
 ### Fixed
 
@@ -123,5 +132,12 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#136]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/136
 [#137]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/137
 [#139]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/139
+[#141]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/141
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
+[GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
+[GHSA-w74x-v6f9-j3xg]: https://github.com/advisories/GHSA-w74x-v6f9-j3xg
+[GHSA-wjr9-j795-jxcr]: https://github.com/advisories/GHSA-wjr9-j795-jxcr
+[GHSA-xhq7-xmqj-769h]: https://github.com/advisories/GHSA-xhq7-xmqj-769h
+[GHSA-333x-w4r6-6crp]: https://github.com/advisories/GHSA-333x-w4r6-6crp
+[GHSA-g3hv-75wg-m249]: https://github.com/advisories/GHSA-g3hv-75wg-m249
