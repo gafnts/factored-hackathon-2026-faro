@@ -6,6 +6,11 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Changed
+
+- The agent's Python dependencies: AgentCore 1.25.0, FastAPI 0.162.0 and LangGraph 1.2.17. Only the Runtime redeploys, and its stamp stays, since its own code didn't change ([#132]).
+- The test and type-checking dependencies: moto 5.2.4 and boto3-stubs 1.43.118 ([#133], [#135]). `boto3[crt]` now requires 1.43.118, the version already locked ([#134]).
+
 ## [1.6.0] - 2026-10-31 (Promotion 12)
 
 ### Security
@@ -134,6 +139,10 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#126]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/126
 [#127]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/127
 [#129]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/129
+[#132]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/132
+[#133]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/133
+[#134]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/134
+[#135]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/135
 [#136]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/136
 [#137]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/137
 [#139]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/139
