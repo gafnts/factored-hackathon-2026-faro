@@ -797,7 +797,7 @@ tools = [
 
 [package.metadata]
 requires-dist = [
-    { name = "boto3", extras = ["crt"], specifier = ">=1.43.103" },
+    { name = "boto3", extras = ["crt"], specifier = ">=1.43.118" },
     { name = "duckdb", specifier = ">=1.5.5" },
     { name = "jsonschema", specifier = ">=4.26" },
     { name = "rfc3339-validator", specifier = ">=0.1.4" },
