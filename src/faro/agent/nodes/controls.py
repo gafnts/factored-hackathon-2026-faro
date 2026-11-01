@@ -143,6 +143,15 @@ async def lapsed(scope: Scope, pending: Pending, cause: str) -> list[Said]:
     return said(("confirmation_lapsed", {"card": pending["card"]}))
 
 
+async def not_pending(scope: Scope, resumed: ControlAnswer) -> None:
+    """
+    Records an answer naming a control that no longer shows; the entrypoint lets through only one naming what shows.
+    """
+    await scope.turn.write(
+        "resume", resume_kind=resumed["kind"], accepted=False, refusal="not_pending"
+    )
+
+
 def lapse_rules(pending: Pending, cause: str) -> list[str]:
     rules = ["POL-36"]
     if cause == "session_end":
@@ -172,13 +181,7 @@ async def await_control(state: State) -> Update:
     turn["offer"] = None
     confirmation_id = pending["confirmation_id"]
     if resumed.get("confirmation_id") != confirmation_id:
-        # The entrypoint lets through only an answer naming the pending control.
-        await scope.turn.write(
-            "resume",
-            resume_kind=resumed["kind"],
-            accepted=False,
-            refusal="not_pending",
-        )
+        await not_pending(scope, resumed)
         return {
             **turn,
             "offer": offer,
@@ -239,12 +242,7 @@ async def answered_offer(state: State, scope: Scope, resumed: ControlAnswer) -> 
     offer, pending = state["offer"], state.get("pending")
     assert offer is not None
     if resumed.get("offer_id") != offer["offer_id"]:
-        await scope.turn.write(
-            "resume",
-            resume_kind=resumed["kind"],
-            accepted=False,
-            refusal="not_pending",
-        )
+        await not_pending(scope, resumed)
         waits = (
             confirmation_waits(["POL-36"])
             if pending is not None
