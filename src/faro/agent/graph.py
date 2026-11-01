@@ -34,12 +34,12 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from faro.agent.check import failures
-from faro.agent.filing import new_call_id
 from faro.agent.models import ModelFailedError
 from faro.agent.nodes.block import block, confirm, verify
 from faro.agent.nodes.calls import citing
 from faro.agent.nodes.controls import await_control, hold
 from faro.agent.nodes.find import find_transaction
+from faro.agent.nodes.handoff import handoff
 from faro.agent.nodes.reads import read
 from faro.agent.nodes.resolve import ask_reason, resolve_card
 from faro.agent.nodes.routing import (
@@ -57,23 +57,17 @@ from faro.agent.nodes.state import (
     WRITE,
     ChatState,
     State,
-    concluded,
     offering,
     queued,
     request_text,
-    said,
     small_talk,
 )
-from faro.agent.payload import built, context, done, offered, transcript, written
-from faro.agent.records import wall_time
+from faro.agent.payload import offered
 from faro.agent.scope import SCOPE, Scope
 from faro.agent.texts import FIXED, LANGUAGE_NAMES, fill, placeholders, render, values
-from faro.policy import POLICY_VERSION
 
 # The wrapper turns this event into one TEXT_MESSAGE_START, CONTENT, and END, so a reply reaches the chat whole.
 EMIT_MESSAGE = "manually_emit_message"
-# file_handoff reads at most this many of the sign-in's turns.
-TURNS = 20
 # The reads whose answer the model writes; any other is its fixed reply (ADR-0004's amendment of 2026-10-01).
 WRITES = frozenset(READS)
 # What each placeholder holds, as the reply's model reads it; never its value.
@@ -127,100 +121,6 @@ SHAPES = {
         " then one sentence that says it stands as its status, not as declined."
     ),
 }
-
-
-async def handoff(state: State) -> dict[str, Any]:
-    """
-    Files the handoff a node required. Code builds the payload from the evidence the thread's tool calls left in state,
-    the model writes its free text, and file_handoff files it under the customer's own token, three attempts at most
-    under one handoff ID, the draft's when one was saved. The reply gives the case's reference in fixed text, or says it
-    couldn't be passed on (POL-45 to POL-48). A new request in the message that ended a confirmation is served after
-    it (then).
-    """
-    scope = SCOPE.get()
-    request = state["handoff"]
-    assert request is not None
-    cited = [
-        c
-        for c in state.get("evidence", [])
-        if c["call_id"] in request["calls"]
-        and c.get("sign_in") == scope.claims.origin_jti
-    ]
-    payload = built(
-        request,
-        cited,
-        handoff_id=request.get("handoff_id") or str(uuid.uuid4()),
-        created_at=wall_time(scope.now()),
-        customer_id=scope.claims.customer_id,
-        session_id=scope.claims.origin_jti,
-        versions={"policy": POLICY_VERSION, "snapshot": scope.snapshot},
-        business_date=scope.business_date,
-        language=state["language"],
-    )
-    try:
-        text = await scope.models.handoff_text(
-            transcript(state["messages"]), context(request), done(request)
-        )
-    except ModelFailedError:
-        text = None
-    turns = sorted({c["turn"] for c in cited} - {scope.turn.prefix})
-    call = await scope.filing.file(
-        {
-            "customer_id": scope.claims.customer_id,
-            "origin_jti": scope.claims.origin_jti,
-            "call_id": new_call_id(),
-            "mode": "file",
-            "payload": written(payload, text),
-            "turns": [*turns[-(TURNS - 1) :], scope.turn.prefix],
-        },
-        scope.token,
-        scope.turn.write,
-        scope.retries,
-        scope.elapsed,
-    )
-    result = call.result or {}
-    say, rules = state.get("say", []), request["decided"]
-    if call.outcome != "ok" or result.get("status") not in ("filed", "already_filed"):
-        outcome = "abstain"
-        say, rules = [*say, *said(("handoff_failed", {}))], [*rules, "POL-48"]
-    else:
-        await scope.turn.write(
-            "handoff",
-            handoff_id=payload["handoff_id"],
-            reference=result["reference"],
-            reason_code=request["reason_code"],
-            trigger=request["trigger"],
-            queue=result["queue"],
-            priority=result["priority"],
-            status=result["status"],
-            flagged=result["flagged"],
-            validation_errors=result["validation_errors"],
-        )
-        outcome = request["outcome"]
-        say = [*say, *said(("handoff_filed", {"reference": result["reference"]}))]
-        rules = [*rules, "POL-45"]
-    then = state.get("then")
-    if then is not None:
-        # The request the handoff ends gets its own decision, before the new one is served (POL-05).
-        after = [then["label"], *((then.get("queue") or {}).get("labels", []))]
-        scope.turn.decide(
-            **concluded(
-                request["label"],
-                outcome,
-                list(dict.fromkeys([*state.get("rules", []), *rules])),
-            ),
-            pending_labels=[label for label in after if label is not None],
-            language=state["language"],
-        )
-        return {**then, "then": None, "handoff": None, "say": say, "rules": []}
-    return {
-        "case": "fixed",
-        "handoff": None,
-        "say": say,
-        "decision": concluded(request["label"], outcome, rules),
-    }
-
-
 # The decisions of turns whose reply is fixed text only, by case.
 OUTCOMES_BY_CASE: dict[str, tuple[str, list[str]]] = {
     "no_request": ("answer", ["POL-06"]),
