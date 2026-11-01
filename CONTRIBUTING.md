@@ -435,6 +435,13 @@ AWS_PROFILE=default aws sns subscribe --protocol email --notification-endpoint y
 
 Budgets reads the account's charges a few times a day, so a notice can arrive hours after the spending that set it off. The budget warns and stops nothing: what bounds the stack's spending is the limit on turns per sign-in and per user (ADR-0004, decision 21).
 
+The model's limit is set in Anthropic's console, since no API sets it for an individual account. Anthropic limits a workspace or the whole organization, never a key, and the Default workspace takes no limit, so every key the project uses comes from a workspace of its own: both environments' secrets, and the `.env` the judge, the router comparison, and the language check read.
+
+1. Under [Workspaces](https://platform.claude.com/settings/workspaces) in the Claude Console, open the project's workspace, and under its **Spend limits** set a monthly limit (ours is 50 USD) and alerts as spending nears it.
+2. On the [Billing](https://platform.claude.com/settings/billing) page, set the organization's limit at or above the workspace's, so it also caps whatever else the organization runs.
+
+Once a limit is reached, the API refuses the model's calls until the next month or until the limit is raised, and the chat answers every message with its fixed text for when it can't help. Visitors and the evaluation draw from the same limit: before a paid run, raise it by the run's estimate, and lower it after.
+
 #### The site
 
 The site's `config.json`, which names the user pool, both app clients, and the Runtime, is written by Terraform at every apply, so `make site` uploads only the build and leaves it alone. `make site` is `make web`, then `make upload`, which uploads `web/dist` as it stands; CI builds once, without credentials, and runs only the upload with them. The console API is served under `/api` on the site's own origin, so the page reaches it without a cross-origin call, and `make web-dev` passes `/api` on to the deployed site. `make outputs` writes the site's URL under `site.url` in `build/<env>.outputs.json`, and the console API's under `console.url`.
