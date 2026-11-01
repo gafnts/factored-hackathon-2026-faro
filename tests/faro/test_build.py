@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 import zipfile
 from collections.abc import Sequence
 from pathlib import Path
@@ -175,6 +176,48 @@ def test_main_builds_every_artifact_and_rewrites_the_gateway_tools(
     assert [p.name for p in built] == [f"{a.name}.zip" for a in build.ARTIFACTS]
     assert tools.read_text(encoding="utf-8") == build.gateway_tools()
     assert "build/runtime.zip" in capsys.readouterr().out
+
+
+def test_a_version_bump_changes_no_zip(tmp_path: Path) -> None:
+    # The version names a release and reaches no artifact (ADR-0009): only an installed project carries it, in its
+    # wheel's metadata, so the stand-in install refuses one.
+    def run_in(project: Path) -> build.Run:
+        def run(command: Sequence[str]) -> None:
+            if list(command[:2]) == ["uv", "export"]:
+                subprocess.run(command, check=True, cwd=project)
+                return
+            requirements = Path(command[list(command).index("-r") + 1])
+            listed = requirements.read_text(encoding="utf-8")
+            assert not re.search(r"^(-e\s|\.|file:)", listed, re.MULTILINE)
+            target = Path(command[list(command).index("--target") + 1])
+            (target / "requirements.txt").write_text(listed, encoding="utf-8")
+
+        return run
+
+    version = tomllib.loads((build.ROOT / "pyproject.toml").read_text())["project"][
+        "version"
+    ]
+    bumped = tmp_path / "bumped"
+    bumped.mkdir()
+    for name, line in (
+        ("pyproject.toml", 'version = "{}"'),
+        ("uv.lock", 'name = "faro"\nversion = "{}"'),
+    ):
+        text = (build.ROOT / name).read_text(encoding="utf-8")
+        assert text.count(line.format(version)) == 1
+        (bumped / name).write_text(
+            text.replace(line.format(version), line.format("99.0.0")), encoding="utf-8"
+        )
+
+    zips = [
+        build.main(tmp_path / at, tmp_path / f"{at}.json", run_in(project), COMMIT)
+        for at, project in (("before", build.ROOT), ("after", bumped))
+    ]
+
+    before, after = ([path.read_bytes() for path in built] for built in zips)
+    assert before == after
+    with zipfile.ZipFile(zips[0][0]) as runtime:
+        assert "langgraph" in runtime.read("requirements.txt").decode()
 
 
 @pytest.mark.parametrize("dirty", ["", " M src/faro/agent/app.py"])
