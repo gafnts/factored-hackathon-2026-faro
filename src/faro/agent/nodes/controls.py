@@ -27,6 +27,7 @@ from faro.agent.nodes.state import (
     Update,
     cited,
     decided,
+    new_turn,
     offering,
     paged,
     queued,
@@ -164,23 +165,11 @@ async def await_control(state: State) -> Update:
     scope = SCOPE.get()
     pending, offer = state.get("pending"), state.get("offer")
     turn: Update = {
+        **new_turn(),
         "label": "block_card"
         if pending is not None or offer is None
         else offer["request"]["label"],
         "case": "fixed",
-        "say": [],
-        "decision": None,
-        "rules": [],
-        "details": None,
-        "target": None,
-        "block": None,
-        "handoff": None,
-        "then": None,
-        "cards": [],
-        "targets": [],
-        "text": None,
-        "parts": [],
-        "names": [],
     }
     if resumed["kind"] == "message":
         return {**turn, **(await typed(state, scope, resumed))}

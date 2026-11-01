@@ -15,6 +15,8 @@ from faro.agent.nodes.state import (
     decided,
     heard,
     latest_text,
+    new_request,
+    new_turn,
     offering,
     paged,
     request_text,
@@ -32,24 +34,11 @@ async def begin(state: State) -> Update:
     Opens the turn's state; the language stays until the model call that reads the message says otherwise (POL-50).
     """
     return {
+        **new_turn(),
         "language": state.get("language", DEFAULT),
         "label": None,
         "case": "fixed",
-        "cards": [],
-        "targets": [],
-        "text": None,
-        "parts": [],
-        "names": [],
-        "say": [],
-        "decision": None,
-        "rules": [],
-        "details": None,
-        "target": None,
-        "block": None,
         "complaint": False,
-        "listed": None,
-        "handoff": None,
-        "then": None,
         "offer": None,
     }
 
@@ -75,21 +64,12 @@ async def next_request(state: State) -> Update:
     assert queue is not None
     label, *rest = queue["labels"]
     return {
+        **new_request(),
         "label": label,
         "case": CASES[label],
         "queue": {**queue, "labels": rest} if rest else None,
         "text": queue["text"],
         "complaint": queue.get("complaint", False),
-        "say": [],
-        "decision": None,
-        "rules": [],
-        "details": None,
-        "target": None,
-        "targets": [],
-        "block": None,
-        "listed": None,
-        "handoff": None,
-        "then": None,
     }
 
 
@@ -226,17 +206,8 @@ async def aside(state: State) -> Update:
     served: Update = {
         **turn,
         **routing(routed, text),
+        **new_request(),
         "asking": None,
-        "say": [],
-        "decision": None,
-        "rules": [],
-        "details": None,
-        "target": None,
-        "targets": [],
-        "block": None,
-        "listed": None,
-        "handoff": None,
-        "then": None,
     }
     if asked.get("label") != "unrecognized_charge":
         return served

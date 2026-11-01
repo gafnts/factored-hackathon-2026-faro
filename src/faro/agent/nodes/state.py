@@ -300,6 +300,31 @@ def request_text(state: State) -> str:
     return state.get("text") or latest_text(state)
 
 
+def new_request() -> Update:
+    """
+    What a request starts from: nothing said, decided, or read for it yet.
+    """
+    return {
+        "say": [],
+        "decision": None,
+        "rules": [],
+        "details": None,
+        "target": None,
+        "targets": [],
+        "block": None,
+        "listed": None,
+        "handoff": None,
+        "then": None,
+    }
+
+
+def new_turn() -> Update:
+    """
+    What a turn starts from: a new request's, with no part of the reply yet, and none of the last turn's cards or text.
+    """
+    return {**new_request(), "cards": [], "text": None, "parts": [], "names": []}
+
+
 def routing(routed: RouterOutput, text: str) -> Update:
     """
     The first request in POL-05's order, and the rest queued with the message that asked for them; a message with no
