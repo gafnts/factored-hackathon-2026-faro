@@ -24,3 +24,16 @@ jobs:
           echo "ERROR: Merges into 'main' are exclusively permitted from this repository's 'develop' branch."
           echo "Current source is: '${HEAD_REPO}:${HEAD_REF}'"
           exit 1
+
+      # In the required job, so a promotion merges only as a release cut on develop first (ADR-0009).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-tags: true
+          persist-credentials: false
+
+      - uses: $/.github/actions/toolchain
+        with:
+          tools: python uv
+
+      - name: Verify the release is cut
+        run: uv run --locked --no-default-groups python -m faro.release check
