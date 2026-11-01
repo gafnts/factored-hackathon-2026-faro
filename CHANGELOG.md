@@ -6,6 +6,10 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Added
+
+- A monthly budget for the AWS account, 40 USD unless `monthly_budget_usd` sets another amount, which notifies a topic when its forecast passes 80% and when the month's charges pass the amount; CONTRIBUTING says how to subscribe to it.
+
 ## [1.8.0] - 2026-11-01 (Promotion 14)
 
 ### Changed
