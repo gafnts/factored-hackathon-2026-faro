@@ -379,6 +379,7 @@ make site               # Build the web app, upload it, and clear the cache
 make verify             # Check that the Lambdas and the Runtime run the zips in build/
 make integration        # Test the stack (SLOW=1 waits out a token, 15 min)
 make browser            # Play the chat and the console in Chromium
+make smoke              # Ask about the smoke user's cards, as the check after a deploy does
 make probe              # Time the Runtime and check what it stores and traces
 make judges             # Manage the judges' users, kept in data/judges/
 make smoke-user         # Create or reset the check's customer, kept in data/smoke/

@@ -20,7 +20,7 @@ DATASET_BACKEND := -backend-config=backend.tfbackend
 
 .PHONY: help install tflint-init \
 	check lint format type tf-format \
-	test integration browser probe judges smoke-user \
+	test integration browser smoke probe judges smoke-user \
 	build web web-dev site upload \
 	bootstrap backend doctor provision teardown \
 	data snapshot personas tiny-export pipeline export contracts analysis \
@@ -89,6 +89,18 @@ integration: _check-profile outputs ## Test ENV's deployed stack (SLOW=1 waits o
 browser: _check-profile outputs ## Play the chat and the console in Chromium against ENV's site
 	uv run playwright install chromium
 	STACK_OUTPUTS=$(OUTPUTS) uv run pytest -m browser -v --tb=short
+
+# CI sets SMOKE_* from the deploy's outputs and the environment's secret; here they come from ENV's outputs and
+# data/smoke/. One retry, for a fault upstream of us.
+smoke: $(if $(SMOKE_SITE),,_check-profile outputs) ## Sign ENV's smoke user in and ask about its cards, as after a deploy
+	uv run playwright install chromium
+	@export SMOKE_SITE="$${SMOKE_SITE:-$$(jq -r .site.value.url $(OUTPUTS))}" \
+		SMOKE_GATEWAY_URL="$${SMOKE_GATEWAY_URL:-$$(jq -r .gateway_url.value $(OUTPUTS))}" \
+		SMOKE_LIST_CARDS_TARGET="$${SMOKE_LIST_CARDS_TARGET:-$$(jq -r .gateway_targets.value.list_cards $(OUTPUTS))}" \
+		SMOKE_USERNAME="$${SMOKE_USERNAME:-$$(jq -r .username data/smoke/$(ENV).json)}" \
+		SMOKE_PASSWORD="$${SMOKE_PASSWORD:-$$(jq -r .password data/smoke/$(ENV).json)}"; \
+	uv run pytest -m smoke -v --tb=short -p no:cacheprovider || \
+		{ echo "Retrying once, for a fault upstream of us."; uv run pytest -m smoke -v --tb=short -p no:cacheprovider; }
 
 probe: _check-profile outputs ## Time ENV's Runtime and check what it stores and traces
 	STACK_OUTPUTS=$(OUTPUTS) uv run python -m tests.integration.probe
