@@ -1,5 +1,5 @@
 variable "project_name" {
-  description = "Prefix for the deploy roles, the service roles they are allowed to manage, and the model key secrets"
+  description = "Prefix for the deploy roles, the service roles they are allowed to manage, the model key secrets, and the budget"
   type        = string
   default     = "banking-agent"
 }
@@ -28,4 +28,10 @@ variable "local_principal_arn" {
 variable "state_bucket_name" {
   description = "Name of the S3 bucket holding Terraform state"
   type        = string
+}
+
+variable "monthly_budget_usd" {
+  description = "The account's monthly cost budget in USD, or null for none"
+  type        = number
+  default     = 40
 }

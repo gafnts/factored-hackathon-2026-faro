@@ -212,7 +212,7 @@ This applies `infra/iam/`, then `infra/dataset/` (Terraform asks you to confirm 
 | `banking-agent-prototype-deploy` | The apply job, only from the `prototype` GitHub Environment | Write, scoped to `prototype` |
 | `banking-agent-prototype-plan` | The plan job on PRs into `main` | Read-only |
 
-`make iam-output` prints their ARNs whenever you need them. The IAM root also creates an empty secret for each environment's model key, `banking-agent-<env>-anthropic-api-key`, which you fill in [step 3.7](#37-verify-and-deploy-local). The second creates the data bucket, `banking-agent-data-<account-id>-us-east-1-an`, which holds the dataset snapshots and the exports of the tools' data ([step 3.6](#36-copy-the-dataset-snapshot-and-the-tools-data)), and the log group DynamoDB's imports write to. It lives outside the environment stacks, so destroying one never deletes the data.
+`make iam-output` prints their ARNs whenever you need them. The IAM root also creates an empty secret for each environment's model key, `banking-agent-<env>-anthropic-api-key`, which you fill in [step 3.7](#37-verify-and-deploy-local), and the account's monthly budget, whose topic you subscribe to once ([Spend limits](#spend-limits)). The second creates the data bucket, `banking-agent-data-<account-id>-us-east-1-an`, which holds the dataset snapshots and the exports of the tools' data ([step 3.6](#36-copy-the-dataset-snapshot-and-the-tools-data)), and the log group DynamoDB's imports write to. It lives outside the environment stacks, so destroying one never deletes the data.
 
 #### 3.4 Configure your local deploy profile
 
@@ -422,6 +422,26 @@ aws sns subscribe --protocol email --notification-endpoint you@example.com \
 
 A subscription outlives applies, and `make destroy` removes it with the topic.
 
+#### Spend limits
+
+The prototype runs up two bills: AWS's, for the stack, and Anthropic's, for the model's calls, which AWS never sees. Each has its own limit ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), capacity).
+
+The IAM root creates a monthly cost budget for the account, `banking-agent-monthly`, since both environments share the account and its bill. It notifies an SNS topic when its forecast passes 80% of the amount and when the month's charges pass all of it; credits don't count against it. The amount is `monthly_budget_usd` in `infra/iam/iam.tfvars`, 40 USD unless you set it, and `null` creates no budget, for an account whose budget is kept elsewhere. Subscribe to the topic once, as to the alarms' topics, then confirm from the email AWS sends:
+
+```bash
+AWS_PROFILE=default aws sns subscribe --protocol email --notification-endpoint you@example.com \
+  --topic-arn "$(AWS_PROFILE=default terraform -chdir=infra/iam output -raw budget_topic_arn)"
+```
+
+Budgets reads the account's charges a few times a day, so a notice can arrive hours after the spending that set it off. The budget warns and stops nothing: what bounds the stack's spending is the limit on turns per sign-in and per user (ADR-0004, decision 21).
+
+The model's limit is set in Anthropic's console, since no API sets it for an individual account. Anthropic limits a workspace or the whole organization, never a key, and the Default workspace takes no limit, so every key the project uses comes from a workspace of its own: both environments' secrets, and the `.env` the judge, the router comparison, and the language check read.
+
+1. Under [Workspaces](https://platform.claude.com/settings/workspaces) in the Claude Console, open the project's workspace, and under its **Spend limits** set a monthly limit (ours is 50 USD) and alerts as spending nears it.
+2. On the [Billing](https://platform.claude.com/settings/billing) page, set the organization's limit at or above the workspace's, so it also caps whatever else the organization runs.
+
+Once a limit is reached, the API refuses the model's calls until the next month or until the limit is raised, and the chat answers every message with its fixed text for when it can't help. Visitors and the evaluation draw from the same limit: before a paid run, raise it by the run's estimate, and lower it after.
+
 #### The site
 
 The site's `config.json`, which names the user pool, both app clients, and the Runtime, is written by Terraform at every apply, so `make site` uploads only the build and leaves it alone. `make site` is `make web`, then `make upload`, which uploads `web/dist` as it stands; CI builds once, without credentials, and runs only the upload with them. The console API is served under `/api` on the site's own origin, so the page reaches it without a cross-origin call, and `make web-dev` passes `/api` on to the deployed site. `make outputs` writes the site's URL under `site.url` in `build/<env>.outputs.json`, and the console API's under `console.url`.
@@ -546,7 +566,7 @@ make dataset-destroy I_KNOW=1
 make teardown
 ```
 
-Everything after the local destroy runs with admin credentials: the local deploy role can't reach `prototype` state, and the prototype deploy role is only assumable from CI. The `iam-*` and `dataset-*` targets and `make teardown` switch to `AWS_ADMIN_PROFILE` on their own; the `prototype` commands need the override spelled out. `make teardown` prints what it will delete and makes you type the bucket name to confirm. It leaves the account's GitHub OIDC provider in place, since other projects may depend on it. `make iam-destroy` also deletes both environments' model key secrets, at once. `make dataset-destroy` deletes the data bucket only while it's empty. Once the bucket holds a snapshot or an export, it stops: the organizers' dataset can no longer be downloaded, so a snapshot can't be rebuilt ([ADR-0002](docs/adr/0002-mirror-dataset-into-pinned-snapshots.md)). Ours stays on purpose; `make teardown` then deletes its Terraform state, and the bucket outlives it. To delete a bucket that holds data, empty it yourself first, every object version included. The local copy under `data/` stays until you delete it.
+Everything after the local destroy runs with admin credentials: the local deploy role can't reach `prototype` state, and the prototype deploy role is only assumable from CI. The `iam-*` and `dataset-*` targets and `make teardown` switch to `AWS_ADMIN_PROFILE` on their own; the `prototype` commands need the override spelled out. `make teardown` prints what it will delete and makes you type the bucket name to confirm. It leaves the account's GitHub OIDC provider in place, since other projects may depend on it. `make iam-destroy` also deletes both environments' model key secrets, at once, and the budget with its topic. `make dataset-destroy` deletes the data bucket only while it's empty. Once the bucket holds a snapshot or an export, it stops: the organizers' dataset can no longer be downloaded, so a snapshot can't be rebuilt ([ADR-0002](docs/adr/0002-mirror-dataset-into-pinned-snapshots.md)). Ours stays on purpose; `make teardown` then deletes its Terraform state, and the bucket outlives it. To delete a bucket that holds data, empty it yourself first, every object version included. The local copy under `data/` stays until you delete it.
 
 ---
 

@@ -4,7 +4,7 @@ Three Terraform roots, each with its own state. `iam/` and `dataset/` are applie
 
 | Root | Creates | Targets |
 |---|---|---|
-| `iam/` | The deploy roles GitHub's OIDC assumes, and the model key's secret | `make iam-init`, `iam-plan`, `iam-apply` |
+| `iam/` | The deploy roles GitHub's OIDC assumes, the model key's secret, and the account's monthly budget | `make iam-init`, `iam-plan`, `iam-apply` |
 | `dataset/` | The data bucket: the snapshots and the gold exports, outside the stacks so a destroy never deletes them | `make dataset-init`, `dataset-plan`, `dataset-apply` |
 | `.` | The stack below, from the zips `make build` writes and the export `tools_data_export` names | `make init`, `plan`, `apply`, `destroy`, `outputs` with `ENV=` |
 

@@ -14,7 +14,7 @@ import pytest
 from langchain_core.messages import HumanMessage
 
 from faro.agent.check import failures
-from faro.agent.graph import SHAPES
+from faro.agent.nodes.replies import SHAPES
 from faro.agent.texts import FIXED, placeholders
 from faro.evaluation import bronze, families, generator, player
 from faro.evaluation.facts import contract_words

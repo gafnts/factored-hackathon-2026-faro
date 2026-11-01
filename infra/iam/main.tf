@@ -7,6 +7,8 @@ locals {
 
   state_bucket_arn = "arn:aws:s3:::${var.state_bucket_name}"
   state_prefixes   = concat(local.envs, ["iam", "dataset"])
+
+  budgeted = var.monthly_budget_usd != null
 }
 
 data "aws_iam_policy_document" "trust_local" {
@@ -332,4 +334,78 @@ resource "aws_secretsmanager_secret" "model_key" {
   tags = {
     Environment = each.key
   }
+}
+
+# Both environments share the account and its bill, so the budget lives here, outside their stacks. Notices carry
+# amounts only, and Budgets can't publish to a topic under the AWS-managed key.
+#trivy:ignore:AVD-AWS-0095
+#trivy:ignore:AVD-AWS-0136
+resource "aws_sns_topic" "budget" {
+  count = local.budgeted ? 1 : 0
+
+  name = "${var.project_name}-budget"
+}
+
+data "aws_iam_policy_document" "budget_topic" {
+  count = local.budgeted ? 1 : 0
+
+  statement {
+    sid       = "BudgetsPublish"
+    actions   = ["sns:Publish"]
+    resources = [aws_sns_topic.budget[0].arn]
+    principals {
+      type        = "Service"
+      identifiers = ["budgets.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [local.account_id]
+    }
+    condition {
+      test     = "ArnLike"
+      variable = "aws:SourceArn"
+      values   = ["arn:aws:budgets::${local.account_id}:*"]
+    }
+  }
+}
+
+resource "aws_sns_topic_policy" "budget" {
+  count = local.budgeted ? 1 : 0
+
+  arn    = aws_sns_topic.budget[0].arn
+  policy = data.aws_iam_policy_document.budget_topic[0].json
+}
+
+# Credits left out, so a credit can't hide what the account uses.
+resource "aws_budgets_budget" "monthly" {
+  count = local.budgeted ? 1 : 0
+
+  name         = "${var.project_name}-monthly"
+  budget_type  = "COST"
+  limit_amount = tostring(var.monthly_budget_usd)
+  limit_unit   = "USD"
+  time_unit    = "MONTHLY"
+
+  cost_types {
+    include_credit = false
+  }
+
+  notification {
+    comparison_operator       = "GREATER_THAN"
+    threshold                 = 80
+    threshold_type            = "PERCENTAGE"
+    notification_type         = "FORECASTED"
+    subscriber_sns_topic_arns = [aws_sns_topic.budget[0].arn]
+  }
+
+  notification {
+    comparison_operator       = "GREATER_THAN"
+    threshold                 = 100
+    threshold_type            = "PERCENTAGE"
+    notification_type         = "ACTUAL"
+    subscriber_sns_topic_arns = [aws_sns_topic.budget[0].arn]
+  }
+
+  depends_on = [aws_sns_topic_policy.budget]
 }

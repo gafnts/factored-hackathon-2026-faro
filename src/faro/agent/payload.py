@@ -9,11 +9,11 @@ whole payload again and checks it against the execution record before it files i
 
 import re
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, Literal, TypedDict
 
 from langchain_core.messages import AnyMessage, HumanMessage
 
-from faro.agent.models import HandoffText
+from faro.agent.models import BlockReason, HandoffText, Label
 from faro.masking import has_digit_run
 from faro.policy import handoff_schema
 from faro.policy.handoffs import HANDOFFS, MISSING, urgent
@@ -42,19 +42,54 @@ READ = 12
 # The reasons a customer gives that make a handoff urgent while the card isn't verified blocked (POL-47).
 REPORTED = (*MISSING, "unrecognized_charge")
 
+ActionOutcome = Literal["verified", "not_verified", "declined_by_customer", "lapsed"]
+
+
+class Action(TypedDict):
+    """
+    A block taken or offered, as the handoff schema's action records it (POL-36, POL-37).
+    """
+
+    action: Literal["block_card"]
+    card_id: str
+    reason: BlockReason
+    confirmation_id: str
+    outcome: ActionOutcome
+    confirmed_at: str | None
+    evidence: list[str]
+
+
+class HandoffRequest(TypedDict):
+    """
+    A handoff as a node hands it to the handoff node, or as an offer holds it until the handoff control answers.
+    """
+
+    reason_code: str
+    trigger: Literal["required", "accepted_offer"]
+    label: Label | None
+    rules: list[str]
+    decided: list[str]
+    outcome: Literal["hand_off"]
+    calls: list[str]
+    cards: list[str]
+    transactions: list[str]
+    actions: list[Action]
+    reported: str | None
+    handoff_id: str | None
+
 
 def required(
     reason_code: str,
-    label: str | None,
+    label: Label | None,
     decided: list[str],
     *,
     calls: Sequence[str] = (),
     cards: Sequence[str] = (),
-    actions: Sequence[Mapping[str, Any]] = (),
+    actions: Sequence[Action] = (),
     reported: str | None = None,
     handoff_id: str | None = None,
     transactions: Sequence[str] = (),
-) -> dict[str, Any]:
+) -> HandoffRequest:
     """
     A handoff the policy requires, as a node hands it to the handoff node: the calls whose results hold its facts, the
     records those facts are about, the actions, the reason the customer gave, the rules the turn's decision cites, and
@@ -71,7 +106,7 @@ def required(
         "calls": list(calls),
         "cards": list(cards),
         "transactions": list(transactions),
-        "actions": [dict(a) for a in actions],
+        "actions": [a.copy() for a in actions],
         "reported": reported,
         "handoff_id": handoff_id,
     }
@@ -79,16 +114,16 @@ def required(
 
 def offered(
     reason_code: str,
-    label: str | None,
+    label: Label | None,
     rules: list[str],
     decided: list[str],
     *,
     calls: Sequence[str] = (),
     cards: Sequence[str] = (),
-    actions: Sequence[Mapping[str, Any]] = (),
+    actions: Sequence[Action] = (),
     handoff_id: str | None = None,
     transactions: Sequence[str] = (),
-) -> dict[str, Any]:
+) -> HandoffRequest:
     """
     A handoff the policy offers, filed only if the customer accepts it with the handoff control (POL-45). rules are the
     ones that offered it here, since a reason code may be offered under more than one.

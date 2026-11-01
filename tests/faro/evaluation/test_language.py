@@ -13,7 +13,6 @@ from typing import Any
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
-from faro.agent.graph import ASKS
 from faro.agent.models import (
     MODEL,
     PROVIDER,
@@ -23,6 +22,7 @@ from faro.agent.models import (
     RouterOutput,
     TransactionChoice,
 )
+from faro.agent.nodes.resolve import ASKS
 from faro.evaluation import families, language
 
 LOADED, ANSWERS = families.load(), families.load_answers()

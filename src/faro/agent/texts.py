@@ -9,6 +9,7 @@ too (POL-45).
 """
 
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from faro.agent.formats import (
@@ -340,6 +341,8 @@ FIXED: dict[str, dict[str, str]] = {
 
 # A reply that failed the check is replaced by the unavailable text, under its own name.
 FIXED["reply_fallback"] = FIXED["unavailable"]
+# A request about someone else's card gets the refusal's words, under its own name (POL-08).
+FIXED["other_person"] = FIXED["refused"]
 # POL-06: a message that doesn't answer the agent's question gets its reply without the reply's own closing question,
 # since the agent's question follows it.
 CLOSING = {"es": " ¿En qué le puedo ayudar?", "pt": " Como posso ajudar?"}
@@ -416,7 +419,7 @@ def joined(items: list[str], language: str) -> str:
     return f"{', '.join(items[:-1])} {AND[language]} {items[-1]}"
 
 
-def values(language: str, facts: dict[str, Any]) -> dict[str, str]:
+def values(language: str, facts: Mapping[str, Any]) -> dict[str, str]:
     """
     Each placeholder's text, from the facts a node read: a card, a transaction, or a list of either, the credit, the
     window, and the date they are as of, formatted for the conversation's language and the customer's country.
@@ -508,5 +511,5 @@ def fill(text: str, filled: dict[str, str]) -> str:
     return PLACEHOLDER.sub(value, text)
 
 
-def render(name: str, language: str, facts: dict[str, Any]) -> str:
+def render(name: str, language: str, facts: Mapping[str, Any]) -> str:
     return fill(FIXED[name][language], values(language, facts))

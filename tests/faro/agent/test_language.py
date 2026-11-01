@@ -7,7 +7,8 @@ fails or isn't made keeps the language (SCP-06, EVL-07).
 
 import pytest
 
-from faro.agent.language import DEFAULT, settled
+from faro.agent.language import DEFAULT, Spoken, settled
+from faro.agent.models import Language
 from faro.agent.texts import FIXED
 
 from .conftest import Harness, run_body
@@ -28,7 +29,7 @@ from .test_reads import decisions, tools
     ],
 )
 def test_a_clear_message_sets_the_language_and_anything_else_keeps_it(
-    current: str, found: str | None, language: str
+    current: Spoken, found: Language | None, language: Spoken
 ) -> None:
     assert settled(current, found) == language
 

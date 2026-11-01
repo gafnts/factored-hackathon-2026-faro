@@ -5,12 +5,17 @@ language, unclear (words both languages share, digits, a bare "Ok") keeps it, an
 message sets one. other gets POL-51's fixed reply whatever labels came with it, which the graph decides.
 """
 
-LANGUAGES = ("es", "pt")
-DEFAULT = "es"
+from typing import Literal
+
+from faro.agent.models import Language
+
+Spoken = Literal["es", "pt"]
+LANGUAGES: tuple[Spoken, ...] = ("es", "pt")
+DEFAULT: Spoken = "es"
 OTHER = "other"
 
 
-def settled(current: str, found: str | None) -> str:
+def settled(current: Spoken, found: Language | None) -> Spoken:
     """
     The conversation's language after the model read a message as found.
     """

@@ -12,7 +12,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
 from importlib.resources import files
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, TypedDict, cast
 
 import anthropic
 from langchain.chat_models import init_chat_model
@@ -122,6 +122,25 @@ class RouterOutput(BaseModel):
 # The model never sees the name customer_request, which it read as "the customer asked for the block" (D-006).
 OTHER_REASON = "other_reason"
 REASON_CODES = {OTHER_REASON: "customer_request"}
+# POL-35's reasons for a block, as details() gives them to the graph.
+BlockReason = Literal["lost", "stolen", "unrecognized_charge", "customer_request"]
+
+
+class Details(TypedDict, total=False):
+    """
+    RequestDetails as the graph reads them (details()), or as a node fills them in when the model couldn't be asked.
+    """
+
+    language: Language
+    card_type: Literal["credit", "debit"] | None
+    last_four: str | None
+    block_reason: BlockReason | None
+    cards: Literal["all"] | None
+    page: Literal["next", "earlier"] | None
+    owner: Literal["someone_else"] | None
+    conflict: Literal["asks_which"] | None
+    service: str | None
+    question: Literal["unanswered"] | None
 
 
 class RequestDetails(BaseModel):
@@ -160,7 +179,7 @@ class RequestDetails(BaseModel):
     )
     question: Literal["unanswered"] | None
 
-    def details(self) -> dict[str, Any]:
+    def details(self) -> Details:
         """
         The fields as the graph reads them, after the call recorded the model's own values: the model's name for any
         other block reason becomes POL-35's code.
@@ -169,7 +188,7 @@ class RequestDetails(BaseModel):
         found["block_reason"] = REASON_CODES.get(
             found["block_reason"], found["block_reason"]
         )
-        return found
+        return cast(Details, found)
 
 
 class TransactionChoice(BaseModel):
