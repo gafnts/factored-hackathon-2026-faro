@@ -6,6 +6,8 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+## [1.9.0] - 2026-11-01 (Promotion 15)
+
 ### Added
 
 - A monthly budget for the AWS account, 40 USD unless `monthly_budget_usd` sets another amount, which notifies a topic when its forecast passes 80% and when the month's charges pass the amount; CONTRIBUTING says how to subscribe to it ([#156]).
@@ -129,6 +131,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judged.
 
+[1.9.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.9.0
 [1.8.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.8.0
 [1.7.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.7.0
 [1.6.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.6.0
