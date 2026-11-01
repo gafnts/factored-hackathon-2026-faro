@@ -187,10 +187,9 @@ def deploy(
                 runs = [{"databaseId": 7, "event": event, "status": "completed"}]
                 return json.dumps([{**runs[0], "conclusion": conclusion}])
             case ["gh", "run", "view"]:
-                jobs = [{"name": "Build", "conclusion": "success"}]
-                return json.dumps(
-                    {"jobs": [*jobs, {"name": "Check", "conclusion": check}]}
-                )
+                steps = [{"name": release.CHECK_STEP, "conclusion": check}]
+                checked = {"name": "Check", "conclusion": "success", "steps": steps}
+                return json.dumps({"jobs": [{"name": "Build", "steps": []}, checked]})
             case ["gh", "run", "download"]:
                 folder = Path(command[list(command).index("--dir") + 1])
                 (folder / "SHA256SUMS").write_text(
@@ -243,3 +242,15 @@ def test_the_command_line_prints_a_section_or_a_refusal(
     assert "Hackathon" in capsys.readouterr().out
     with pytest.raises(SystemExit, match="no section for 0.0.1"):
         release.main(["notes", "0.0.1"])
+
+
+def test_the_release_reads_the_job_step_and_artifact_the_deploy_workflow_names() -> (
+    None
+):
+    workflow = (release.ROOT / ".github" / "workflows" / release.WORKFLOW).read_text(
+        encoding="utf-8"
+    )
+
+    assert f"name: {release.CHECK_JOB}\n" in workflow
+    assert f"name: {release.CHECK_STEP}\n" in workflow
+    assert f"name: {release.SUMS_ARTIFACT}\n" in workflow

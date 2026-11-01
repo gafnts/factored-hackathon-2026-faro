@@ -16,7 +16,8 @@ runs:
         version: 2026.10.19
         install_args: ${{ inputs.tools }}
 
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+    - if: inputs.tools == '' || contains(inputs.tools, 'uv')
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/uv
         key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}

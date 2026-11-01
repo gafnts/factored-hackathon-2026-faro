@@ -22,6 +22,8 @@ CHANGELOG = ROOT / "CHANGELOG.md"
 PYPROJECT = ROOT / "pyproject.toml"
 WORKFLOW = "deploy-prototype.yml"
 CHECK_JOB = "Check"
+# The job passes with this step skipped when the environment has no smoke user.
+CHECK_STEP = "Check the deploy as a customer"
 SUMS_ARTIFACT = "sums"
 
 UNRELEASED = "## Unreleased\n"
@@ -159,7 +161,8 @@ def checked_run(commit: str, run: Run = run) -> str:
         )
     identifier = str(newest["databaseId"])
     jobs = json.loads(run(["gh", "run", "view", identifier, "--json", "jobs"]))["jobs"]
-    if not any(j["name"] == CHECK_JOB and j["conclusion"] == "success" for j in jobs):
+    steps = [s for j in jobs if j["name"] == CHECK_JOB for s in j.get("steps", [])]
+    if not any(s["name"] == CHECK_STEP and s["conclusion"] == "success" for s in steps):
         raise ReleaseError(f"the deploy run for {commit[:12]} passed without its check")
     return identifier
 
