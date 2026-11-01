@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from faro.agent.graph import SHAPES
+from faro.agent.nodes.replies import SHAPES
 from faro.agent.nodes.resolve import EARLIER
 from faro.agent.texts import FIXED, render
 
