@@ -22,6 +22,7 @@ from faro.agent.nodes.state import (
     decided,
     heard,
     latest_text,
+    listed_calls,
     not_active,
     offering,
     paged,
@@ -148,8 +149,8 @@ def question(
     asked = asked or {}
     before = asked.get("questions", 0) if asked.get("detail") == detail else 0
     label: Label = held.get("label") or "block_card"
+    listed, cards = cites
     if before >= QUESTIONS:
-        listed, cards = cites
         stopped = [*rules, "POL-17"]
         say = [*state.get("say", []), *said(("clarification_stopped", {}))]
         if label == "unrecognized_charge":
@@ -161,7 +162,7 @@ def question(
                     "unrecognized_charge",
                     label,
                     [*stopped, "POL-39"],
-                    calls=[listed] if listed else [],
+                    calls=listed_calls(listed),
                     cards=cards,
                 ),
             }
@@ -170,7 +171,7 @@ def question(
             label,
             ["POL-17"],
             stopped,
-            calls=[listed] if listed else [],
+            calls=listed_calls(listed),
             cards=cards,
         )
         return {
@@ -180,7 +181,6 @@ def question(
             "offer": offering(request, "abstain"),
             "decision": decided("abstain", stopped, label, OFFERED),
         }
-    listed, cards = cites
     decision = decided(
         "clarify", rules, label, "card" if detail == "card" else "reason"
     )
@@ -191,7 +191,7 @@ def question(
             "questions": before + 1,
             "asked": (name, facts),
             "decision": decision,
-            "cited": {"calls": [listed] if listed else [], "cards": cards},
+            "cited": {"calls": listed_calls(listed), "cards": cards},
             **held,
         },
         "say": [*state.get("say", []), *said((name, facts))],

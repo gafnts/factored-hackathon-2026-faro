@@ -15,6 +15,7 @@ from faro.agent.nodes.state import (
     decided,
     heard,
     latest_text,
+    listed_calls,
     new_request,
     new_turn,
     offering,
@@ -139,7 +140,7 @@ async def unsupported(state: State) -> Update:
     if details.get("owner") == "someone_else":
         return {"case": "other_person"}
     service = details.get("service") or "other_card_service"
-    listed = [c for c in (state.get("listed"),) if c is not None]
+    calls = listed_calls(state.get("listed"))
     if service == "unblock":
         card_type, last_four = hints(details)
         named = [c for c in state.get("cards", []) if fits(c, card_type, last_four)]
@@ -151,7 +152,7 @@ async def unsupported(state: State) -> Update:
                 "unblock_request",
                 label,
                 ["POL-41"],
-                calls=listed,
+                calls=calls,
                 cards=[c["card_id"] for c in meant],
             ),
         }
@@ -160,9 +161,7 @@ async def unsupported(state: State) -> Update:
             "say": [*state.get("say", []), *said(("outside_cards", {}))],
             "decision": decided("decline", ["POL-43"], label),
         }
-    request = offered(
-        "unsupported_request", label, ["POL-42"], ["POL-42"], calls=listed
-    )
+    request = offered("unsupported_request", label, ["POL-42"], ["POL-42"], calls=calls)
     return {
         "say": [
             *state.get("say", []),

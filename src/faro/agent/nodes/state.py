@@ -444,6 +444,13 @@ def action(pending: Pending, outcome: ActionOutcome, *evidence: str) -> Action:
     }
 
 
+def listed_calls(listed: str | None, *calls: str) -> list[str]:
+    """
+    The calls a handoff cites: the listing that settled its cards, if one did, then the calls named.
+    """
+    return [*([listed] if listed else []), *calls]
+
+
 def cited(pending: Pending, *calls: str) -> Cites:
     """
     What a handoff about the pending confirmation cites: the listing that settled its card, a charge's window reads
@@ -451,11 +458,9 @@ def cited(pending: Pending, *calls: str) -> Cites:
     """
     charge = pending.get("charge")
     return {
-        "calls": [
-            *([pending["listed"]] if pending["listed"] else []),
-            *(charge["calls"] if charge else []),
-            *calls,
-        ],
+        "calls": listed_calls(
+            pending["listed"], *(charge["calls"] if charge else []), *calls
+        ),
         "cards": [pending["card_id"]],
         "transactions": charge["transactions"] if charge else [],
     }

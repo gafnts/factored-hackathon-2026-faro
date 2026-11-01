@@ -16,6 +16,7 @@ from faro.agent.nodes.state import (
     State,
     Update,
     decided,
+    listed_calls,
     offering,
     said,
     writable,
@@ -90,8 +91,7 @@ async def read_status(state: State) -> Update:
     """
     scope = SCOPE.get()
     label: Label = "card_status"
-    listed = state.get("listed")
-    calls = [listed] if listed else []
+    calls = listed_calls(state.get("listed"))
     cards: list[CardRecord] = []
     for card in state["targets"]:
         call = await tool(scope, "get_card", card_id=card["card_id"])
@@ -182,8 +182,7 @@ async def read_credit(state: State) -> Update:
     """
     scope = SCOPE.get()
     label: Label = "available_credit"
-    listed = state.get("listed")
-    calls = [listed] if listed else []
+    calls = listed_calls(state.get("listed"))
     figured: list[Figure] = []
     others: list[Said] = []
     notes: list[Said] = []
