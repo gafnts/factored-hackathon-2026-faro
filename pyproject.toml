@@ -4,7 +4,7 @@ requires = [ "uv-build>=0.13,<0.14" ]
 
 [project]
 name = "faro"
-version = "0.1.0"
+version = "1.5.0"
 description = "Faro, a card support agent in Spanish and Portuguese, built for the Factored AI & Data Hackathon 2026"
 readme = "README.md"
 license = "MIT"
@@ -98,12 +98,13 @@ overrides = [
 
 [tool.pytest]
 ini_options.testpaths = [ "tests" ]
-ini_options.addopts = "-m 'not integration and not regression' --dist=loadgroup"
+ini_options.addopts = "-m 'not integration and not regression and not smoke' --dist=loadgroup"
 ini_options.markers = [
   "browser: plays the chat in Chromium against the deployed site (make browser)",
   "integration: requires credentials and network access (deselected by default)",
   "regression: plays and grades the regression set's composition on the bank (make regression; deselected by default)",
   "slow: waits out a token's lifetime, so make integration runs it only with SLOW=1",
+  "smoke: asks about the smoke user's cards, as the check after a deploy does (make smoke; deselected by default)",
 ]
 ini_options.timeout = 120
 

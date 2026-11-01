@@ -3,10 +3,12 @@ Builds what Terraform deploys into build/ (ADR-0004, Deployment): a zip each for
 Linux arm64 wheels its dependency group locks in uv.lock and its share of this package. Every zip is the same bytes on
 every machine and from any checkout, so a plan shows a change only when the code or a locked version changed. The
 Runtime's entry script names the commit that last changed its share, which the execution record stamps on every turn.
-It also rewrites the Gateway's tool definitions, which are committed so that CI can lint the stack without a build.
+The zips' SHA-256 go to build/SHA256SUMS, which a release lists (ADR-0009). It also rewrites the Gateway's tool
+definitions, which are committed so that CI can lint the stack without a build.
 """
 
 import csv
+import hashlib
 import json
 import shutil
 import subprocess
@@ -210,6 +212,13 @@ def main(
     built = [build_artifact(a, out, version, run) for a in ARTIFACTS]
     for path in built:
         print(f"{path.relative_to(out.parent)} {path.stat().st_size / 1e6:.1f} MB")
+    # sha256sum's format, so `sha256sum -c` checks a build against it.
+    (out / "SHA256SUMS").write_text(
+        "".join(
+            f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n" for p in built
+        ),
+        encoding="utf-8",
+    )
     tools.write_text(gateway_tools(), encoding="utf-8")
     return built
 

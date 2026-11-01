@@ -1,6 +1,6 @@
 # Changelog
 
-What changed in the prototype, one section per promotion from `develop` to `main`, newest first. `Unreleased` is what's merged into `develop` and not promoted yet. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+What changed in the prototype, one section per release, newest first. A release is a promotion from `develop` to `main`, tagged once its deploy is checked ([ADR-0009](docs/adr/0009-release-checked-deploys.md)): a minor version for each promotion, a patch for one that only fixes a release, and a major version for a change in who can use the prototype. `Unreleased` is what's merged into `develop` and not in a release yet. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 History before 2026-10-27 is in the [merged pull requests](https://github.com/gafnts/factored-hackathon-2026-faro/pulls?q=is%3Apr+is%3Amerged). Work we mean to do later is in [GitHub Issues](https://github.com/gafnts/factored-hackathon-2026-faro/issues).
 
@@ -9,6 +9,9 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 ### Added
 
 - zizmor audits the workflows on every commit that touches `.github/`, and in CI with its online audits too ([#136]).
+- Releases ([ADR-0009](docs/adr/0009-release-checked-deploys.md)). A promotion is cut on `develop` first with `make cut`, which numbers it and dates its section, and named last with `make release`, which tags the merge commit once its deploy has passed and makes a GitHub release whose notes list the build's SHA-256. The submission is `1.0.0`, Promotions 7 to 11 are `1.1.0` to `1.5.0`, and `pyproject.toml`'s version follows the last cut ([#139]).
+- After each deploy to `prototype`, CI checks that each Lambda and the Runtime run the build's zips, then signs a standing smoke user in through the site and asks about its cards; either failing turns the run red, and a red run gets no release ([#139]).
+- A promotion into `main` is refused unless its release is cut ([#139]).
 
 ### Changed
 
@@ -18,13 +21,16 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - Each zip holds only what its functions run: the packages of ours that its entry points import, with the files they read, and its dependency group's distributions. A change to code the stack doesn't run (the evaluation, the pipeline, the analysis), to the docs, or to the dev tools no longer redeploys the Runtime or the Lambdas ([#137]).
 - The Runtime's stamp, which every execution record carries, is the last commit that changed its own code. Before, any change to `pyproject.toml` or `uv.lock` moved it; a change to its locked dependencies alone now deploys a new zip under the same stamp ([#137]).
 - The next deploy updates the Runtime and all six Lambdas once, for their new zips, with no change to what they run ([#137]).
+- The deploy builds the zips and the site in a job without credentials. The plan and apply jobs download them and run only Terraform, the AWS CLI, jq, and git, and the plan's comment is posted by a job with no AWS credentials ([#139]).
+- Every promotion deploys: its cut changes the changelog, which now triggers the workflow ([#139]).
+- `make site` is `make web`, then the new `make upload`, which reads Terraform's outputs with jq; setup now lists jq beside the AWS CLI ([#139]).
 
 ### Fixed
 
 - The README's badges point at the renamed repository, and CONTRIBUTING no longer mentions `make data ADOPT=1` ([#136]).
 - The same commit builds the same zips from any checkout. Each zip listed its packages' console scripts, whose first line names the Python that built them, so a new checkout path or a new Python changed two of the zips ([#137]).
 
-## Promotion 11 ([#130]) - 2026-10-31
+## [1.5.0] - 2026-10-31 (Promotion 11)
 
 ### Added
 
@@ -34,7 +40,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 - The chat runs on AG-UI 1.0: `@ag-ui/client` 1.0.3 and `@assistant-ui/react-ag-ui` 0.1.0. The Runtime already spoke protocol 1.0, so only the web app changes, and Dependabot no longer holds AG-UI back ([#129]).
 
-## Promotion 10 ([#128]) - 2026-10-31
+## [1.4.0] - 2026-10-31 (Promotion 10)
 
 ### Added
 
@@ -55,7 +61,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 - `make pipeline` with the default `DATA_DIR` wrote dbt's files under `pipeline/` and still printed "Built", so the `make export` after it failed. It now builds into `data/`, and a build that records no results fails ([#127]).
 
-## Promotion 9 ([#107]) - 2026-10-29
+## [1.3.0] - 2026-10-29 (Promotion 9)
 
 ### Changed
 
@@ -65,7 +71,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - uv 0.13 is required, and Python locks only releases at least a week old, as the web app already did ([#95]).
 - Dependabot groups its updates by what a merge touches, puts majors in a PR of their own, and runs quarterly. TypeScript, the analysis libraries, DuckDB and dbt, and AG-UI stay where they are until we move them on purpose ([#93], [#96], [#103], [#104]).
 
-## Promotion 8 ([#94]) - 2026-10-29
+## [1.2.0] - 2026-10-29 (Promotion 8)
 
 ### Security
 
@@ -76,14 +82,23 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 - `develop` is the default branch, so Dependabot's security updates go through it like every other change ([#78]).
 
-## Promotion 7 ([#75]) - 2026-10-27
+## [1.1.0] - 2026-10-27 (Promotion 7)
 
 ### Security
 
 - Vite 8.3.3, and in the development and analysis tools Pillow 13.0.0, virtualenv 21.14.13, filelock 4.2.4, Werkzeug 3.1.9 and opentelemetry-api 1.45.1: 67 Dependabot alerts closed. None of the Python packages ship in the Runtime or the Lambdas ([#74]).
 
+## [1.0.0] - 2026-10-05
+
+The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judged.
+
+[1.5.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.5.0
+[1.4.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.4.0
+[1.3.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.3.0
+[1.2.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.2.0
+[1.1.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.1.0
+[1.0.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.0.0
 [#74]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/74
-[#75]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/75
 [#77]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/77
 [#78]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/78
 [#81]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/81
@@ -91,7 +106,6 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 [#83]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/83
 [#92]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/92
 [#93]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/93
-[#94]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/94
 [#95]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/95
 [#96]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/96
 [#97]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/97
@@ -101,15 +115,13 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 [#104]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/104
 [#105]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/105
 [#106]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/106
-[#107]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/107
 [#110]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/110
 [#122]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/122
 [#126]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/126
 [#127]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/127
-[#128]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/128
 [#129]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/129
-[#130]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/130
 [#136]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/136
 [#137]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/137
+[#139]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/139
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c

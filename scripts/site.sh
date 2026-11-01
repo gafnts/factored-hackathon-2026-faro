@@ -2,18 +2,20 @@
 set -euo pipefail
 
 # Uploads web/dist to the site's bucket and invalidates its distribution (ADR-0007). config.json isn't the build's:
-# Terraform writes it at every apply, so no step here touches it.
+# Terraform writes it at every apply, so no step here touches it. jq, not Python, reads the outputs: CI runs this
+# with the deploy role, where only the deploy tools run (ADR-0009).
 
 OUTPUTS="$1"
 DIST="web/dist"
 
-SITE=$(uv run python -c '
-import json, sys
-site = json.load(open(sys.argv[1])).get("site")
-if not site:
-    sys.exit(f"{sys.argv[1]} holds no site: run make plan and make apply first.")
-print(site["value"]["bucket"], site["value"]["distribution_id"])
-' "${OUTPUTS}")
+if [[ ! -f "${DIST}/index.html" ]]; then
+  echo "${DIST} holds no build: run make web first." >&2
+  exit 1
+fi
+if ! SITE=$(jq -er '.site.value // empty | "\(.bucket) \(.distribution_id)"' "${OUTPUTS}"); then
+  echo "${OUTPUTS} holds no site: run make plan and make apply first." >&2
+  exit 1
+fi
 read -r BUCKET DISTRIBUTION <<< "${SITE}"
 
 # Vite names assets by their content, so they never change, and they go up before the index.html that names them.
