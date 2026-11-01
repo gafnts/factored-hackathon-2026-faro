@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-11-01).
+Accepted (2026-11-01). Its open decisions were settled that day, each on the option we leaned towards, and are listed under [Settled at acceptance](#settled-at-acceptance) with the alternatives we didn't take.
 
 ## Context
 
@@ -31,22 +31,22 @@ In practice:
 
 - **osv-scanner reads both lockfiles.** It checks every version in `uv.lock` and `web/pnpm-lock.yaml` against the OSV database, which includes GitHub's advisories and PyPI's, and reads every document of a pnpm lockfile. It joins the dev environment in `mise.toml`, since a different version can change what it finds, and runs as `make advisories`.
 - **The whole tree, any severity.** The scan fails when any locked version has a known advisory, not only the ones a PR adds. A new advisory on a package we already lock turns every PR red until we fix it or accept it, which is the point: the decision is taken when the advisory appears, not when someone next touches that package.
-- **An accepted advisory has a reason and an end date.** `osv-scanner.toml` lists each one with `reason` and `ignoreUntil`, and a test fails if either is missing or the date is more than 90 days away. When the date passes, the scan fails again and we decide again. The first entry is minimatch's: it matches the globs in our own ESLint config, the denial of service needs a pattern an attacker writes, and no fixed version fits ESLint's range. **Open**: its date.
+- **An accepted advisory has a reason and an end date.** `osv-scanner.toml` lists each one with `reason` and `ignoreUntil`, and a test fails if either is missing or the date is more than 90 days away. When the date passes, the scan fails again and we decide again. The first entry is minimatch's: it matches the globs in our own ESLint config, the denial of service needs a pattern an attacker writes, and no fixed version fits ESLint's range; it runs until 2027-01-15, after January's quarterly round.
 - **Its own workflow.** `advisories.yml` runs the scan with no path filter, so it reports on every PR, as a required check must. Its weekly run on `develop`, the default branch, catches advisories published between merges, the job Dependabot's alerts do for the Python packages.
-- **`develop` requires the checks.** A new ruleset on `develop` requires the three checks above, and blocks force pushes and deletion. It has no pull-request rule: required checks already refuse a commit that hasn't passed them, which rules out pushing a new commit directly, while the fast-forward of `develop` to `main` after a promotion pushes a commit that `main`'s runs already checked. `main`'s ruleset adds `Known advisories`. **Open**: a bypass for administrators.
-- **The web lockfile is one document.** `pmOnFail: ignore` in `web/pnpm-workspace.yaml` stops pnpm from checking its own version against `packageManager`, and with it from writing the boot document. pnpm's documentation names this setting for a project whose pnpm is installed by a version manager such as mise, which ADR-0008 made ours: mise installs the pnpm `packageManager` names, and a test keeps the two equal. GitHub then sees the web app's packages, so Dependabot's alerts and security updates cover them too. The setting goes once GitHub reads both documents. **Open**: minimatch's alert, which opens once GitHub sees it.
+- **`develop` requires the checks.** A new ruleset on `develop` requires the three checks above, and blocks force pushes and deletion. It has no pull-request rule: required checks already refuse a commit that hasn't passed them, which rules out pushing a new commit directly, while the fast-forward of `develop` to `main` after a promotion pushes a commit that `main`'s runs already checked. No one bypasses it, administrators included. `main`'s ruleset adds `Known advisories`.
+- **The web lockfile is one document.** `pmOnFail: ignore` in `web/pnpm-workspace.yaml` stops pnpm from checking its own version against `packageManager`, and with it from writing the boot document. pnpm's documentation names this setting for a project whose pnpm is installed by a version manager such as mise, which ADR-0008 made ours: mise installs the pnpm `packageManager` names, and a test keeps the two equal. GitHub then sees the web app's packages, so Dependabot's alerts and security updates cover them too. The setting goes once GitHub reads both documents. minimatch's alert, which opens once GitHub sees the web app's packages, is dismissed as a tolerable risk with its entry's reason, so an open alert always means a decision not yet taken.
 - **No auto-merge.** Dependabot's tooling PRs merge by hand. #116 closes with the reasons below.
 - **No license check.** None of our dependencies' licenses has been a question so far; osv-scanner can check them later with one flag.
 - **GitHub's free extras where they're free.** Faro is public, so CodeQL's default setup and secret scanning's validity checks are on. Neither is required, since a private copy of this setup can't have them.
 - **Dependabot reads the composite action.** `.github/dependabot.yml` lists `.github/actions/*` beside `/`, as ADR-0008's consequences asked, so the pins in `.github/actions/toolchain` stop going stale.
 
-### Open decisions
+### Settled at acceptance
 
-We settle these before accepting this record. Each names the option we lean towards, which the rest of the record assumes, and the alternative still in play.
+Each decision left open while this record was proposed, as settled on 2026-11-01, with the alternative we didn't take.
 
-1. **A bypass on `develop`.** Lean: none, so every commit on `develop` has passed the gates; a small docs change goes through a PR, and the fast-forward needs no bypass. Alternative: administrators bypass the ruleset, so a docs commit can still go straight in, recorded as a bypass.
-2. **minimatch's date.** Lean: 2027-01-15, after January's quarterly round, by which ESLint and jsx-a11y may accept minimatch 11. Alternative: the full 90 days, 2027-01-30.
-3. **minimatch's alert.** Lean: dismissed as a tolerable risk, with the same reason as its entry in `osv-scanner.toml`, so an open alert always means a decision not yet taken. Alternative: left open until the fix, as a second reminder beside the entry's date.
+1. **No bypass on `develop`.** Every commit on `develop` has passed the gates; a small docs change goes through a PR, and the fast-forward needs no bypass. Not taken: administrators bypassing the ruleset, so a docs commit could still go straight in, recorded as a bypass.
+2. **minimatch's date: 2027-01-15**, after January's quarterly round, by which ESLint and jsx-a11y may accept minimatch 11. Not taken: the full 90 days, 2027-01-30.
+3. **minimatch's alert dismissed** as a tolerable risk, with the same reason as its entry in `osv-scanner.toml`. Not taken: leaving it open until the fix, as a second reminder beside the entry's date.
 
 ## Alternatives considered
 
