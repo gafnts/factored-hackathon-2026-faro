@@ -15,6 +15,7 @@
 </p>
 <p align="center">
   <a href="https://github.com/gafnts/factored-hackathon-2026-faro/actions/workflows/quality-gates.yml"><img src="https://github.com/gafnts/factored-hackathon-2026-faro/actions/workflows/quality-gates.yml/badge.svg" alt="Quality gates"></a>
+  <a href="https://github.com/gafnts/factored-hackathon-2026-faro/actions/workflows/advisories.yml"><img src="https://github.com/gafnts/factored-hackathon-2026-faro/actions/workflows/advisories.yml/badge.svg" alt="Advisories"></a>
   <a href="https://github.com/gafnts/factored-hackathon-2026-faro/actions/workflows/deploy-prototype.yml"><img src="https://github.com/gafnts/factored-hackathon-2026-faro/actions/workflows/deploy-prototype.yml/badge.svg" alt="Deploy prototype"></a>
   <a href="https://faro.gabriel.com.gt"><img src="https://img.shields.io/website?url=https%3A%2F%2Ffaro.gabriel.com.gt&label=prototype&up_message=live&down_message=down" alt="Prototype"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>

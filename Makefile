@@ -19,7 +19,7 @@ DATASET_TF      := AWS_PROFILE=$(AWS_ADMIN_PROFILE) terraform -chdir=infra/datas
 DATASET_BACKEND := -backend-config=backend.tfbackend
 
 .PHONY: help install tflint-init \
-	check lint format type tf-format \
+	check advisories lint format type tf-format \
 	test integration browser smoke probe judges smoke-user \
 	build web web-dev site upload \
 	bootstrap backend doctor provision teardown \
@@ -58,6 +58,9 @@ tflint-init: ## Refresh tflint plugins after a .tflint.hcl bump
 # Hooks without `stages` run in every stage, so pre-push covers both.
 check: ## Run every hook against every file, as CI does
 	uv run pre-commit run --all-files --hook-stage pre-push
+
+advisories: ## Check both lockfiles for known advisories, as CI does
+	osv-scanner scan source --config=osv-scanner.toml --lockfile=uv.lock --lockfile=web/pnpm-lock.yaml
 
 lint: ## Run ruff check and ESLint
 	uv run ruff check src tests

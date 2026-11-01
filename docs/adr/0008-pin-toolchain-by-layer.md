@@ -7,6 +7,7 @@ Accepted (2026-10-31).
 Amended as built, each correction applied in the section it names:
 
 - 2026-10-31: jq joins the system layer ([Decision](#decision)): the deploy's scripts read Terraform's outputs with it, since no Python runs with the deploy role ([ADR-0009](0009-release-checked-deploys.md)).
+- 2026-11-01: osv-scanner joins the dev environment, and pnpm no longer checks its own version against `packageManager`, which kept the lockfile in two documents that hid it from GitHub ([Decision](#decision)); Dependabot reads the composite action ([Consequences](#consequences)) ([ADR-0010](0010-gate-merges-on-advisories.md)).
 
 ## Context
 
@@ -47,6 +48,7 @@ flowchart BT
     PY["Python, uv"]
     NODE["Node, pnpm"]
     TF["Terraform, tflint, trivy"]
+    SCAN["osv-scanner"]
   end
   subgraph SYS["System: not pinned"]
     MAC["Our machines and CI's runners: the OS, mise, the AWS CLI, gh, git"]
@@ -63,13 +65,14 @@ flowchart BT
   MAC --> PY
   MAC --> NODE
   MAC --> TF
+  MAC --> SCAN
   AWS -.-> PY
 ```
 
 | Layer | What it holds | Where its versions live | What installs it |
 |---|---|---|---|
 | Dependencies | The Python packages and the Python-based tools (ruff, mypy, pre-commit, zizmor); the web app's packages and tools; Terraform's providers; tflint's AWS ruleset; the hooks pre-commit fetches | `uv.lock`; `web/pnpm-lock.yaml`; each root's `.terraform.lock.hcl`; `.tflint.hcl`; `.pre-commit-config.yaml`, by commit SHA | uv, pnpm, `terraform init`, `tflint --init`, pre-commit |
-| Dev environment | Python, uv, Node, pnpm, Terraform, tflint, trivy | `mise.toml`, with `mise.lock` | mise |
+| Dev environment | Python, uv, Node, pnpm, Terraform, tflint, trivy, osv-scanner | `mise.toml`, with `mise.lock` | mise |
 | System | The OS, mise itself, the AWS CLI, the GitHub CLI, jq, direnv, git; in production, AWS's runtimes | Not pinned: any recent version works | Each of us, or AWS |
 
 A tool belongs to the dev environment when a different version could change our lockfiles, our results, or a deploy; otherwise it belongs to the system. CI is a second machine, not a layer: it rebuilds the same layers from the same files.
@@ -78,7 +81,7 @@ In practice:
 
 - **`mise.toml` holds exact versions**, and `mise.lock` records each one's download URL and checksum for Linux x64 (CI) and macOS arm64 (our machines), with provenance (GitHub attestations, cosign) checked when the lock is written. `locked = true` makes an install that doesn't match the lock fail instead of looking the version up again, and `minimum_release_age = "7d"` gives mise the week-old rule that `uv.lock` and `pnpm-lock.yaml` already follow. `.python-version`, `.nvmrc`, and `.terraform-version` go.
 - **uv uses mise's Python.** `python-preference = "system"` in `pyproject.toml` makes uv take the Python on the PATH, which is mise's, instead of one it downloads. The pinned patch is 3.13.17.
-- **pnpm's pin stays in `packageManager`**, which pnpm enforces: any pnpm hands over to that version. mise installs the same version as the launcher, so the pnpm that runs is the one `mise.lock` checked, and nothing is downloaded at run time. A test keeps the two equal.
+- **pnpm's pin stays in `packageManager`.** mise installs that version as the launcher, so the pnpm that runs is the one `mise.lock` checked, and nothing is downloaded at run time. A test keeps the two equal. pnpm itself doesn't check the version (`pmOnFail: ignore`): the record of that check is a second document in the lockfile, which hides the whole file from GitHub's dependency graph ([ADR-0010](0010-gate-merges-on-advisories.md)).
 - **Ranges stay as guards.** `requires-python`, `engines`, each root's `required_version`, and uv's `required-version` pin nothing; they make a wrong install fail fast, and every pin must fall inside them. Python's minor version moves only with AWS's runtimes.
 - **CI installs the toolchain in one place.** Every job calls a composite action, `.github/actions/toolchain`, which runs `jdx/mise-action` at a pinned mise release a week old (the one version `mise.toml` can't hold) and restores uv's and pnpm's caches. Jobs call it with `uses: $/...`, which loads it from the commit being run instead of the working tree.
 - **Hooks are pinned by commit SHA**, with the `# frozen:` comment Dependabot reads and rewrites.
@@ -112,4 +115,4 @@ Negative:
 - mise becomes trusted code on our machines and in every CI job, the Apply job included. It releases almost daily, often with lockfile changes, so CI pins a release a week old, and `mise.toml` sets the oldest release it accepts (`min_version`).
 - Contributors activate mise in their shell, or put its shims on the PATH, and trust the repository's config once (`mise trust`). Without mise, uv takes whichever Python 3.13 is on the PATH, so that machine isn't pinned to the patch.
 - actionlint doesn't know the `$/` syntax yet, so its hook ignores that one message until it does.
-- Dependabot scans `.github/workflows` and a root `action.yml` only, so `.github/dependabot.yml` must list the composite action's directory, or its pins go stale.
+- Dependabot scans `.github/workflows` and a root `action.yml` only, so `.github/dependabot.yml` lists the composite action's directory too, or its pins would go stale.

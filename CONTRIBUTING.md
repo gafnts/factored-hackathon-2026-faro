@@ -63,7 +63,7 @@ Both live in the same AWS account. Each has its own Terraform state file, its ow
 
 ### Branches
 
-Feature branches merge into `develop`, which runs the quality gates and deploys nothing. `main` mirrors what is live on `prototype` and only accepts merges from `develop`, so promoting is a deliberate step and a half-finished feature never reaches the prototype by accident. `develop` is the default branch: fresh clones start on it and new PRs target it, Dependabot's included, so only a promotion picks `main`.
+Feature branches merge into `develop`, which runs the quality gates and deploys nothing. A commit lands on `develop` only once the gates have passed on it, so even a small docs change goes through a PR. `main` mirrors what is live on `prototype` and only accepts merges from `develop`, so promoting is a deliberate step and a half-finished feature never reaches the prototype by accident. `develop` is the default branch: fresh clones start on it and new PRs target it, Dependabot's included, so only a promotion picks `main`.
 
 ```mermaid
 flowchart LR
@@ -86,6 +86,8 @@ The operations that can hurt are hard to trigger by mistake:
 | A `local` target running as your admin profile | `make` refuses the targets that deploy or test `local` while `AWS_PROFILE` is unset, instead of falling back to the default profile |
 | `make destroy` hitting the wrong environment | It requires an explicit `ENV`, and refuses when Terraform is initialized for a different one |
 | Unfinished work reaching the prototype | A workflow fails any PR into `main` that doesn't come from `develop`, or whose release isn't cut |
+| A commit that skipped the gates | `develop`'s ruleset requires `Pre-commit (all stages)`, `Regression set (in process)`, and `Known advisories` on every commit it takes, merged or pushed, and blocks force pushes and deletion; no one bypasses it |
+| A dependency with a known advisory reaching the prototype | `Known advisories` checks both lockfiles on every PR, every push, and every week, and `main` and `develop` require it; an advisory we accept is listed in `osv-scanner.toml` with a reason and an end date at most 90 days away ([ADR-0010](docs/adr/0010-gate-merges-on-advisories.md)) |
 | Deploying from an unreviewed branch | The prototype deploy role only trusts jobs in the `prototype` GitHub Environment, which only `main` can use |
 | Write credentials on pull requests | PR plans run under a read-only role, without taking the state lock; the plan's comment is posted by a job with no AWS credentials |
 | Build code running with a deploy role | The build job, which runs `make build` and the web app's install and build, holds no credentials; the plan and apply jobs download what it made and run only Terraform, the AWS CLI, jq, and git ([ADR-0009](docs/adr/0009-release-checked-deploys.md)) |
@@ -95,7 +97,7 @@ The operations that can hurt are hard to trigger by mistake:
 | One environment touching another's state | Each role is denied every other prefix in the state bucket (including the IAM and dataset roots'), and any change to the bucket itself; the roles they create are denied the bucket entirely |
 | One environment writing another's site or zips | Each deploy role, and every role it creates, is denied the other environment's buckets and CloudFront functions by name, since S3 object writes ignore tags and functions can't carry them |
 | Deleting shared state | `iam-destroy` and `dataset-destroy` need `I_KNOW=1`, `dataset-destroy` stops while the data bucket holds anything, and `make teardown` makes you type the bucket name |
-| Secrets in commits | `gitleaks` and `detect-private-key` run on every commit, and `gitleaks-history` rescans the full history on every push and in CI |
+| Secrets in commits | `gitleaks` and `detect-private-key` run on every commit, and `gitleaks-history` rescans the full history on every push and in CI; on this public repository, GitHub's secret scanning also checks whether a secret it finds still works |
 | The model key reaching state, plans, or CI | The IAM root creates each environment's secret empty, `make model-key` stores the key from your `.env`, and the stack only looks the secret up by name ([step 3.7](#37-verify-and-deploy-local)) |
 | The dataset changing under an evaluation | `make data` checks every file against `dataset.lock` and copies in only files that match it, and the data bucket rejects any write that would overwrite a snapshot |
 
@@ -130,7 +132,7 @@ make install   # The toolchain, Python and web deps, both hook stages, tflint pl
 make check     # Every hook against every file, as CI's pre-commit job runs them
 ```
 
-If `make check` passes, your machine runs the same tools and hooks as CI; CI also plays the regression set, which `make regression` runs locally. Re-run `make install` after pulling changes to `mise.toml`, `pyproject.toml`, `web/package.json`, `.pre-commit-config.yaml`, or `.tflint.hcl`.
+If `make check` passes, your machine runs the same tools and hooks as CI; CI also plays the regression set, which `make regression` runs locally, and checks the lockfiles for known advisories, which `make advisories` runs. Re-run `make install` after pulling changes to `mise.toml`, `pyproject.toml`, `web/package.json`, `.pre-commit-config.yaml`, or `.tflint.hcl`.
 
 From now on, hooks run on their own:
 
@@ -347,7 +349,7 @@ git switch -c feature/my-change
 git push -u origin feature/my-change
 ```
 
-CI runs the quality gates; merge when they pass. Nothing deploys from `develop`.
+CI runs the quality gates, and the PR merges once they pass. Nothing deploys from `develop`.
 
 A few habits keep PRs quick to review:
 
@@ -364,6 +366,7 @@ Hooks run on commit and push, and you can run them on demand:
 
 ```bash
 make check        # Every hook against every file, both stages
+make advisories   # Check both lockfiles for known advisories
 make format       # Apply ruff's, Prettier's, and ESLint's fixes
 make lint         # Run ruff check and ESLint
 make type         # Run mypy and tsc
@@ -376,7 +379,9 @@ make tf-format    # Format the Terraform files
 
 `make integration` and `make browser` need credentials, the stored model key, and `make personas`, so `make test` leaves their tests out; `make browser` also installs Chromium. `make regression` needs no credentials.
 
-CI's quality gates are `make check` and `make regression`, so a green local run of both predicts a green PR. What each suite checks, and which test stops each attack we expect, is in [tests/README.md](tests/README.md). In an emergency, skip a single hook with `SKIP=<hook-id> git commit`; CI still runs it.
+CI's quality gates are `make check`, `make regression`, and `make advisories`, so a green local run of the three predicts a green PR. What each suite checks, and which test stops each attack we expect, is in [tests/README.md](tests/README.md). In an emergency, skip a single hook with `SKIP=<hook-id> git commit`; CI still runs it.
+
+`make advisories` runs osv-scanner over `uv.lock` and `web/pnpm-lock.yaml`, and fails on any known advisory, whatever its severity and whether or not your change added the package ([ADR-0010](docs/adr/0010-gate-merges-on-advisories.md)). It sends each package's name and version to OSV's API. CI runs it on every PR and push, and every Monday on `develop`, for advisories published between merges. When it fails, update the package to its fixed version (`uv lock --upgrade-package <name>`, or `pnpm --dir web update <name>` for one the app pulls in), in the PR it blocks or in one of its own. If no fixed version fits what depends on it, accept the advisory in `osv-scanner.toml`: its ID, a `reason` that says why it can't reach us, and an `ignoreUntil` at most 90 days away, which a test checks. When the date passes, the scan fails again and we decide again. Dismiss the matching Dependabot alert with the same reason, so an open alert always means a decision not yet taken. On this public repository, GitHub's CodeQL scans the code too; it isn't a required check, since a private copy of this setup can't have it.
 
 Inside `web/`, each tool runs on its own: `pnpm lint`, `pnpm format`, `pnpm typecheck`, `pnpm test`, and `pnpm build`, and `pnpm vitest` watches the tests as you work. The chat's TypeScript types are generated from its contract, `src/faro/contracts/chat.schema.json`: after changing the contract, run `pnpm --dir web contracts` and commit `web/src/contracts/chat.ts`, or a test fails.
 
@@ -480,7 +485,7 @@ A promotion is a release ([ADR-0009](docs/adr/0009-release-checked-deploys.md)):
    git fetch && git switch develop && git merge --ff-only origin/main && git push
    ```
 
-   If a PR merged into `develop` while the promotion was open, the fast-forward refuses; run `git merge origin/main` instead, which adds a merge commit with no file changes.
+   `develop`'s ruleset takes the push once the quality gates and `Known advisories` have passed on the merge commit, from its push to `main`, so wait for those runs first. If a PR merged into `develop` while the promotion was open, the fast-forward refuses; run `git merge origin/main` on a branch instead, and merge it into `develop` through a PR, since the ruleset refuses a new commit pushed directly.
 
 To redeploy `main` without an infrastructure change, run the workflow by hand: **Actions → Deploy · Prototype → Run workflow** with `main` picked under **Use workflow from**, or `gh workflow run deploy-prototype.yml --ref main`. Both default to `develop`, where every job skips.
 
@@ -589,11 +594,11 @@ Each layer of the toolchain is pinned in one file, which whatever installs that 
 
 | What | Where |
 |---|---|
-| Python, uv, Node, pnpm, Terraform, tflint, trivy | Exact versions in `mise.toml`, each download's checksum in `mise.lock` (Linux x64 and macOS arm64), and only releases a week old (`minimum_release_age` in `mise.toml`) |
+| Python, uv, Node, pnpm, Terraform, tflint, trivy, osv-scanner | Exact versions in `mise.toml`, each download's checksum in `mise.lock` (Linux x64 and macOS arm64), and only releases a week old (`minimum_release_age` in `mise.toml`) |
 | Python 3.13 | Guarded by `requires-python` in `pyproject.toml`; AWS's runtimes fix the minor version |
 | uv 0.13 | Guarded by `required-version` and the `uv-build` requirement in `pyproject.toml`, so every uv that touches the lock (yours, CI's, Dependabot's) writes it in the same format |
 | Node 24 | Guarded by `engines` in `web/package.json` (pnpm won't install on another version) |
-| pnpm | `packageManager` in `web/package.json`, which pnpm enforces; mise installs the same version, and a test keeps the two equal |
+| pnpm | `packageManager` in `web/package.json`; mise installs that version, and a test keeps the two equal. pnpm doesn't check it itself (`pmOnFail: ignore`), which keeps the lockfile one document, the only kind GitHub reads ([ADR-0010](docs/adr/0010-gate-merges-on-advisories.md)) |
 | Terraform 1.16 | Guarded by `required_version` in each root |
 | mise | `version` in `.github/actions/toolchain/action.yml` for CI, and `min_version` in `mise.toml` for yours |
 | Python dependencies | `uv.lock`, and only releases a week old (`exclude-newer` in `pyproject.toml`) |
