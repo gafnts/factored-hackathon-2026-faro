@@ -25,6 +25,7 @@ from faro.agent.models import (
     RouterOutput,
     TransactionChoice,
 )
+from faro.evaluation import cases
 from faro.evaluation.families import Answer, Family
 from faro.masking import mask
 
@@ -149,13 +150,14 @@ class ScriptedModels:
         )
         # What each text is, and the language a model reading it would say (POL-50, POL-51).
         self.said: dict[str, tuple[Family | str, str]] = {}
-        for message in script["messages"]:
-            family = families[message["id"].split("/")[0]]
-            self.said[mask(message["text"])] = (family, spoken(family, message["id"]))
-        for answer in script["answers"].values():
-            if isinstance(answer, dict):
-                answer_id, language = answer["id"].split("/")
-                self.said[mask(answer["text"])] = (answers[answer_id].kind, language)
+        for text in [*script["messages"], *cases.texts(script["answers"])]:
+            # A family's message is <family_id>/<language>/<n>, an answer <answer_id>/<language>.
+            authored, language, *n = text["id"].split("/")
+            if n:
+                family = families[authored]
+                self.said[mask(text["text"])] = (family, spoken(family, text["id"]))
+            else:
+                self.said[mask(text["text"])] = (answers[authored].kind, language)
         self.unplaced: list[str] = []
 
     def __call__(self, purpose: str) -> Runnable[Any, Any]:

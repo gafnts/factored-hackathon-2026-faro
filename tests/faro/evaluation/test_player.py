@@ -186,6 +186,28 @@ def test_the_scripted_models_say_the_language_a_reader_would(
     assert (marked.clear, said["parsed"].language) == (False, "unclear")
 
 
+def test_the_scripted_models_read_every_aside_and_an_interjections_family(
+    bank: Bank, drawn: list[dict[str, Any]]
+) -> None:
+    case = copy.deepcopy(situation(drawn, "status.aside"))
+    answers = case["script"]["answers"]
+    second = next(a for a in BY_ANSWER.values() if a.kind == "aside")
+    answers["aside"] = [
+        *answers["aside"],
+        {"id": f"{second.answer_id}/es", "text": second.texts["es"]},
+    ]
+    complaint = next(f for f in BY_FAMILY.values() if f.complaint and not f.slots)
+    message = complaint.in_language("es")[0]
+    answers["interjection"] = {"at": "card", "id": message.id, "text": message.text}
+    models = ScriptedModels(case, BY_FAMILY, BY_ANSWER, items(bank, case))
+
+    routed = asyncio.run(models.route([HumanMessage(message.text)]))
+    extracted = asyncio.run(models.extract([HumanMessage(second.texts["es"])]))
+
+    assert routed["parsed"].requests == ["talk_to_human"] and routed["parsed"].complaint
+    assert extracted["parsed"].question == "unanswered"
+
+
 @pytest.mark.parametrize("answer", sorted(SHAPES))
 def test_the_scripted_reply_lays_its_placeholders_out_as_the_prompt_asks(
     answer: str,

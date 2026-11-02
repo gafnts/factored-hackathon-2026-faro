@@ -2,13 +2,16 @@
 The scripted customer (ADR-0005, The scripted customer): code, not a model, that plays a case's script while reacting to
 what the agent waits for. It reads the turn's last decision entry, never the reply's prose, and the interrupt the run
 ended at, whose controls it presses; it answers from the script, says it doesn't know when the script holds no answer,
-and stops once nothing is left to send, or at twice the turns the oracle expects. The in-process player and the harness
+sends the script's asides at its questions and its interjection once, and stops once nothing is left to send, or at
+twice the turns the oracle expects. The in-process player and the harness
 share it.
 """
 
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
+
+from faro.evaluation import cases
 
 ASKED = ("card", "reason", "transaction")
 CONTROLS = {
@@ -48,7 +51,8 @@ class Customer:
         self.limit = 2 * len(case["expected"]["turns"])
         self.turns = 0
         self.typed = False
-        self.asided = False
+        self.asides = cases.asides(self.answers)
+        self.interjection: Mapping[str, str] | None = self.answers.get("interjection")
 
     def first(self) -> Send:
         return self._sent(self._message())
@@ -62,11 +66,16 @@ class Customer:
         """
         if awaiting is None or self.turns >= self.limit:
             return None
+        interjection = self.interjection
+        if interjection is not None and interjection["at"] == awaiting:
+            self.interjection = None
+            return self._sent(
+                Send("interjection", interjection["text"], interjection["id"])
+            )
         if awaiting in ASKED:
-            # A message that doesn't answer the question, sent once before the answer (POL-06).
-            aside = self.answers.get("aside")
-            if aside is not None and not self.asided:
-                self.asided = True
+            # Messages that don't answer the question, each sent once before the answer (POL-06).
+            if self.asides:
+                aside = self.asides.pop(0)
                 return self._sent(Send("aside", aside["text"], aside["id"]))
             return self._sent(self._answer(awaiting))
         if awaiting == "confirm_control":

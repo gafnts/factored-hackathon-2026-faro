@@ -120,6 +120,8 @@ class Situation:
     fault: Fault | None = None
     # Drawn when natural customers run short, under the same name, as built cases.
     top_up: "Situation | None" = None
+    # The kinds of answer sent at the questions that answer nothing, each once and in order (POL-06).
+    asides: tuple[str, ...] = ()
 
     def fits(self, family: Family) -> bool:
         return (
@@ -446,8 +448,9 @@ SITUATIONS = [
         f"{SERVED} and cards between 2 and 4",
         any_card,
         [("clarify", "card"), ("clarify", "card"), ("answer", "none")],
-        {"aside": "aside", "card": "card_last_four"},
+        {"card": "card_last_four"},
         family=lambda f: _no_hints(f) and _plain_read(f),
+        asides=("aside",),
     ),
     Situation(
         "status.conflict_asked",
@@ -565,8 +568,9 @@ SITUATIONS = [
         f"{SERVED} and cards = 1 and declined between 2 and 30",
         a_transaction(lambda t: t.status == "Declined", True),
         [("clarify", "transaction"), ("clarify", "transaction"), ("answer", "none")],
-        {"aside": "aside", "transaction": "transaction_newest"},
+        {"transaction": "transaction_newest"},
         family=lambda f: _plain_read(f) and _no_hints(f) and f.when is None,
+        asides=("aside",),
     ),
     Situation(
         "block.reason_given",
@@ -1023,6 +1027,20 @@ def _said(family: Family, language: str) -> Sequence[Message]:
     return family.in_language(language)
 
 
+def _values(
+    slots: Mapping[str, str], meant: state.Transaction | None, facts: Facts
+) -> dict[str, str]:
+    """
+    The slots as a message says them: an amount and a date in the conversation's language.
+    """
+    values = dict(slots)
+    if "amount" in values and meant is not None and meant.amount is not None:
+        values["amount"] = facts.amount(meant.amount, meant.currency)
+    if "date" in values and meant is not None:
+        values["date"] = day(meant.at.date())
+    return values
+
+
 def _fill(text: str, values: Mapping[str, str]) -> str:
     for name, value in values.items():
         text = text.replace(f"{{{name}}}", value)
@@ -1359,11 +1377,7 @@ class Generator:
             if card is not None and "transaction_id" in pick.means
             else None
         )
-        values = dict(pick.slots)
-        if "amount" in values and meant is not None and meant.amount is not None:
-            values["amount"] = facts.amount(meant.amount, meant.currency)
-        if "date" in values and meant is not None:
-            values["date"] = day(meant.at.date())
+        values = _values(pick.slots, meant, facts)
         sent = [family]
         for kind in situation.then:
             following = self._following(situation, kind, language)
@@ -1374,28 +1388,45 @@ class Generator:
         for each in sent:
             message = rng.choice(_said(each, language))
             messages.append({"id": message.id, "text": _fill(message.text, values)})
+        answer_values = {}
+        if card is not None:
+            answer_values = {
+                "last_four": card.last_four,
+                "card_type": CARD_TYPES["credit" if card.credit else "debit"],
+            }
+        if meant is not None and meant.merchant is not None:
+            answer_values["merchant"] = meant.merchant
+
+        def answered(kind: str, taken: Sequence[str] = ()) -> dict[str, str] | None:
+            options = [
+                a for a in self.answers if a.kind == kind and a.answer_id not in taken
+            ]
+            if not options:
+                return None
+            chosen = rng.choice(options)
+            return {
+                "id": f"{chosen.answer_id}/{language}",
+                "text": _fill(chosen.texts[language], answer_values),
+            }
+
         answers: dict[str, Any] = {}
+        asides: list[dict[str, str]] = []
+        for kind in situation.asides:
+            aside = answered(kind, [a["id"].split("/")[0] for a in asides])
+            if aside is None:
+                return None
+            asides.append(aside)
+        if asides:
+            answers["aside"] = asides
         kinds = {**situation.answers, "dont_know": "dont_know"}
         for asked, kind in kinds.items():
             if asked in ("confirm_control", "handoff_control"):
                 answers[asked] = kind
                 continue
-            options = [a for a in self.answers if a.kind == kind]
-            if not options:
+            text = answered(kind)
+            if text is None:
                 return None
-            chosen = rng.choice(options)
-            answer_values = {}
-            if card is not None:
-                answer_values = {
-                    "last_four": card.last_four,
-                    "card_type": CARD_TYPES["credit" if card.credit else "debit"],
-                }
-            if meant is not None and meant.merchant is not None:
-                answer_values["merchant"] = meant.merchant
-            answers[asked] = {
-                "id": f"{chosen.answer_id}/{language}",
-                "text": _fill(chosen.texts[language], answer_values),
-            }
+            answers[asked] = text
         case: dict[str, Any] = {
             "version": cases.VERSION,
             "case_id": cases.case_id(set_name, seed, draw),
@@ -1464,6 +1495,7 @@ class Generator:
                 for name, kind in asked.items()
                 if name not in ("confirm_control", "handoff_control")
             )
+            and all(kind in answered for kind in situation.asides)
         )
 
 

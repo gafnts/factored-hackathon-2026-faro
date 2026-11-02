@@ -57,6 +57,25 @@ def problems(case: dict[str, Any]) -> list[str]:
     return found + overlay_problems(case)
 
 
+def asides(answers: Mapping[str, Any]) -> list[dict[str, str]]:
+    """
+    The script's messages that answer nothing, in the order they're sent; a case drawn before 2026-11-02 holds one.
+    """
+    aside = answers.get("aside")
+    if aside is None:
+        return []
+    return list(aside) if isinstance(aside, list) else [aside]
+
+
+def texts(answers: Mapping[str, Any]) -> list[dict[str, str]]:
+    """
+    Every authored text the script's answers hold: the answers, the asides, and the interjection.
+    """
+    found = asides(answers)
+    found += [v for k, v in answers.items() if k != "aside" and isinstance(v, dict)]
+    return found
+
+
 def written(case: Mapping[str, Any], sign_in: str, ttl: int) -> list[dict[str, Any]]:
     """
     The case's fixtures and fault plans as the overlay holds them under the sign-in, written before its first turn.

@@ -12,7 +12,7 @@ from typing import Any
 import duckdb
 import pytest
 
-from faro.evaluation import bronze, families, generator, oracle
+from faro.evaluation import bronze, cases, families, generator, oracle
 from faro.evaluation.facts import contract_words
 
 from . import outside
@@ -78,9 +78,7 @@ def test_every_message_is_filled_and_development_only(
 ) -> None:
     for case in [*regression.cases, *draw(con, "selection").cases]:
         texts = [m["text"] for m in case["script"]["messages"]]
-        texts += [
-            a["text"] for a in case["script"]["answers"].values() if isinstance(a, dict)
-        ]
+        texts += [a["text"] for a in cases.texts(case["script"]["answers"])]
         assert not any(re.search(r"\{[a-z_]+\}", t) for t in texts), case["situation"]
         assert case["family_id"] not in HELD
         assert case["phrasing"] == "development"
@@ -96,6 +94,28 @@ def test_each_situation_takes_its_path(regression: generator.Drawn) -> None:
         if situation.asks_card and path[0] == ("clarify", "card"):
             path = path[1:]
         assert path[: len(situation.path)] == situation.path
+
+
+def test_a_situations_asides_are_drawn_in_order_each_a_phrasing_of_its_own(
+    con: duckdb.DuckDBPyConnection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    situation = replace(
+        generator.BY_NAME["status.aside"],
+        asides=("aside", "aside", "aside"),
+        path=[*[("clarify", "card")] * 4, ("answer", "none")],
+    )
+    monkeypatch.setitem(generator.BY_NAME, situation.name, situation)
+    drawing = generator.Generator(
+        con, "development", LOADED, ANSWERS, HELD, contract_words(), reuse=True
+    )
+
+    drawn = drawing.draw("asides", 7, {situation.name: 1})
+
+    assert drawn.cases
+    for case in drawn.cases:
+        asides = case["script"]["answers"]["aside"]
+        assert len({a["id"] for a in asides}) == 3
+        assert [t["sends"] for t in case["expected"]["turns"]][1:4] == ["aside"] * 3
 
 
 def test_a_block_among_several_active_cards_asks_which_then_why(

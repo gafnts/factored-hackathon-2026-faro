@@ -137,6 +137,45 @@ def test_a_message_that_doesnt_answer_which_card_gets_the_question_again(
     assert "POL-06" in again["decisions"][0]["rules"]
 
 
+def test_each_aside_gets_the_question_again(con: duckdb.DuckDBPyConnection) -> None:
+    played = case(
+        EXAMPLE_CUSTOMER,
+        "card_status-01",
+        answers={"card": "card_last_four-01"},
+        means={"product_id": "PRD-EXAMPLE00008"},
+    )
+    played["script"]["answers"]["aside"] = [
+        {"id": "aside-01/es", "text": "-"},
+        {"id": "aside-02/es", "text": "-"},
+    ]
+
+    assert path(play(con, played)) == [
+        ("message", [("card_status", "clarify")], "card"),
+        ("aside", [("card_status", "clarify")], "card"),
+        ("aside", [("card_status", "clarify")], "card"),
+        ("card", [("card_status", "answer")], "none"),
+    ]
+
+
+def test_an_interjection_isnt_read_yet(con: duckdb.DuckDBPyConnection) -> None:
+    played = case(
+        EXAMPLE_CUSTOMER,
+        "card_status-01",
+        answers={"card": "card_last_four-01"},
+        means={"product_id": "PRD-EXAMPLE00008"},
+    )
+    played["script"]["answers"]["interjection"] = {
+        "at": "card",
+        "id": "talk_to_human-06/es/0",
+        "text": "-",
+    }
+    customer = state.read(con, EXAMPLE_CUSTOMER)
+    assert customer is not None
+
+    with pytest.raises(oracle.NotCoveredError, match="interjection"):
+        oracle.expect(customer, played, FAMILIES, contract_words())
+
+
 @pytest.mark.parametrize(
     ("card_id", "outcome", "fact"),
     [

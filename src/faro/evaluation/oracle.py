@@ -24,6 +24,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
+from faro.evaluation import cases
 from faro.evaluation.facts import Facts
 from faro.evaluation.families import Family
 from faro.evaluation.state import (
@@ -222,7 +223,7 @@ class Conversation:
             else None
         )
         self.typed = False
-        self.asided = False
+        self.asides = cases.asides(self.script["answers"])
         self.paging: tuple[Card, int] | None = None
         self.turns: list[dict[str, Any]] = []
         self.blocked: list[str] = []
@@ -246,9 +247,11 @@ class Conversation:
 
     def answer_for(self, awaiting: str) -> Answer | None:
         answers = self.script["answers"]
-        if awaiting in ASKED and "aside" in answers and not self.asided:
-            self.asided = True
-            return Answer("aside", language=said_in(answers["aside"]))
+        interjection = answers.get("interjection")
+        if interjection is not None and interjection["at"] == awaiting:
+            raise NotCoveredError("an interjection")
+        if awaiting in ASKED and self.asides:
+            return Answer("aside", language=said_in(self.asides.pop(0)))
         if awaiting == "confirm_control":
             if "typed_yes" in answers and not self.typed:
                 self.typed = True
