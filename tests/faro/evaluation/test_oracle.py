@@ -551,6 +551,55 @@ def test_an_unrecognized_charge_from_yesterday_is_found_blocked_and_handed_off(
     assert last["tools_required"] == ["block_card", "file_handoff"]
 
 
+def test_a_charge_left_unsettled_is_offered_the_block_then_handed_off(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    # POL-39: a detail that can't be settled is recorded in the dispute's handoff, not offered a person on its own.
+    customer = state.read(con, "CLI-EVAL00000015")
+    assert customer is not None and customer.cards[0].active
+
+    expected = play(
+        con,
+        case(
+            "CLI-EVAL00000015",
+            "unrecognized_charge-01",
+            answers={"confirm_control": "cancel"},
+            means={"product_id": customer.cards[0].product_id},
+        ),
+    )
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "clarify")], "transaction"),
+        ("dont_know", [("unrecognized_charge", "clarify")], "transaction"),
+        ("dont_know", [("unrecognized_charge", "block")], "confirm_control"),
+        ("cancel", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    stopped, handed = expected["turns"][2:]
+    assert "POL-17" in stopped["decisions"][0]["rules"]
+    assert "{transaction}" not in stopped["facts"]
+    assert handed["handoff"]["priority"] == "urgent"
+
+
+def test_a_charge_whose_card_cant_be_settled_goes_to_dispute_intake_at_once(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    expected = play(con, case("CLI-EVAL00000005", "unrecognized_charge-01"))
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "clarify")], "card"),
+        ("dont_know", [("unrecognized_charge", "clarify")], "card"),
+        ("dont_know", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    last = expected["turns"][2]
+    assert last["decisions"][0]["rules"] == ["POL-17", "POL-39"]
+    assert last["handoff"] == {
+        "reason_code": "unrecognized_charge",
+        "trigger": "required",
+        "queue": "dispute_intake",
+        "priority": "urgent",
+    }
+
+
 def test_today_is_the_business_date_not_the_as_of_instants_day(
     con: duckdb.DuckDBPyConnection,
 ) -> None:

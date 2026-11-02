@@ -22,7 +22,7 @@ from collections.abc import Callable, Generator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, NamedTuple
 
 from faro.evaluation import cases
 from faro.evaluation.facts import Facts
@@ -143,6 +143,14 @@ class Step:
 
 
 Request = Generator[Step, Answer, Step]
+
+
+class Searched(NamedTuple):
+    found: Transaction | None
+    # The tools the turn that ends the search must call: the search itself, unless a question came first.
+    tools: tuple[str, ...]
+    # Whether two questions left it unsettled, which a charge records in its handoff (POL-17, POL-39).
+    unsettled: bool = False
 
 
 def handoff(reason_code: str, trigger: str, priority: str = "normal") -> dict[str, str]:
@@ -493,10 +501,11 @@ class Conversation:
         )
 
     def which_card(
-        self, hints: Hints, applies: Callable[[Card], bool] | None
+        self, hints: Hints, applies: Callable[[Card], bool] | None, charge: bool = False
     ) -> Generator[Step, Answer, Card | Step]:
         """
-        POL-13 to POL-17: the card the customer means, asked for while more than one is left.
+        POL-13 to POL-17: the card the customer means, asked for while more than one is left. For a charge, a card that
+        can't be settled goes to dispute intake at once, the request's only handoff (POL-39).
         """
         cards = list(self.customer.cards)
         if not cards:
@@ -520,6 +529,8 @@ class Conversation:
                 if len(pool) == 1:
                     return pool[0]
                 if hints.last_four is not None and len({c.type for c in pool}) == 1:
+                    if charge:
+                        return self.unsettled_charge(["POL-15"])
                     return Step(
                         "hand_off",
                         ["POL-15"],
@@ -528,6 +539,8 @@ class Conversation:
                     )
                 rules, listed = ["POL-13", "POL-14"], pool
             if asked == QUESTIONS:
+                if charge:
+                    return self.unsettled_charge(["POL-17"])
                 return (yield from self.unsettled())
             tools = ("list_cards",) if asked == 0 else ()
             asked += 1
@@ -543,11 +556,11 @@ class Conversation:
             hints = hints.merged(answer.hints)
 
     def which_transaction(
-        self, card: Card, hints: Hints, prefer_declined: bool
-    ) -> Generator[Step, Answer, tuple[Transaction | None, tuple[str, ...]] | Step]:
+        self, card: Card, hints: Hints, prefer_declined: bool, charge: bool = False
+    ) -> Generator[Step, Answer, Searched | Step]:
         """
-        POL-27 and POL-39: the transaction meant among the card's newest, the Declined ones first for a decline. Also
-        returns the tools the turn that ends the search must call: the search itself, unless a question came first.
+        POL-27 and POL-39: the transaction meant among the card's newest, the Declined ones first for a decline. A
+        charge left unsettled is recorded in its handoff, not offered a person on its own (POL-39).
         """
         meant = [t for t in card.transactions[:SEARCHED] if fits(t, hints)]
         if prefer_declined:
@@ -556,6 +569,8 @@ class Conversation:
         while len(meant) > 1:
             shown = meant[:SHOWN]
             if asked == QUESTIONS:
+                if charge:
+                    return Searched(None, (), unsettled=True)
                 return (yield from self.unsettled())
             asked += 1
             answer = yield from self.asking(
@@ -574,7 +589,9 @@ class Conversation:
                 meant = shown[:1]
             else:
                 meant = [t for t in shown if fits(t, answer.hints)] or shown
-        return (meant[0] if meant else None), () if asked else ("find_transactions",)
+        return Searched(
+            meant[0] if meant else None, () if asked else ("find_transactions",)
+        )
 
     def card_status(self, family: Family, hints: Hints) -> Request:
         if family.extract.get("cards") == "all":
@@ -676,7 +693,7 @@ class Conversation:
         searched = yield from self.which_transaction(card, hints, prefer_declined=True)
         if isinstance(searched, Step):
             return searched
-        found, tools = searched
+        found, tools, _ = searched
         facts = {"{card}": self.facts.card(card)}
         if found is None:
             return Step("answer", ["POL-27"], tools=tools, facts=facts)
@@ -771,15 +788,18 @@ class Conversation:
         return blocked
 
     def unrecognized_charge(self, hints: Hints) -> Request:
-        card = yield from self.which_card(hints, None)
+        card = yield from self.which_card(hints, None, charge=True)
         if isinstance(card, Step):
             return card
         for tool in ("find_transactions", "block_card", "get_card"):
             self.unplanned(tool)
-        searched = yield from self.which_transaction(card, hints, prefer_declined=False)
+        searched = yield from self.which_transaction(
+            card, hints, prefer_declined=False, charge=True
+        )
         if isinstance(searched, Step):
             return searched
-        found, tools = searched
+        found, tools, unsettled = searched
+        stopped = ["POL-17"] if unsettled else []
         facts = {"{card}": self.facts.card(card)}
         if found is not None:
             facts["{transaction}"] = self.facts.found(found)
@@ -787,13 +807,13 @@ class Conversation:
             priority = "normal" if card.status == "Blocked" else "urgent"
             return Step(
                 "hand_off",
-                ["POL-34", "POL-39"],
+                ["POL-34", "POL-39", *stopped],
                 tools=(*tools, "file_handoff"),
                 facts=facts,
                 handoff=handoff("unrecognized_charge", "required", priority),
             )
         shown = yield Step(
-            "block", ["POL-36", "POL-39"], "confirm_control", tools, facts
+            "block", ["POL-36", "POL-39", *stopped], "confirm_control", tools, facts
         )
         while shown.sends == "typed_yes":
             shown = yield Step("block", ["POL-36"], "confirm_control")
@@ -803,6 +823,18 @@ class Conversation:
             ["POL-37", "POL-39", "POL-45"],
             ("block_card", "file_handoff"),
             blocked=card.product_id,
+        )
+
+    def unsettled_charge(self, rules: list[str]) -> Step:
+        """
+        A charge whose card can't be settled, handed off to dispute intake at once with no card to block (POL-39,
+        POL-47).
+        """
+        return Step(
+            "hand_off",
+            [*rules, "POL-39"],
+            tools=("file_handoff",),
+            handoff=handoff("unrecognized_charge", "required", "urgent"),
         )
 
     def disputed(
