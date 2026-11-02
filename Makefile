@@ -193,7 +193,7 @@ contracts: ## Rewrite the bronze contracts from the dictionary
 
 ##@ Evaluation
 
-.PHONY: eval-sets eval-play eval-run eval-cleanup disagreements eval-index eval-report regression language-check
+.PHONY: eval-sets eval-play eval-run eval-cleanup disagreements eval-index eval-report eval-compare regression language-check
 
 eval-sets: ## Draw the development sets (HELD_OUT= adds the held-out set)
 	uv run python -m faro.evaluation --data-dir $(DATA_DIR) generate $(if $(HELD_OUT),--held-out $(HELD_OUT))
@@ -217,6 +217,10 @@ eval-index: ## Regenerate docs/evaluation/runs.md
 eval-report: ## Write results.md (RUNS=, BASELINE=, LABELS=)
 	uv run python -m faro.evaluation --data-dir $(DATA_DIR) report $(foreach r,$(RUNS),--run $(r)) \
 		$(if $(BASELINE),--baseline $(BASELINE)) $(if $(LABELS),--labels $(LABELS))
+
+eval-compare: ## Compare two systems' runs of one set, case by case (FIRST=, SECOND=, LEFT_OUT=, UNIT=family)
+	uv run python -m faro.evaluation --data-dir $(DATA_DIR) compare $(foreach r,$(FIRST),--first $(r)) \
+		$(foreach r,$(SECOND),--second $(r)) $(foreach s,$(LEFT_OUT),--left-out $(s)) $(if $(UNIT),--unit $(UNIT))
 
 regression: ## Play and grade the regression set in process, as CI does
 	uv run pytest -m regression -v --tb=short

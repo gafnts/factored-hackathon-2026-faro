@@ -287,6 +287,34 @@ def write_report(args: argparse.Namespace) -> None:
     print(headline(loaded[0].summary["metrics"]) + " (the first run)")
 
 
+def compare_runs(args: argparse.Namespace) -> None:
+    """
+    Two systems' runs of one set, case by case, from stored grades alone; it writes counts, rates, and intervals.
+    """
+    sets = args.data_dir / "evaluation" / "sets"
+    first = [report.load_run(path, sets) for path in args.first]
+    second = [report.load_run(path, sets) for path in args.second]
+    found = report.compare(first, second, args.left_out, args.unit)
+    args.out.mkdir(parents=True, exist_ok=True)
+    out = args.out / f"{first[0].run_id}--{second[0].run_id}.json"
+    out.write_text(json.dumps(found, indent=2) + "\n", encoding="utf-8")
+    print(
+        f"{found['cases']} cases of {found['set']} in {found['units']} units of one {found['unit']}, "
+        f"{len(found['left_out'])} situations left out"
+    )
+    for name, d in found["differences"].items():
+        print(
+            f"{name}: {d['first']} against {d['second']} over {d['cases']} cases, difference {d['value']} "
+            f"[{d['low']}, {d['high']}]{', which excludes zero' if d['excludes_zero'] else ''}"
+            f"{', too few units to decide' if d['too_few_units'] else ''}"
+        )
+    for side in ("first", "second"):
+        print(
+            f"M-04, the {side} system: the hypothesis {found['M-04'][side]['verdict']}"
+        )
+    print(f"kept in {out}")
+
+
 def tree() -> dict[str, Any]:
     """
     The commit a run's code is at, and whether the tree held changes besides.
@@ -406,6 +434,24 @@ def main(argv: list[str] | None = None) -> int:
         "--labels", type=Path, default=None, help="The relabel agreement's JSON"
     )
     reporting.add_argument("--docs", type=Path, default=SET_DOCS)
+    comparing = commands.add_parser(
+        "compare",
+        help="Compare two systems' runs of one set, case by case, paired over a unit within each language",
+    )
+    comparing.add_argument(
+        "--first", action="append", type=Path, required=True, help="A run, repeatable"
+    )
+    comparing.add_argument(
+        "--second", action="append", type=Path, required=True, help="A run, repeatable"
+    )
+    comparing.add_argument(
+        "--left-out",
+        action="append",
+        default=[],
+        help="A situation left out of the comparison, repeatable",
+    )
+    comparing.add_argument("--unit", choices=report.UNITS, default="family")
+    comparing.add_argument("--out", type=Path, default=report.COMPARISONS)
     reporting.add_argument("--out", type=Path, default=report.RESULTS)
     reporting.add_argument("--page", type=Path, default=report.PAGE)
     checking = commands.add_parser(
@@ -442,6 +488,13 @@ def main(argv: list[str] | None = None) -> int:
         try:
             write_report(args)
         except (LockError, report.ReportError) as error:
+            print(f"Error: {error}", file=sys.stderr)
+            return 1
+        return 0
+    if args.command == "compare":
+        try:
+            compare_runs(args)
+        except report.ReportError as error:
             print(f"Error: {error}", file=sys.stderr)
             return 1
         return 0

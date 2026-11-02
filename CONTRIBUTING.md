@@ -478,6 +478,7 @@ make eval-cleanup               # Delete a stopped run's leftover test users
 make eval-index                 # Regenerate docs/evaluation/runs.md
 make disagreements              # Regenerate docs/evaluation/disagreements.md
 make eval-report                # Write docs/evaluation/results.md
+make eval-compare               # Compare two systems' runs of one set, case by case
 make language-check             # Read the paraphrases with the real prompts
 make router-compare             # Compare the keyword router with model routers
 make relabel-sample             # Draw 50 messages of a source to relabel blind
@@ -600,6 +601,7 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 | `HELD_OUT` | Unset: no held-out draw | `make eval-sets`: the held-out set's size, `600`, `400`, or `240` by the scope rule (ADR-0005); its manifest is committed before its first run, and after one, a draw is kept only when it rebuilds the committed set |
 | `RUN` | Unset: every stopped run | `make eval-cleanup` |
 | `RUNS`, `BASELINE`, `LABELS` | Unset | `make eval-report`: the runs, the baseline run, and the relabel sample it reads |
+| `FIRST`, `SECOND`, `LEFT_OUT`, `UNIT` | Unset, unset, none, `family` | `make eval-compare`: each system's runs, the situations its study leaves out, and what the interval resamples within each language (`family` or `case`) |
 | `ENV_FILE`, `ESTIMATE` | `.env`, unset | `make language-check`, `make router-compare`: the file holding the model key, and `1` to price a run without making it |
 | `FAMILIES` | All | `make language-check`: a few families, for cents |
 | `SOURCE`, `SAMPLE`, `ROWS`, `SEED` | `outside`, none, `50`, fixed | `make relabel-sample` (the source it draws from), `make relabel-agreement` (the filled sample) |

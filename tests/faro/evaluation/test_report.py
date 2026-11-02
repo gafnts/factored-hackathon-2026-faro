@@ -400,6 +400,64 @@ def test_the_baseline_is_paired_on_the_cases_both_played(
     assert difference["interval"][0] < difference["value"] < difference["interval"][1]
 
 
+def test_two_systems_are_compared_case_by_case_on_what_both_played(
+    tmp_path: Path, sets: tuple[Path, list[dict[str, Any]]]
+) -> None:
+    sets_dir, found = sets
+    first = two_runs(tmp_path, found)
+    passing = [grade(c, transferred=c["situation"] == "person.asked") for c in found]
+    second = [
+        report.load_run(
+            write_run(tmp_path, "20261004T170000Z-cccc", found, passing), sets_dir
+        )
+    ]
+
+    compared = report.compare(first, second, resamples=200)
+
+    # The first system resolves 16 of 22 conversations on average over its runs (one case in neither run, two in one
+    # of them), the second 18; of the four handoffs, it misses one in one run.
+    assert compared["cases"] == 22 and compared["units"] == 22
+    m01, m03 = compared["differences"]["M-01"], compared["differences"]["M-03"]
+    assert (m01["first"], m01["second"]) == (round(16 / 22, 4), round(18 / 22, 4))
+    assert m01["value"] == round(-2 / 22, 4)
+    assert m01["low"] <= m01["value"] <= m01["high"]
+    assert (m03["cases"], m03["value"]) == (4, -0.125)
+    assert compared["differences"]["M-01/pt"]["value"] == 0.0
+    assert compared["M-04"]["first"]["verdict"] == "refuted"
+    assert compared["M-04"]["second"]["verdict"] == "held"
+
+
+def test_a_comparison_leaves_out_situations_and_resamples_its_unit(
+    tmp_path: Path,
+) -> None:
+    found = drawn()
+    for c in found:
+        c["family_id"] = f"{c['group']}-0{int(c['case_id'], 16) % 3}"
+    cases.write(tmp_path / "sets" / "held_out.jsonl", found)
+    first = two_runs(tmp_path, found)
+
+    by_family = report.compare(first, first, resamples=50)
+    by_case = report.compare(first, first, unit="case", resamples=50)
+    apart = report.compare(first, first, left_out={"person.asked"}, resamples=50)
+
+    assert by_family["units"] < by_case["units"] == 22
+    assert by_family["differences"]["M-01"]["value"] == 0.0
+    assert apart["cases"] == 18 and apart["differences"]["M-03"]["value"] is None
+    # One family per language: every resample is the same draw, so no difference decides anything.
+    for c in found:
+        c["family_id"] = f"reads-0{c['language'] == 'pt'}"
+    cases.write(tmp_path / "single" / "sets" / "held_out.jsonl", found)
+    one, two = two_runs(tmp_path / "single", found)
+    single = report.compare([one], [two], resamples=50)
+    assert single["units"] == 2
+    assert single["differences"]["M-01"]["too_few_units"]
+    assert not single["differences"]["M-01"]["excludes_zero"]
+    with pytest.raises(report.ReportError, match="no unit"):
+        report.compare(first, first, unit="customer")
+    with pytest.raises(report.ReportError, match="a run to compare"):
+        report.compare(first, [])
+
+
 def test_the_page_holds_every_section_and_no_case_or_customer(
     tmp_path: Path, sets: tuple[Path, list[dict[str, Any]]]
 ) -> None:

@@ -12,7 +12,7 @@ import hashlib
 import json
 import math
 from collections import Counter
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,6 +23,7 @@ from faro.evaluation import (
     cases,
     disagreements,
     generator,
+    intervals,
     metrics,
 )
 
@@ -30,6 +31,11 @@ RESULTS = Path("docs/evaluation/results.json")
 PAGE = Path("docs/evaluation/results.md")
 SETS = Path("data/evaluation/sets")
 SET_DOCS = Path("docs/evaluation/sets")
+COMPARISONS = Path("data/evaluation/comparisons")
+# What a comparison resamples within each language: a case's family, whose wording moves its cases together, or the case.
+UNITS = ("family", "case")
+# Fewer units in a language than this, and every resample of it is nearly the same draw, so its interval decides nothing.
+MIN_UNITS = 2
 SUPPRESSED = "suppressed"
 MIN_CELL = 10
 # The classes a failed case falls in, in the order the first that fits is taken (EVL-09).
@@ -346,6 +352,128 @@ def paired(system: Run, baseline: Run) -> dict[str, Any]:
             "system": headline(metrics.m04([(c, g) for c, g, _ in both])),
             "baseline": headline(metrics.m04([(c, b) for c, _, b in both])),
         },
+    }
+
+
+def compare(
+    first: Sequence[Run],
+    second: Sequence[Run],
+    left_out: Collection[str] = (),
+    unit: str = "family",
+    resamples: int = intervals.RESAMPLES,
+) -> dict[str, Any]:
+    """
+    Two systems' runs of one set, case by case (ADR-0011, Studies): on the conversations every run of both played, but
+    those in the situations left out, each case's share of its runs that pass M-01, and, for the cases the oracle hands
+    off, M-03; the first system's mean less the second's, overall and per language, with a percentile bootstrap
+    interval that resamples the unit within each language and draws both systems' values together. A difference over a
+    language with too few units decides nothing, as the router comparison holds a language whose groups hold one family
+    each. M-04 is counted in cases for each system, over every case it played.
+    """
+    if not first or not second:
+        raise ReportError("each system has a run to compare")
+    if len({r.set_name for r in (*first, *second)}) != 1:
+        raise ReportError("the runs compared play one set")
+    if unit not in UNITS:
+        raise ReportError(f"no unit named {unit}")
+
+    def played(runs: Sequence[Run]) -> dict[str, tuple[Mapping[str, Any], list[Any]]]:
+        found: dict[str, tuple[Mapping[str, Any], list[Any]]] = {}
+        for run in runs:
+            for c, g in talks(run.graded):
+                found.setdefault(c["case_id"], (c, []))[1].append(g)
+        return {k: v for k, v in found.items() if len(v[1]) == len(runs)}
+
+    def share(test: Callable[[Any, Any], bool], case: Any, grades: list[Any]) -> float:
+        return sum(test(case, g) for g in grades) / len(grades)
+
+    ours, theirs = played(first), played(second)
+    rows = []
+    for case_id in sorted(ours.keys() & theirs.keys()):
+        case, mine = ours[case_id]
+        if case["situation"] in left_out:
+            continue
+        other = theirs[case_id][1]
+        row: dict[str, Any] = {
+            "case": case,
+            "M-01": (
+                share(metrics.resolved, case, mine),
+                share(metrics.resolved, case, other),
+            ),
+        }
+        if metrics.handed(case):
+            row["M-03"] = (
+                share(metrics.transferred_right, case, mine),
+                share(metrics.transferred_right, case, other),
+            )
+        rows.append(row)
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for row in rows:
+        c = row["case"]
+        within = (
+            (c.get("family_id") or c["case_id"]) if unit == "family" else c["case_id"]
+        )
+        grouped.setdefault((c["language"], within), []).append(row)
+    names = [
+        f"{m}{'' if lang is None else '/' + lang}"
+        for m in ("M-01", "M-03")
+        for lang in (None, *metrics.LANGUAGES)
+    ]
+
+    def pairs(found: Sequence[dict[str, Any]], name: str) -> list[tuple[float, float]]:
+        metric, _, language = name.partition("/")
+        return [
+            r[metric]
+            for r in found
+            if metric in r and language in ("", r["case"]["language"])
+        ]
+
+    def measure(drawn: Sequence[list[dict[str, Any]]]) -> dict[str, float | None]:
+        found = [r for u in drawn for r in u]
+        return {
+            name: sum(a - b for a, b in p) / len(p)
+            if (p := pairs(found, name))
+            else None
+            for name in names
+        }
+
+    estimates = intervals.bootstrap(
+        list(grouped.values()),
+        measure,
+        resamples=resamples,
+        strata=lambda u: u[0]["case"]["language"],
+    )
+    differences = {}
+    for name in names:
+        p = pairs(rows, name)
+        per_language = Counter(
+            key[0] for key, unit_rows in grouped.items() if pairs(unit_rows, name)
+        )
+        few = bool(per_language) and min(per_language.values()) < MIN_UNITS
+        differences[name] = {
+            "cases": len(p),
+            "units": sum(per_language.values()),
+            "first": round(sum(a for a, _ in p) / len(p), 4) if p else None,
+            "second": round(sum(b for _, b in p) / len(p), 4) if p else None,
+            **estimates[name].to_json(),
+            "too_few_units": few,
+            "excludes_zero": estimates[name].excludes_zero() and not few,
+        }
+    return {
+        "set": first[0].set_name,
+        "first": [r.run_id for r in first],
+        "second": [r.run_id for r in second],
+        "unit": unit,
+        "left_out": sorted(left_out),
+        "cases": len(rows),
+        "units": len(grouped),
+        "bootstrap": {
+            "resamples": resamples,
+            "seed": intervals.SEED,
+            "level": intervals.LEVEL,
+        },
+        "differences": differences,
+        "M-04": {"first": hypothesis(first), "second": hypothesis(second)},
     }
 
 
