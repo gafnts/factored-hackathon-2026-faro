@@ -9,16 +9,20 @@ It says what the agent answers, what it does, when it asks, abstains, or decline
 
 Accepted (2026-09-29). Version 7 (2026-11-02). Every execution record and handoff is stamped with the version it ran under; a changed rule keeps its ID and raises the version, and a retired rule's ID is never reused.
 
-Version 7, after the triage of two conversations on the prototype:
+Version 7, after the triage of two conversations on the prototype and of the freeze's open findings (D-010 to D-015):
 
+- **Requests:** a question about a card's expiration is a `card_status` request, whose answer already gives it (POL-21). Before, the table named the status alone and `unsupported` "anything else", so "Dígame el vencimiento de la tarjeta" could be read as either.
 - **POL-06:** a question about the agent's last reply gets the answer that the records hold nothing more on it; and a message sent while the agent waits on its own question that neither answers it nor makes a request, and isn't a greeting, thanks, a goodbye, or a question about the agent or its last reply, gets a short reply that the agent couldn't act on it, and the question again. Before, both got the list of what the chat does, so a correction of the card and "¿por qué ya no está vigente?", sent while the agent asked which charge, were both answered with that list.
 - **POL-06:** the third message at one question that doesn't answer it ends the question as an unsettled detail does (POL-17). Before, such messages counted toward no limit, so the question could repeat without end.
 - **POL-13:** saying only that the card is another one leaves the customer's other cards. Before, the rule didn't say which cards that leaves.
+- **POL-27:** what the customer says about a transaction's merchant, amount, or date narrows the search, and the kind of transaction they name doesn't. Before, the rule didn't say, and "me rechazaron un pago" was read as the type the replies call a payment, which chose an approved payment over the declined withdrawal the customer meant.
 - **POL-36:** the pointer to the confirm control names its buttons, and the second, for a charge, says that the bank reviews the charge whether or not the card is blocked, as the second offers a person for any other reason. Before, the pointer said only to use the button, word for word however often the customer typed, and for a charge it added nothing; one customer read it four times.
 - **POL-36:** a complaint or a request for a person leaves a pending confirmation pending, and is handed off at once, since the customer may leave before the confirmation ends. Before, it was a new request and ended the confirmation, so a customer who complained while trying to block a card lost the block.
 - **POL-39:** while the agent asks which transaction, a message that reports the charge again answers the question; and a conversation files one dispute case per charge. Before, it was a new request, which ended the question by filing the case and then asked the same question again, so one charge was filed twice.
 - **POL-44:** a complaint or a request for a person in a turn that files another required handoff joins that case, which cites POL-44, so complaints stay countable. Before, it was handed off on its own, so a complaint sent while the agent asked about a charge filed a second case whose summary repeated the dispute's in another queue.
+- **POL-44:** a complaint is a grievance about something the bank did or failed to do, or a stated wish to complain; exasperation with the exchange itself isn't one. Before, the rule didn't say what counts, which a message of frustration sent at the agent's question needs.
 - **POL-45:** the reply to a handoff says what the case is about. Before, it gave the reference and said a person would follow up, without saying about what.
+- **POL-50:** a word counts for the language whose spelling it has, and a loanword both languages use counts for neither. Before, the rule didn't say, so "consulta status", both of whose words are written in both, was expected in Portuguese.
 
 Version 6, after the chat was played on the prototype:
 
@@ -71,7 +75,7 @@ The agent serves eight requests (CTL-01). They are the router's labels.
 
 | Label | Request | Outcome |
 |---|---|---|
-| `card_status` | Status of one of my cards | Answered (POL-01, POL-21) |
+| `card_status` | Status of one of my cards, its expiration included | Answered (POL-01, POL-21) |
 | `available_credit` | Credit left on a credit card | Answered for an active credit card; declined for a debit card (POL-22) |
 | `recent_transactions` | My recent card transactions | Answered (POL-25) |
 | `decline_reason` | Why was my card declined | Answered, or abstained on a missing code (POL-02, POL-27 to POL-29) |
@@ -115,7 +119,7 @@ The agent serves eight requests (CTL-01). They are the router's labels.
 - **POL-24** A credit card with no recorded `credit_limit` gets no available credit figure: the reply says the limit isn't on record and offers a handoff (`missing_data`). A missing limit is never read as unlimited or as zero. 3,441 (5.05%) active credit cards have none, in line with the 5% of each core field missing at random. (AI-03, CTL-03, EVL-02)
 - **POL-25** Recent transactions are the card's transactions in the 90 days before the as-of instant, newest first, 10 at a time; the customer can ask for the next 10. Each shows its date, type, merchant for a purchase ("not recorded" when missing), amount and currency, status, and country when it isn't the customer's. A card with none in the window gets that answer, with the window's dates, and a request for an earlier period is declined, stating the window. A transaction falls within 90 days for 66.2% of active cards (30.8% within 30), and 99% of those have at most 4, so a page rarely splits. (AI-03, CTL-01)
 - **POL-26** How recently a card was used is read from its transactions only; `last_transaction_date` is never read. It equals the card's latest transaction on 0 of 112,349 cards. (AI-03)
-- **POL-27** For a decline, the agent looks among the card's transactions in the 90-day window for the one the customer means. One that fits is explained under POL-02, naming its date, its merchant for a purchase or its type otherwise, and its amount. When several fit, the `Declined` ones among them are meant, if there are any; when several are still meant, the newest five are listed for the customer to choose, each named the same way; when none fits, the reply says so. (AI-02, AI-03)
+- **POL-27** For a decline, the agent looks among the card's transactions in the 90-day window for the one the customer means. What the customer says about its merchant, amount, or date narrows the search; the kind of transaction they name doesn't, since customers call any of them a payment or a purchase. One that fits is explained under POL-02, naming its date, its merchant for a purchase or its type otherwise, and its amount. When several fit, the `Declined` ones among them are meant, if there are any; when several are still meant, the newest five are listed for the customer to choose, each named the same way; when none fits, the reply says so. (AI-02, AI-03)
 - **POL-28** Only a transaction whose `transaction_status` is `Declined` is explained by its code. A `Pending` or `Reversed` one is reported by its status, without explaining its code, and an `Approved` one as approved. Pending and reversed transactions carry the same four codes as declines. (AI-03)
 - **POL-29** An explanation gives the code's meaning and nothing else: no cause, advice, or pattern is inferred. The codes are independent of every field recorded with the transaction (largest bias-corrected Cramér's V 0.008). (AI-03)
 
@@ -144,7 +148,7 @@ The agent serves eight requests (CTL-01). They are the router's labels.
 - **POL-41** A request to unblock a card is handed off (`unblock_request`). A block lowers exposure and a person can undo it; an unblock restores spending power and needs stronger proof of identity than a chat session gives. (CTL-02, CTL-03, DSN-02)
 - **POL-42** Replacements, PIN changes, limit increases, and any other card service the chat doesn't serve (activating a card or changing its details, for example) are declined in the chat, with the reason, and a handoff is offered (`unsupported_request`). (CTL-01, CTL-03)
 - **POL-43** Requests outside cards (accounts and their balances, loans, other products) are declined, saying the chat serves cards only; a person is offered only when the customer asks for one (POL-44). (CTL-01, SCP-04)
-- **POL-44** A customer who asks for a person is handed off (`customer_request`), and so is one who makes a complaint (`complaint`). The agent may ask once what it is about, and hands off whether or not the customer answers. In a turn that files another required handoff, a complaint or a request for a person isn't handed off on its own: it joins that case, which records it among the customer's statements and cites POL-44 among its rules (POL-46), and the reply says so. (CTL-03)
+- **POL-44** A customer who asks for a person is handed off (`customer_request`), and so is one who makes a complaint (`complaint`). A complaint is a grievance about something the bank did or failed to do, or a stated wish to complain; exasperation with the exchange itself, such as "ya le dije" or "no me entiende", isn't one, and POL-06 answers it. The agent may ask once what it is about, and hands off whether or not the customer answers. In a turn that files another required handoff, a complaint or a request for a person isn't handed off on its own: it joins that case, which records it among the customer's statements and cites POL-44 among its rules (POL-46), and the reply says so. (CTL-03)
 
 ## Handoff
 
@@ -230,7 +234,7 @@ A Portuguese-speaking customer doesn't recognize a purchase and confirms a block
 
 Every customer in the snapshot is in Mexico, Colombia, or Argentina, so Spanish is the bank's language and Portuguese is the customer's choice in the session.
 
-- **POL-50** The agent replies in Spanish or Brazilian Portuguese: the language of the customer's latest message that is clearly one of them (the language the message is mostly in; words both languages share, digits alone, or a bare "Ok" set nothing), and Spanish until the customer writes one. Spanish replies use "usted"; Portuguese ones use "você". (SCP-06, EVL-07)
+- **POL-50** The agent replies in Spanish or Brazilian Portuguese: the language of the customer's latest message that is clearly one of them (the language the message is mostly in, each word counting for the language whose spelling it has, so "entendi" is Portuguese though a Spanish speaker may drop the accent; words both languages share, a loanword both use such as "status", digits alone, or a bare "Ok" set nothing), and Spanish until the customer writes one. Spanish replies use "usted"; Portuguese ones use "você". (SCP-06, EVL-07)
 - **POL-51** A message in another language gets a reply in Spanish, with one sentence in Portuguese, saying which languages the chat serves. (SCP-06, EVL-07)
 
 ## Left to other documents
