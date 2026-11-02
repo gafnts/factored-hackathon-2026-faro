@@ -1,8 +1,8 @@
 """
 The results page from stored grades (ADR-0005, Reporting): the runs' grades joined to the set they played, which must
 hash as the manifest says; the metrics per run and over the runs; the slices with their intervals and the suppression
-of small ones; every failed case classified; the baseline paired on common cases; the judge joined by item and used
-only where the agreement report allows; and a page that holds counts and rates alone.
+of small ones; every failed case classified; the baseline paired on common cases; and a page that holds counts and rates
+alone.
 """
 
 import hashlib
@@ -400,128 +400,11 @@ def test_the_baseline_is_paired_on_the_cases_both_played(
     assert difference["interval"][0] < difference["value"] < difference["interval"][1]
 
 
-def write_judge(tmp_path: Path, run: report.Run) -> tuple[Path, Path]:
-    judged = tmp_path / "judge" / "20261004T180000Z-dddd"
-    judged.mkdir(parents=True)
-    rows = []
-    for i, (c, _) in enumerate(run.graded):
-        rows.append(
-            {
-                "item_id": f"{c['case_id']}-t01",
-                "outcome": "judged",
-                "questions": {
-                    "language": {
-                        "answer": "es_usted",
-                        "passes": i % 5 != 0,
-                        "by_hand": False,
-                        "confidence": "high",
-                    },
-                    "clear": {
-                        "answer": 4,
-                        "passes": True,
-                        "by_hand": i == 1,
-                        "confidence": "low" if i == 1 else "high",
-                    },
-                },
-            }
-        )
-    (judged / "judgments.jsonl").write_text(
-        "".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8"
-    )
-    (judged / "manifest.json").write_text(
-        json.dumps(
-            {
-                "run": judged.name,
-                "source": {"run": run.run_id},
-                "items": len(rows),
-                "judge": {
-                    "model_requested": "claude-opus-5-5",
-                    "prompt_version": "8aaf0b83cd72c7a2",
-                    "rubric": {"version": 1},
-                },
-                "totals": {"cost_usd": 1.25},
-            }
-        ),
-        encoding="utf-8",
-    )
-    agreement = tmp_path / "agreement.json"
-    scored = {
-        "question": "language",
-        "pairs": 60,
-        "natural": 50,
-        "seeded": 10,
-        "deserve_no": {"natural": 2, "seeded": 10},
-        "agreement": {"value": 0.95, "low": 0.86, "high": 0.98},
-        "kappa": {"value": 0.8, "low": 0.6, "high": 0.9},
-        "caught": {
-            "natural": {"failing": 2, "caught": 2},
-            "seeded": {"failing": 10, "caught": 9},
-        },
-        "verdict": "judge",
-        "why": [],
-    }
-    agreement.write_text(
-        json.dumps(
-            {
-                "sample": "20261004T040652Z-97e8",
-                "judge_run": judged.name,
-                "bar": {"agreement": 0.9, "kappa": 0.6, "deserve_no": 10},
-                "questions": [
-                    scored,
-                    {
-                        **scored,
-                        "question": "clear",
-                        "verdict": "hand_or_drop",
-                        "why": ["kappa below the bar or undefined"],
-                    },
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-    return judged, agreement
-
-
-def test_the_judge_is_joined_by_item_and_used_only_where_the_bar_allows(
-    tmp_path: Path, sets: tuple[Path, list[dict[str, Any]]]
-) -> None:
-    sets_dir, found = sets
-    runs = two_runs(tmp_path, found)
-    judged, agreement = write_judge(tmp_path, runs[0])
-
-    built = report.build(
-        runs,
-        set_manifest(found),
-        profiles_for(found),
-        [],
-        judged=[judged],
-        agreement=agreement,
-    )
-
-    section = built["judge"]
-    assert [q["verdict"] for q in section["agreement"]["questions"]] == [
-        "judge",
-        "hand_or_drop",
-    ]
-    (per_run,) = section["per_run"]
-    assert per_run["source_run"] == runs[0].run_id
-    language = per_run["questions"]["language"]
-    assert (
-        language["items"],
-        language["passes"],
-        language["fails"],
-        language["used"],
-    ) == (24, 19, 5, True)
-    assert per_run["questions"]["clear"]["by_hand"] == 1
-    assert per_run["questions"]["clear"]["used"] is False
-
-
 def test_the_page_holds_every_section_and_no_case_or_customer(
     tmp_path: Path, sets: tuple[Path, list[dict[str, Any]]]
 ) -> None:
     sets_dir, found = sets
     runs = two_runs(tmp_path, found)
-    judged, agreement = write_judge(tmp_path, runs[0])
     theirs = [grade(c) for c in found]
     baseline = report.load_run(
         write_run(
@@ -540,8 +423,6 @@ def test_the_page_holds_every_section_and_no_case_or_customer(
         profiles_for(found),
         [],
         baseline=baseline,
-        judged=[judged],
-        agreement=agreement,
     )
 
     out = report.write(
@@ -561,7 +442,6 @@ def test_the_page_holds_every_section_and_no_case_or_customer(
         "## Unsafe outcomes (M-04) and the hypothesis",
         "## Failures, counted and classified",
         "## Against the baseline",
-        "## The judge",
     ):
         assert heading in text
     assert "held-out fifth" in text

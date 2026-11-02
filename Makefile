@@ -214,10 +214,9 @@ disagreements: ## Regenerate docs/evaluation/disagreements.md
 eval-index: ## Regenerate docs/evaluation/runs.md
 	uv run python -m faro.evaluation index
 
-eval-report: ## Write results.md (RUNS=, BASELINE=, JUDGED=, AGREEMENT=, LABELS=)
+eval-report: ## Write results.md (RUNS=, BASELINE=, LABELS=)
 	uv run python -m faro.evaluation --data-dir $(DATA_DIR) report $(foreach r,$(RUNS),--run $(r)) \
-		$(if $(BASELINE),--baseline $(BASELINE)) $(foreach j,$(JUDGED),--judged $(j)) $(if $(AGREEMENT),--agreement $(AGREEMENT)) \
-		$(if $(LABELS),--labels $(LABELS))
+		$(if $(BASELINE),--baseline $(BASELINE)) $(if $(LABELS),--labels $(LABELS))
 
 regression: ## Play and grade the regression set in process, as CI does
 	uv run pytest -m regression -v --tb=short
@@ -225,18 +224,8 @@ regression: ## Play and grade the regression set in process, as CI does
 language-check: ## Read the paraphrases with the real prompts (paid; FAMILIES=)
 	uv run python -m faro.evaluation language --env-file $(or $(ENV_FILE),.env) $(if $(PARALLEL),--parallel $(PARALLEL)) $(foreach f,$(FAMILIES),--only $(f))
 
-# The judge and the router comparison call models outside the system under test; ESTIMATE=1 prices a call and makes none.
-.PHONY: judge judge-sample judge-agreement relabel-sample relabel-agreement router-compare
-
-judge: ## Judge replies (paid; RUN= or ITEMS=, LIMIT=, ESTIMATE=1)
-	uv run python -m faro.evaluation judge $(if $(ITEMS),--items $(ITEMS),--run $(RUN)) --env-file $(or $(ENV_FILE),.env) \
-		$(if $(LIMIT),--limit $(LIMIT)) $(if $(filter 1,$(ESTIMATE)),--estimate)
-
-judge-sample: ## Draw the judge's blind sample and sheet (RUN=, SEEDED=)
-	uv run python -m faro.evaluation judge-sample --run $(RUN) $(if $(SEEDED),--seeded $(SEEDED))
-
-judge-agreement: ## Score the judge against a filled sheet (SAMPLE=, JUDGED=)
-	uv run python -m faro.evaluation judge-agreement --sample $(SAMPLE) --judged $(JUDGED)
+# The router comparison calls models outside the system under test; ESTIMATE=1 prices a call and makes none.
+.PHONY: relabel-sample relabel-agreement router-compare
 
 relabel-sample: ## Draw the hand-relabel sample and sheet from a source (SOURCE=outside, ROWS=, SEED=)
 	uv run python -m faro.evaluation relabel-sample $(if $(SOURCE),--source $(SOURCE)) $(if $(ROWS),--rows $(ROWS)) $(if $(SEED),--seed $(SEED))

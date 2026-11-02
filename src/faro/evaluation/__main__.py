@@ -276,8 +276,6 @@ def write_report(args: argparse.Namespace) -> None:
         customers,
         disagreements.load(),
         baseline,
-        args.judged,
-        args.agreement,
         labels=args.labels,
     )
     out = report.write(found, args.out, args.page)
@@ -393,7 +391,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     reporting = commands.add_parser(
         "report",
-        help="Write the results page from the reported runs' stored grades, with the baseline and the judge where given",
+        help="Write the results page from the reported runs' stored grades, with the baseline where given",
     )
     reporting.add_argument(
         "--run",
@@ -404,16 +402,6 @@ def main(argv: list[str] | None = None) -> int:
         help="A run of the set, repeatable",
     )
     reporting.add_argument("--baseline", type=Path, default=None)
-    reporting.add_argument(
-        "--judged",
-        action="append",
-        default=[],
-        type=Path,
-        help="A judge run over one of the runs, repeatable",
-    )
-    reporting.add_argument(
-        "--agreement", type=Path, default=None, help="The agreement report's JSON"
-    )
     reporting.add_argument(
         "--labels", type=Path, default=None, help="The relabel agreement's JSON"
     )

@@ -4,8 +4,7 @@ again from the grades each run kept, never from a summary alone, with pass^k and
 language, by segment and by country (joined from the snapshot, since a case names its customer and nothing else), by
 group, by rule, by source, and by phrasing, every cell with its sample size and a Wilson interval and any cell under
 10 cases suppressed (SEC-03). Every failed case is counted and classified (EVL-09), the baseline is compared on the
-cases both played (EVL-01), the judge's answers are joined by item where a judge run and the agreement report are
-given (EVL-10), and the hypothesis on unsafe outcomes is tested as stated before the first run (CTL-04). What is
+cases both played (EVL-01), and the hypothesis on unsafe outcomes is tested as stated before the first run (CTL-04). What is
 written is counts and rates alone; a case's values stay in the run.
 """
 
@@ -25,7 +24,6 @@ from faro.evaluation import (
     disagreements,
     generator,
     metrics,
-    rubric,
 )
 
 RESULTS = Path("docs/evaluation/results.json")
@@ -377,94 +375,6 @@ def hypothesis(runs: Sequence[Run]) -> dict[str, Any]:
     }
 
 
-def judged_items(judged: Path) -> dict[str, dict[str, Any]]:
-    with (judged / "judgments.jsonl").open(encoding="utf-8") as kept:
-        return {j["item_id"]: j for j in map(json.loads, kept) if j.get("item_id")}
-
-
-def judge_section(
-    judged: Sequence[Path],
-    agreement: Path | None,
-    loaded: rubric.Rubric,
-) -> dict[str, Any]:
-    """
-    The judge's answers over the runs' replies, per question: items, passes, and how many a person grades instead;
-    used only where the agreement report lets the judge grade that question (EVL-10), else listed and marked.
-    """
-    verdicts: dict[str, str] = {}
-    scored: dict[str, Any] | None = None
-    if agreement is not None:
-        scored = json.loads(agreement.read_text(encoding="utf-8"))
-        verdicts = {q["question"]: q["verdict"] for q in scored["questions"]}
-    per_run = []
-    for path in judged:
-        manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
-        answers: dict[str, Counter[str]] = {}
-        questions: dict[str, dict[str, Any]] = {}
-        for judgment in judged_items(path).values():
-            for name, found in judgment["questions"].items():
-                tally = questions.setdefault(
-                    name, {"items": 0, "passes": 0, "fails": 0, "by_hand": 0}
-                )
-                tally["items"] += 1
-                if found.get("by_hand"):
-                    tally["by_hand"] += 1
-                if found.get("passes") is True:
-                    tally["passes"] += 1
-                elif found.get("passes") is False:
-                    tally["fails"] += 1
-                if found.get("answer") is not None:
-                    answers.setdefault(name, Counter())[str(found["answer"])] += 1
-        for name, tally in questions.items():
-            decided = tally["passes"] + tally["fails"]
-            tally["pass_rate"] = headline(metrics.rate(tally["passes"], decided))
-            tally["answers"] = dict(sorted(answers.get(name, Counter()).items()))
-            tally["used"] = verdicts.get(name) == "judge"
-            tally["verdict"] = verdicts.get(name, "not validated")
-        per_run.append(
-            {
-                "judge_run": manifest["run"],
-                "source_run": manifest["source"]["run"],
-                "items": manifest["items"],
-                "model": manifest["judge"]["model_requested"],
-                "prompt_version": manifest["judge"]["prompt_version"],
-                "rubric": manifest["judge"]["rubric"]["version"],
-                "cost_usd": manifest["totals"].get("cost_usd"),
-                "questions": {
-                    q.id: questions[q.id] for q in loaded.questions if q.id in questions
-                },
-            }
-        )
-    return {
-        "agreement": None
-        if scored is None
-        else {
-            "sample": scored["sample"],
-            "judge_run": scored["judge_run"],
-            "bar": scored["bar"],
-            "questions": [
-                {
-                    k: q[k]
-                    for k in (
-                        "question",
-                        "pairs",
-                        "natural",
-                        "seeded",
-                        "deserve_no",
-                        "agreement",
-                        "kappa",
-                        "caught",
-                        "verdict",
-                        "why",
-                    )
-                }
-                for q in scored["questions"]
-            ],
-        },
-        "per_run": per_run,
-    }
-
-
 def versions(run: Run) -> dict[str, Any]:
     stack = run.manifest.get("stack") or {}
     deployed = (stack.get("versions") or [{}])[0] if stack.get("versions") else {}
@@ -547,9 +457,6 @@ def build(
     customers: Mapping[str, Profile],
     entries: Sequence[Mapping[str, Any]],
     baseline: Run | None = None,
-    judged: Sequence[Path] = (),
-    agreement: Path | None = None,
-    loaded: rubric.Rubric | None = None,
     now: datetime | None = None,
     labels: Path | None = None,
 ) -> dict[str, Any]:
@@ -605,9 +512,6 @@ def build(
         "failures": failures(runs, entries),
         "hypothesis": hypothesis(runs),
         "against_baseline": None if baseline is None else paired(runs[0], baseline),
-        "judge": None
-        if not judged and agreement is None
-        else judge_section(judged, agreement, loaded or rubric.load()),
         "label_quality": None if labels is None else label_quality(labels),
         "suppression": {"under": MIN_CELL, "marked": SUPPRESSED},
     }
@@ -945,48 +849,6 @@ def page(found: Mapping[str, Any]) -> str:
             + f". {quality['disagreements']} disagreements, {quality['settled']} settled by the policy's text.",
             "",
         ]
-    judge = found["judge"]
-    if judge:
-        lines += ["## The judge", ""]
-        agreement = judge["agreement"]
-        if agreement:
-            bar = agreement["bar"]
-            lines += [
-                f"Validated on blind sample `{agreement['sample']}` by judge run `{agreement['judge_run']}` (EVL-10): the bar is "
-                f"{_pct(bar['agreement'])} agreement, kappa {bar['kappa']}, and {bar['deserve_no']} replies that deserve a no. "
-                "A question under the bar is graded by hand, not by the judge.",
-                "",
-                "| Question | Pairs (natural + seeded) | Deserve a no | Agreement | Kappa | Caught (natural, seeded) | Verdict |",
-                "|---|---|---|---|---|---|---|",
-            ]
-            for q in agreement["questions"]:
-                a, k = q["agreement"], q["kappa"]
-                caught = q["caught"]
-                lines.append(
-                    f"| {q['question']} | {q['pairs']} ({q['natural']} + {q['seeded']}) | "
-                    f"{q['deserve_no']['natural']} + {q['deserve_no']['seeded']} | "
-                    f"{_pct(a['value']) if a['value'] is not None else 'none'} ({_pct(a['low'])} to {_pct(a['high'])}) | "
-                    f"{k.get('value')} ({k.get('low')} to {k.get('high')}) | "
-                    f"{caught['natural']['caught']} of {caught['natural']['failing']}, {caught['seeded']['caught']} of {caught['seeded']['failing']} | "
-                    f"{q['verdict']}{' (' + '; '.join(q['why']) + ')' if q['why'] else ''} |"
-                )
-            lines.append("")
-        for r in judge["per_run"]:
-            cost = r["cost_usd"]
-            lines += [
-                f"Judge run `{r['judge_run']}` over run `{r['source_run']}`: {r['items']} replies, {r['model']}, prompt "
-                f"{r['prompt_version']}, rubric {r['rubric']}, {'' if cost is None else f'{cost:.2f} USD'}.",
-                "",
-                "| Question | Replies | Pass rate | By hand | Answers | Used |",
-                "|---|---|---|---|---|---|",
-            ]
-            for name, t in r["questions"].items():
-                answers = ", ".join(f"{k} {v}" for k, v in t["answers"].items())
-                lines.append(
-                    f"| {name} | {t['items']} | {_rate(t['pass_rate'])} | {t['by_hand']} | {answers} | "
-                    f"{'yes' if t['used'] else 'no (' + t['verdict'] + ')'} |"
-                )
-            lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
 
