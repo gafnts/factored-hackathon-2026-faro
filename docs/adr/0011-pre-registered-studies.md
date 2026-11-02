@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed (2026-11-02). It amends [ADR-0005](0005-offline-scenario-evaluation.md): once this record is accepted, each section of ADR-0005 it changes is corrected as built when the code that builds it lands, and listed under ADR-0005's Status with a link here ([What changes in ADR-0005](#what-changes-in-adr-0005)).
+Accepted (2026-11-02). Its open decision was settled that day, on the option we leaned towards, and is listed under [Settled at acceptance](#settled-at-acceptance) with the alternative we didn't take.
 
-One decision is still open. It is marked **Open** where it arises and listed under [Open decisions](#open-decisions) with the option we lean towards, which the rest of this record assumes; we settle it before accepting this record.
+It amends [ADR-0005](0005-offline-scenario-evaluation.md): each section of ADR-0005 it changes is corrected as built when the code that builds it lands, and listed under ADR-0005's Status with a link here ([What changes in ADR-0005](#what-changes-in-adr-0005)).
 
 ## Context
 
@@ -57,7 +57,7 @@ A protocol is registered by committing it before its set is drawn, and the set's
 
 ### The seal
 
-A held-out set is sealed from its draw to its play: its manifest is committed, and its cases and messages are neither opened, played, nor sent to a model. That holds for the router comparison too: while a set is sealed, the comparison runs on development wording only, by cross-validation grouped by family, and its held-out rows wait for the play. A held-out source's text stays out of the repository until the play of the first set drawn from it, in `data/evaluation/` and the evaluation bucket, its hash in the manifest; the guards that need it run on the machine that holds it, as the ones that need the snapshot do (**Open**, decision 1).
+A held-out set is sealed from its draw to its play: its manifest is committed, and its cases and messages are neither opened, played, nor sent to a model. That holds for the router comparison too: while a set is sealed, the comparison runs on development wording only, by cross-validation grouped by family, and its held-out rows wait for the play. A held-out source's text stays out of the repository until the play of the first set drawn from it, in `data/evaluation/` and the evaluation bucket, its hash in the manifest; the guards that need it run on the machine that holds it before each PR merges, as the ones that need the snapshot do, and it's kept in two copies, the maintainer's machine and the bucket (decision 1).
 
 A set is played for the study that drew it. A fix after the play is made and checked on development sets, and the set isn't played again for a new claim, as D-013's patch wasn't; a set that has been played can't change under its name, so the next study draws a new version.
 
@@ -75,11 +75,11 @@ A word list catches only the words it lists, and the report says so. What code c
 
 Corrected as built, each listed under its Status with a link here: [The split](0005-offline-scenario-evaluation.md#the-split) (by source, the seal); [Grading](0005-offline-scenario-evaluation.md#grading) (code only, the three checks); [Baselines](0005-offline-scenario-evaluation.md#baselines) (the router comparison under the seal; labels per held-out source; the outside set built); [Coverage and size](0005-offline-scenario-evaluation.md#coverage-and-size), [Budget and the pilot](0005-offline-scenario-evaluation.md#budget-and-the-pilot), and [Reporting](0005-offline-scenario-evaluation.md#reporting) (a measurement's sizes, budget, and bar move to its study); [The run manifest](0005-offline-scenario-evaluation.md#the-run-manifest) (the protocol's hash, each source's hash); and [Settled at acceptance](0005-offline-scenario-evaluation.md#settled-at-acceptance), decisions 2, 5, and 6. The submission's measurement is described as a study after the fact, labeled so, and its results stay as reported.
 
-### Open decisions
+### Settled at acceptance
 
-We settle this before accepting this record. It names the option we lean towards, which the rest of the record assumes, and the alternative still in play.
+The decision left open while this record was proposed, as settled on 2026-11-02, with the alternative we didn't take.
 
-1. **Where a held-out source's text lives until its first play.** Lean: out of the repository, committed after the play. The seal rests on nobody reading the wording, and a committed file turns up in any search of the repository during the iteration's PRs, an assistant's included. Alternative: committed when written, as the old held-out families were, which keeps every guard in CI.
+1. **Where a held-out source's text lives until its first play.** Out of the repository, in `data/evaluation/` and the evaluation bucket with its hash in the set's manifest, and committed after the play ([The seal](#the-seal)). The seal rests on nobody reading the wording, and a committed file turns up in any search of the repository while the agent is tuned, an assistant's included. Not taken: committing it when written, as the old held-out families were, which keeps every guard in CI.
 
 ## Alternatives considered
 
