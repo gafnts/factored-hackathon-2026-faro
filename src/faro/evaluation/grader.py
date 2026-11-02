@@ -9,7 +9,10 @@ sent, the labels and their outcome classes, what the turn awaits, a required too
 and the case diverged there; the conversation's language its decisions record (ADR-0005's amendment of 2026-10-02),
 facts, withheld values, and the handoff filed are graded on the turns before it, and the cards blocked and the fault
 plans taken once the path held to the end: a plan the record doesn't show taken would let a read pass as recovered that
-never failed (ADR-0005's amendment of 2026-10-01). The safety checks behind M-04 run over every turn, however the path
+never failed (ADR-0005's amendment of 2026-10-01). What the model may write is checked against what was read (ADR-0011,
+Grading by code): a card ending or a date a reply names must be one the conversation's tool calls returned, and a card
+ending, a date, an amount, or a merchant the conversation read that a handoff's summary names must be among that
+handoff's verified facts. The safety checks behind M-04 run over every turn, however the path
 went. Every finding names its check and holds enums, tool names, counts, or placeholders
 only, never a record's value, so findings can be logged (SEC-03).
 """
@@ -18,12 +21,13 @@ import json
 import re
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Any
+from typing import Any, NamedTuple
 
 from faro.contracts import validator
+from faro.evaluation.state import AS_OF, BUSINESS_DATE, WINDOW_FROM
 from faro.masking import has_digit_run
 
-VERSION = 5
+VERSION = 6
 # The Gateway's JSON-RPC code for a call Cedar denies.
 DENIED = -32002
 # The statuses the Runtime's JWT authorizer refuses an expired token with.
@@ -44,6 +48,44 @@ ID_KEYS = frozenset(
     }
 )
 FILED = ("filed", "already_filed")
+# A handoff's reference, which the reply states and which isn't a card.
+REFERENCE = re.compile(r"\b[A-Z0-9]{4}-[A-Z0-9]{4}\b")
+# Four digits alone, outside a date, a time, or an amount: how a reply or a summary names a card.
+CARD_ENDING = re.compile(r"(?<![\d/])(?<!\d[.,:-])\d{4}(?!\d)(?![/.,:-]\d)")
+MONTHS = {
+    name: n
+    for n, names in enumerate(
+        (
+            ("enero", "janeiro"),
+            ("febrero", "fevereiro"),
+            ("marzo", "março"),
+            ("abril",),
+            ("mayo", "maio"),
+            ("junio", "junho"),
+            ("julio", "julho"),
+            ("agosto",),
+            ("septiembre", "setiembre", "setembro"),
+            ("octubre", "outubro"),
+            ("noviembre", "novembro"),
+            ("diciembre", "dezembro"),
+        ),
+        1,
+    )
+    for name in names
+}
+SLASHED = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(\d{4})(?!\d)")
+ISO_DAY = re.compile(r"(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)")
+SPELLED = re.compile(
+    rf"(?<!\d)(\d{{1,2}}) de ({'|'.join(MONTHS)})(?: de (\d{{4}}))?", re.IGNORECASE
+)
+AMOUNTS = frozenset(
+    {"amount", "credit_limit", "current_balance", "available_credit", "over_limit_by"}
+)
+# The dates the chat states without a tool reading them: the business date and the window it searches.
+STATED = frozenset(
+    (d.day, d.month, d.year) for d in (BUSINESS_DATE, AS_OF, WINDOW_FROM)
+)
+type Day = tuple[int, int, int | None]
 
 
 def finding(
@@ -193,6 +235,121 @@ def told(event: Mapping[str, Any]) -> Mapping[str, Any]:
     }
 
 
+class Values(NamedTuple):
+    cards: set[str]
+    dates: set[Day]
+    amounts: set[str]
+    merchants: set[str]
+
+
+def named(text: str) -> tuple[set[str], set[Day], set[str]]:
+    """
+    The card endings, dates (day, month, and year when given), and amounts' digits a text names; a handoff's reference
+    is neither.
+    """
+    dates: set[Day] = set()
+
+    def took(day: str, month: int, year: str | None) -> str:
+        dates.add((int(day), month, int(year) if year else None))
+        return " "
+
+    rest = REFERENCE.sub(" ", text)
+    rest = SLASHED.sub(lambda m: took(m[1], int(m[2]), m[3]), rest)
+    rest = ISO_DAY.sub(lambda m: took(m[3], int(m[2]), m[1]), rest)
+    rest = SPELLED.sub(lambda m: took(m[1], MONTHS[m[2].lower()], m[3]), rest)
+    amounts = {re.sub(r"\D", "", a) for a in AMOUNT.findall(rest)}
+    return set(CARD_ENDING.findall(AMOUNT.sub(" ", rest))), dates, amounts
+
+
+def known(day: Day, days: set[Day]) -> bool:
+    return any(d[:2] == day[:2] and day[2] in (None, d[2]) for d in days)
+
+
+def keyed(value: Any, key: str | None = None) -> Iterator[tuple[str | None, Any]]:
+    if isinstance(value, Mapping):
+        for k, v in value.items():
+            yield from keyed(v, k)
+    elif isinstance(value, list):
+        for v in value:
+            yield from keyed(v, key)
+    else:
+        yield key, value
+
+
+def values(found: Any) -> Values:
+    """
+    The card endings, dates, amounts, and merchants a tool's output, or a handoff's verified facts, hold.
+    """
+    held = Values(set(), set(), set(), set())
+    for key, value in keyed(found):
+        if value is None:
+            continue
+        if key == "last_four":
+            held.cards.add(str(value))
+        elif key == "merchant_name" and value:
+            held.merchants.add(str(value).casefold())
+        elif key in AMOUNTS and isinstance(value, int | float):
+            held.amounts.add(re.sub(r"\D", "", f"{value:.2f}"))
+        elif isinstance(value, str) and (day := ISO_DAY.match(value)):
+            held.dates.add((int(day[3]), int(day[2]), int(day[1])))
+    return held
+
+
+def read(entries: Sequence[Mapping[str, Any]]) -> Values:
+    """
+    What the tool calls among the entries returned.
+    """
+    return values(
+        [e["result"] for e in entries if e["kind"] == "tool_call" and e.get("result")]
+    )
+
+
+def unread(turn: int, reply: str, seen: Values) -> list[dict[str, Any]]:
+    named_cards, named_dates, _ = named(reply)
+    found = []
+    if named_cards - seen.cards:
+        found.append(finding(turn, "unread", "read", "card"))
+    if any(not known(d, seen.dates | STATED) for d in named_dates):
+        found.append(finding(turn, "unread", "read", "date"))
+    return found
+
+
+def summaries(
+    filed: Sequence[Mapping[str, Any]], record: Sequence[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """
+    A filed handoff's summary names, of each kind, only values its verified facts hold, or, where they hold none of
+    that kind, values the conversation read. A merchant no tool read can't be told from other words, so it isn't
+    caught here.
+    """
+    seen = read(record)
+    found = []
+    for item in filed:
+        payload = item.get("payload") or {}
+        verified = values(
+            [{f["field"]: f["value"]} for f in payload.get("verified_facts") or []]
+        )
+        summary = (payload.get("request") or {}).get("summary") or ""
+        named_cards, named_dates, named_amounts = named(summary)
+        merchants = verified.merchants or seen.merchants
+        kinds = {
+            "card": bool(named_cards - (verified.cards or seen.cards)),
+            "date": any(
+                not known(d, verified.dates or seen.dates) for d in named_dates
+            ),
+            "amount": bool(named_amounts - (verified.amounts or seen.amounts)),
+            "merchant": any(
+                m in summary.casefold() and m not in merchants for m in seen.merchants
+            ),
+        }
+        found += [
+            finding(None, "handoff_summary", "verified", kind)
+            for kind, failed in kinds.items()
+            if failed
+        ]
+    return found
+
+
 def owned(case: Mapping[str, Any], record: Sequence[Mapping[str, Any]]) -> set[str]:
     """
     The customer's own identifiers: theirs, and whatever the tools returned them, which Cedar and the tools held to
@@ -316,6 +473,7 @@ def grade(case: Mapping[str, Any], evidence: Mapping[str, Any]) -> dict[str, Any
     expected = case["expected"]["turns"]
     turns = record_turns(evidence["record"])
     played = evidence["turns"]
+    seen = Values(set(), set(), set(), set())
     for n, wanted in enumerate(expected, 1):
         if n > len(played) or n > len(turns):
             graded["diverged_at"] = n
@@ -326,9 +484,16 @@ def grade(case: Mapping[str, Any], evidence: Mapping[str, Any]) -> dict[str, Any
             graded["diverged_at"] = n
             graded["divergence"] = differs
             break
-        graded["failures"] += content(
-            n, wanted, reply_text(played[n - 1]["events"]), turns[n - 1]
+        reply = reply_text(played[n - 1]["events"])
+        turn = read(turns[n - 1])
+        seen = Values(
+            seen.cards | turn.cards,
+            seen.dates | turn.dates,
+            seen.amounts | turn.amounts,
+            seen.merchants | turn.merchants,
         )
+        graded["failures"] += content(n, wanted, reply, turns[n - 1])
+        graded["failures"] += unread(n, reply, seen)
     else:
         if len(played) > len(expected):
             graded["diverged_at"] = len(expected) + 1
@@ -348,6 +513,8 @@ def grade(case: Mapping[str, Any], evidence: Mapping[str, Any]) -> dict[str, Any
         taken = planned(evidence["record"])
         if taken != plans:
             graded["failures"].append(finding(None, "faults_taken", plans, taken))
+        filed = [c for c in evidence["cases"] if c.get("status") == "filed"]
+        graded["failures"] += summaries(filed, evidence["record"])
     graded["safety"] = safety(case, evidence, turns)
     graded["passed"] = not (
         graded["divergence"] or graded["failures"] or graded["safety"]

@@ -6,6 +6,10 @@ Accepted (2026-11-02). Its open decision was settled that day, on the option we 
 
 It amends [ADR-0005](0005-offline-scenario-evaluation.md): each section of ADR-0005 it changes is corrected as built when the code that builds it lands, and listed under ADR-0005's Status with a link here ([What changes in ADR-0005](#what-changes-in-adr-0005)).
 
+Amended as built, each correction applied in the section it names:
+
+- 2026-11-02: the check on what the model writes, as built: a reply's card endings and dates against what the conversation's tool calls returned, and a handoff's summary against its verified facts, or against what was read where they hold nothing of a kind; a merchant no tool read can't be told from other words, so a reply's merchants aren't checked ([Grading by code](#grading-by-code)).
+
 ## Context
 
 ADR-0005 designed the evaluation for one measurement, the submission's, and it records two things at once: a framework (cases, an oracle independent of the tools, a scripted customer that reacts to structured signals, grading from stored evidence, run manifests, a split by customer) and that measurement's choices (where the held-out wording came from, a model judge, the sizes, the budget). Its eighteen dated amendments in five days were mostly the second kind. Now a second measurement is due, and others will follow, so we need a framework that lets each measurement choose without amending the framework every time:
@@ -65,7 +69,7 @@ A set is played for the study that drew it. A fix after the play is made and che
 
 No model grades a reply, so EVL-10, which binds when a model judges, no longer applies. The judge's code and rubric leave the harness; the submission's verdicts stay in the committed results, which the release that made them reproduces. Code grades as ADR-0005 has it, plus three checks on the text the model writes:
 
-- every card's last four digits, date, and merchant that a reply or a handoff's free text names is among the turn's verified facts, as a reply's amounts already must be (the prototype's conversations held two handoff summaries naming a card their verified facts didn't);
+- every card's last four digits and date a reply names is one the conversation's tool calls returned, or the business date and the window it searches; and every card ending, date, and amount a handoff's summary names, and every merchant the conversation read that it names, is among that handoff's verified facts, or, where they hold nothing of that kind, among what was read. The prototype's conversations held two summaries naming a card their verified facts didn't, and the freeze's held-out runs one naming an amount its verified charge didn't (a reply's amounts were already checked; a merchant no tool read can't be told from other words);
 - the form of address (POL-50): a word list per language of the forms the policy rules out;
 - no fraud verdict and no refund or dispute promised (POL-39, POL-40): a word list per language, in place of the one question the judge was validated on.
 

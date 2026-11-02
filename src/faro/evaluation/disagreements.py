@@ -41,6 +41,8 @@ CHECKS = frozenset(
         "handoff.queue",
         "handoff.priority",
         "blocked",
+        "unread",
+        "handoff_summary",
     }
 )
 ENTRY_ID = re.compile(r"^D-[0-9]{3}$")

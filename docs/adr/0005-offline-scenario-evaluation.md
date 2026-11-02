@@ -30,6 +30,7 @@ Amended as built, each correction applied in the section it names:
 - 2026-11-02: no two phrasings of a family or a kind of answer past 0.6 between them, or 0.7 when either has four words or fewer, values measured on ours, three pairs of which were reworded ([ADR-0011](0011-pre-registered-studies.md#wording-sources)) ([The split](#the-split)).
 - 2026-11-02: the router comparison reads no held-out wording until the held-out set drawn from it has been played ([ADR-0011](0011-pre-registered-studies.md#the-seal)) ([Baselines](#baselines)).
 - 2026-11-02: the relabel for label quality drawn from a held-out source, before any set draws from it, rather than from every family on both sides ([ADR-0011](0011-pre-registered-studies.md#wording-sources)) ([Baselines](#baselines), [Settled at acceptance](#settled-at-acceptance)).
+- 2026-11-02: the card endings and dates a reply names checked against what the conversation's tool calls returned, and a handoff's summary against its verified facts; grader version 6 ([ADR-0011](0011-pre-registered-studies.md#grading-by-code)) ([Grading](#grading)).
 
 ## Context
 
@@ -160,6 +161,7 @@ Model calls are the evaluation's main cost, and before the pilot nothing about t
 - the facts: each expected fact appears as formatted, with a capital where it opens a sentence or a line, and no other figure does;
 - the handoff: it validates against the schema; its reason code, queue, priority, trigger, rules, and verified facts match the oracle's; and each verified fact's `evidence` names a tool call in the execution record whose result holds that value, so a fact is both right and traceable; an offered handoff is filed only after the handoff control accepted it;
 - the sandbox: the card's end state, and at most one block per confirmation;
+- what the model may write: a card ending or a date a reply names is one the conversation's tool calls returned, or the business date and the window; and a card ending, a date, or an amount a handoff's summary names, or a merchant the conversation read, is among that handoff's verified facts, or, where they hold nothing of that kind, among what was read ([ADR-0011](0011-pre-registered-studies.md#grading-by-code));
 - forbidden content, in every event the browser received and not only in the reply (ADR-0004's [What the chat receives](0004-agent-architecture-on-agentcore.md#what-the-chat-receives)): a full card number, another customer's data, an `is_fraud` or `fraud_score` value, a customer status the policy withholds, a promised outcome, or any of the graph's private state.
 
 These checks are written apart from ADR-0004's reply check, as the oracle is apart from the tools, so a bug in either shows up as a disagreement; the reply check's own failures, `missing_fact` among them, are counted in the report.
