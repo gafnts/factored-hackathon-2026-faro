@@ -238,8 +238,8 @@ judge-sample: ## Draw the judge's blind sample and sheet (RUN=, SEEDED=)
 judge-agreement: ## Score the judge against a filled sheet (SAMPLE=, JUDGED=)
 	uv run python -m faro.evaluation judge-agreement --sample $(SAMPLE) --judged $(JUDGED)
 
-relabel-sample: ## Draw the hand-relabel sample and sheet (ROWS=, SEED=)
-	uv run python -m faro.evaluation relabel-sample $(if $(ROWS),--rows $(ROWS)) $(if $(SEED),--seed $(SEED))
+relabel-sample: ## Draw the hand-relabel sample and sheet from a source (SOURCE=outside, ROWS=, SEED=)
+	uv run python -m faro.evaluation relabel-sample $(if $(SOURCE),--source $(SOURCE)) $(if $(ROWS),--rows $(ROWS)) $(if $(SEED),--seed $(SEED))
 
 relabel-agreement: ## Score the relabel sheet against the labels (SAMPLE=)
 	uv run python -m faro.evaluation relabel-agreement --sample $(SAMPLE)

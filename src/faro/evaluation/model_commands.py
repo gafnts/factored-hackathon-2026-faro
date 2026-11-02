@@ -26,6 +26,7 @@ from faro.evaluation import (
     baseline,
     blind,
     classifier,
+    families,
     judge,
     labels,
     router,
@@ -108,6 +109,9 @@ def add(commands: Any) -> None:
     relabeling = commands.add_parser(
         "relabel-sample",
         help="Draw the messages relabeled by hand for label quality, and the sheet",
+    )
+    relabeling.add_argument(
+        "--source", choices=sorted(families.SIDES), default=families.OUTSIDE
     )
     relabeling.add_argument("--out", type=Path, default=labels.OUT)
     relabeling.add_argument("--seed", type=int, default=labels.SEED)
@@ -213,7 +217,7 @@ def run_agreement(args: argparse.Namespace) -> None:
 
 def run_relabel_sample(args: argparse.Namespace) -> None:
     out = args.out / runs.run_id()
-    manifest = labels.sample(out, seed=args.seed, rows=args.rows)
+    manifest = labels.sample(out, args.source, seed=args.seed, rows=args.rows)
     print(
         f"{manifest['rows']} messages: by language {manifest['by_language']}, by group {manifest['by_group']}, "
         f"by side {manifest['by_side']}, by author {manifest['by_author']}"

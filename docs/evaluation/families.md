@@ -39,4 +39,4 @@ Until 2026-11-02, a third of these were held out: within each label and each kin
 - **All of it is ours.** Our phrasing may be easier than customers' would be; the router comparison's results describe these families, not real traffic (EVL-13).
 - **A model's paraphrases.** Claude Opus 5.5 is an Anthropic model, and so are the router comparison's LLM candidates, Claude Haiku 4.5 and Claude Sonnet 5.5: the bias favors neither over the other, but may favor both over the keyword router. The report says so beside the comparison (DML-11).
 - **One follow-up family.** The next page has a single family here; a case's follow-up comes from its own side, so a held-out source writes its own.
-- **Label quality** wasn't measured. The blind relabel of 50 messages was drawn and not graded, for time ([report](report.md#label-quality), DML-08).
+- **Label quality** of these wasn't measured. The blind relabel of 50 messages was drawn and not graded, for time ([report](report.md#label-quality), DML-08); it's now drawn from a held-out source before any set uses it ([ADR-0011](../adr/0011-pre-registered-studies.md#wording-sources)).

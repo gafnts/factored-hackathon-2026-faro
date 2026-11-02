@@ -1,6 +1,6 @@
 """
-The relabel sheet for label quality (DML-08, EVL-08): drawn over the request groups in proportion, alternating the
-languages and spreading over the families, written with its guide, key, and manifest; the filled sheet scored for
+The relabel sheet for label quality (DML-08, EVL-08): drawn from one source over the request groups in proportion,
+alternating the languages and spreading over the families, written with its guide, key, and manifest; the filled sheet scored for
 exact agreement on the label set, kappa on the first label, and the disagreements left for the policy's text.
 """
 
@@ -13,6 +13,8 @@ import pytest
 
 from faro.evaluation import families, labels
 from faro.evaluation.families import Family, Message
+
+from . import outside
 
 
 def family(
@@ -65,7 +67,7 @@ def test_labels_are_ordered_as_the_policy_handles_them_and_cells_are_parsed() ->
 
 
 def test_the_draw_spreads_over_groups_languages_and_families() -> None:
-    found = labels.pool(loaded(), {"card_status-00"})
+    found = labels.pool(loaded(), "development")
 
     chosen = labels.draw(found, random.Random(1), rows=20)
 
@@ -88,24 +90,16 @@ def test_the_draw_spreads_over_groups_languages_and_families() -> None:
             if f.group == group
         ]
         assert max(counts) - min(counts) <= 1
-    assert (
-        any(
-            d.side == "held_out"
-            for d in chosen
-            if d.family.family_id == "card_status-00"
-        )
-        or True
-    )
     assert labels.draw(found, random.Random(1), rows=20) == chosen
 
 
 def test_the_sample_writes_the_sheet_guide_key_and_manifest(tmp_path: Path) -> None:
     out = tmp_path / "labels" / "sample"
 
-    manifest = labels.sample(out, loaded(), {"card_status-00"}, seed=3, rows=12)
+    manifest = labels.sample(out, families.OURS, loaded(), seed=3, rows=12)
 
     assert manifest["rows"] == 12 and sum(manifest["by_group"].values()) == 12
-    assert set(manifest["by_side"]) <= {"development", "held_out"}
+    assert manifest["by_side"] == {"development": 12}
     with (out / "sheet.csv").open(encoding="utf-8", newline="") as kept:
         rows = list(csv.DictReader(kept))
     assert [r["row"] for r in rows] == [str(n) for n in range(1, 13)]
@@ -121,7 +115,7 @@ def test_the_filled_sheet_is_scored_and_disagreements_are_listed(
     tmp_path: Path,
 ) -> None:
     out = tmp_path / "labels" / "sample"
-    labels.sample(out, loaded(), set(), seed=3, rows=12)
+    labels.sample(out, families.OURS, loaded(), seed=3, rows=12)
     key = json.loads((out / "key.json").read_text(encoding="utf-8"))
     with (out / "sheet.csv").open(encoding="utf-8", newline="") as kept:
         rows = list(csv.DictReader(kept))
@@ -153,7 +147,7 @@ def test_the_filled_sheet_is_scored_and_disagreements_are_listed(
 
 def test_an_unknown_label_names_its_row(tmp_path: Path) -> None:
     out = tmp_path / "labels" / "sample"
-    labels.sample(out, loaded(), set(), seed=3, rows=4)
+    labels.sample(out, families.OURS, loaded(), seed=3, rows=4)
     with (out / "sheet.csv").open(encoding="utf-8", newline="") as kept:
         rows = list(csv.DictReader(kept))
     for row in rows:
@@ -168,11 +162,12 @@ def test_an_unknown_label_names_its_row(tmp_path: Path) -> None:
         labels.score(out)
 
 
-def test_the_committed_families_draw_fifty_all_development(tmp_path: Path) -> None:
-    manifest = labels.sample(tmp_path / "sample")
+def test_the_sample_draws_from_one_held_out_source(tmp_path: Path) -> None:
+    manifest = labels.sample(tmp_path / "sample", rows=8, root=outside.ROOT)
 
-    assert manifest["rows"] == 50
-    assert manifest["by_language"] == {"es": 25, "pt": 25}
-    assert set(manifest["by_group"]) == set(families.GROUPS)
-    assert set(manifest["by_side"]) == {"development"}
-    assert set(manifest["by_author"]) == {"team", "claude-opus-5-5"}
+    assert manifest["rows"] == 8
+    assert manifest["by_language"] == {"es": 4, "pt": 4}
+    assert manifest["by_side"] == {"held_out": 8}
+    assert manifest["by_author"] == {"fixture": 8}
+    assert manifest["families"]["source"] == families.OUTSIDE
+    assert manifest["families"]["count"] == len(outside.FAMILIES)
