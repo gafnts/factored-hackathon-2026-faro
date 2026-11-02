@@ -6,6 +6,20 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Added
+
+- Studies: each reported measurement has a protocol, committed before its held-out set is drawn, and the set's manifest holds its hash, so the bar provably came first ([ADR-0011](docs/adr/0011-pre-registered-studies.md)). The second study's protocol is drafted, and the submission's measurement is described as the first, after the fact.
+- `make eval-compare`, which compares two systems' runs of one set case by case, with an interval over families within each language.
+- Grader checks on what the model writes: a card ending or a date a reply names must be one the conversation read, a handoff's summary must agree with its verified facts, and word lists catch a ruled-out form of address and a fraud verdict or a promised refund.
+
+### Changed
+
+- Held-out wording comes from a source another model family writes, kept out of the repository until its first play; every family and answer of ours is development, and the router comparison reads no held-out wording until then. Phrasings within a family or a kind of answer must differ, and three of ours were reworded. Nothing deployed changes.
+
+### Removed
+
+- The model judge, its rubric, and its validation sample: code grades every reply.
+
 ## [1.9.0] - 2026-11-01 (Promotion 15)
 
 ### Added
