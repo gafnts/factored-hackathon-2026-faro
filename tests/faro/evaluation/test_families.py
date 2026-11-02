@@ -188,6 +188,53 @@ def test_a_held_out_message_close_to_a_development_one_is_named() -> None:
     assert families.similarity(held[0][1], "Bloquee la tarjeta.") < families.TOO_CLOSE
 
 
+@pytest.mark.parametrize(
+    ("first", "second", "alike"),
+    [
+        (
+            "¿Cuánto cupo me queda en la tarjeta de crédito?",
+            "¿Cuánto cupo me queda en mi tarjeta de crédito?",
+            True,
+        ),
+        ("bloquear tarjeta", "bloquear la tarjeta", True),
+        # Four words or fewer share most of their trigrams by necessity, so their bar is looser.
+        ("estado tarjeta", "estado de mi tarjeta", False),
+        ("¿Mi tarjeta está activa?", "Quiero el estado de mi tarjeta.", False),
+    ],
+)
+def test_two_phrasings_too_alike_count_as_one(
+    first: str, second: str, alike: bool
+) -> None:
+    found = list(families._alike([("a", first), ("b", second)]))
+
+    assert found == (
+        ["a and b are too alike to count as two phrasings"] if alike else []
+    )
+
+
+def test_a_family_or_a_kind_of_answer_with_phrasings_too_alike_is_named() -> None:
+    texts = {"es": [*SPANISH, SPANISH[0].replace("¿Mi", "¿La")], "pt": PORTUGUESE}
+    answers = [
+        Answer(f"dont_know-0{n}", "dont_know", {"es": "No lo sé.", "pt": text})
+        for n, text in ((1, "Não sei, não."), (2, "Não sei, não!"))
+    ]
+
+    found = families.problems([family(texts)], answers)
+
+    assert (
+        "card_status-01/es/0 and card_status-01/es/4 are too alike to count as two phrasings"
+        in found
+    )
+    assert (
+        "dont_know-01/es and dont_know-02/es are too alike to count as two phrasings"
+        in found
+    )
+    assert (
+        "dont_know-01/pt and dont_know-02/pt are too alike to count as two phrasings"
+        in found
+    )
+
+
 def test_an_answer_must_give_exactly_its_kinds_slots() -> None:
     answer = Answer(
         "card_both-09", "card_both", {"es": "La {last_four}.", "pt": "O {last_four}."}

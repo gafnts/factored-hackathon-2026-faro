@@ -22,7 +22,7 @@ import unicodedata
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from importlib.resources import files
-from itertools import product
+from itertools import combinations, product
 from pathlib import Path
 from typing import Any
 
@@ -106,6 +106,10 @@ MAX_LENGTH = 300
 MIN_MESSAGES = 4
 # ADR-0005's bar for a message too close to another to count as unseen.
 TOO_CLOSE = 0.6
+# Within a family or a kind of answer, two phrasings past the bar count as one (ADR-0011, Wording sources), measured on
+# ours on 2026-11-02. A message of a few words shares most of its trigrams with any other by necessity.
+SHORT = 4
+TOO_CLOSE_SHORT = 0.7
 
 SLOT = re.compile(r"\{([a-z_]+)\}")
 IDENTIFIER = re.compile(r"(CLI|PRD|TRX|BRN)-", re.IGNORECASE)
@@ -478,6 +482,13 @@ def _too_close(
             yield f"held-out {h} is too close to development {d}"
 
 
+def _alike(phrasings: Sequence[tuple[str, str]]) -> Iterator[str]:
+    for (a, x), (b, y) in combinations(phrasings, 2):
+        short = min(len(normalized(x).split()), len(normalized(y).split())) <= SHORT
+        if similarity(x, y) >= (TOO_CLOSE_SHORT if short else TOO_CLOSE):
+            yield f"{a} and {b} are too alike to count as two phrasings"
+
+
 def texts(
     families: Sequence[Family], answers: Sequence[Answer], ids: Iterable[str]
 ) -> list[tuple[str, str]]:
@@ -520,6 +531,15 @@ def problems(
         found += _family_problems(family)
     for answer in answers:
         found += _answer_problems(answer)
+    for family in families:
+        for language in (*LANGUAGES, *OTHER_LANGUAGES):
+            found += _alike([(m.id, m.text) for m in family.in_language(language)])
+    for source, kind in sorted({(a.source, a.kind) for a in answers}):
+        alike = [a for a in answers if (a.source, a.kind) == (source, kind)]
+        for language in LANGUAGES:
+            found += _alike(
+                [(f"{a.answer_id}/{language}", a.texts[language]) for a in alike]
+            )
     held = held_out_ids(families, answers)
     found += _too_close(
         texts(families, answers, held),
