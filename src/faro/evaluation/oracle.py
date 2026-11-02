@@ -37,7 +37,7 @@ from faro.evaluation.state import (
     merged,
 )
 
-POLICY_VERSION = 6
+POLICY_VERSION = 7
 # The details the agent asks the customer for (POL-06, POL-13, POL-27, POL-35).
 ASKED = ("card", "reason", "transaction")
 # POL-50: the conversation's language until a message clearly in one of the two sets it.
@@ -59,6 +59,8 @@ SEARCHED = 3 * PAGE
 SHOWN = 5
 # POL-17: two questions that don't settle a detail, then a handoff is offered.
 QUESTIONS = 2
+# POL-06: the third message about one detail that answers nothing ends its question as an unsettled detail does.
+ASIDES = 3
 TYPES = {"credit": CREDIT, "debit": DEBIT}
 WHEN = {"today": 0, "yesterday": 1, "day_before": 2}
 REASONS = {
@@ -129,6 +131,8 @@ class Answer:
     hints: Hints = Hints()
     block_reason: str | None = None
     language: str | None = None
+    # The kind of answer an aside is, which decides its short reply (POL-06).
+    said: str | None = None
 
 
 @dataclass
@@ -140,6 +144,8 @@ class Step:
     facts: dict[str, str] = field(default_factory=dict)
     handoff: dict[str, str] | None = None
     blocked: str | None = None
+    # Decisions the turn records before the step's own, about no request: an outcome class and its rules.
+    before: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 Request = Generator[Step, Answer, Step]
@@ -149,8 +155,8 @@ class Searched(NamedTuple):
     found: Transaction | None
     # The tools the turn that ends the search must call: the search itself, unless a question came first.
     tools: tuple[str, ...]
-    # Whether two questions left it unsettled, which a charge records in its handoff (POL-17, POL-39).
-    unsettled: bool = False
+    # The rules that stopped a search left unsettled, which a charge records in its handoff (POL-17, POL-39).
+    stopped: tuple[str, ...] = ()
 
 
 def handoff(reason_code: str, trigger: str, priority: str = "normal") -> dict[str, str]:
@@ -259,7 +265,10 @@ class Conversation:
         if interjection is not None and interjection["at"] == awaiting:
             raise NotCoveredError("an interjection")
         if awaiting in ASKED and self.asides:
-            return Answer("aside", language=said_in(self.asides.pop(0)))
+            aside = self.asides.pop(0)
+            return Answer(
+                "aside", language=said_in(aside), said=cases.kind(aside["id"])
+            )
         if awaiting == "confirm_control":
             if "typed_yes" in answers and not self.typed:
                 self.typed = True
@@ -380,6 +389,14 @@ class Conversation:
         return turn
 
     def decide(self, turn: dict[str, Any], label: str | None, step: Step) -> None:
+        for outcome_class, rules in step.before:
+            turn["decisions"].append(
+                {
+                    "request_label": None,
+                    "outcome_class": outcome_class,
+                    "rules": sorted(set(rules)),
+                }
+            )
         turn["decisions"].append(
             {
                 "request_label": label,
@@ -483,20 +500,35 @@ class Conversation:
             return Step("answer", ["POL-45"])
         raise NotCoveredError("text sent while a handoff is offered")
 
-    def asking(self, step: Step) -> Generator[Step, Answer, Answer]:
+    def asking(
+        self, step: Step, asided: int
+    ) -> Generator[Step, Answer, tuple[Answer | None, int]]:
         """
-        A question, and the same one again after a message that doesn't answer it, which counts toward no limit (POL-06,
-        POL-17).
+        A question, and the same one again after a message that doesn't answer it, which counts toward none of
+        POL-17's limit; a question about the last reply first gets that the records hold nothing more, an abstention.
+        The third such message about one detail ends its question as an unsettled detail does, and comes back as None
+        (POL-06). Also returns how many came, for the question asked again after an unsettled answer.
         """
         answer = yield step
         while answer.sends == "aside":
-            answer = yield replace(step, rules=[*step.rules, "POL-06"], tools=())
-        return answer
+            asided += 1
+            if asided == ASIDES:
+                return None, asided
+            before = (
+                (("abstain", ("POL-06", "POL-18", "POL-29")),)
+                if answer.said == "last_reply"
+                else ()
+            )
+            answer = yield replace(
+                step, rules=[*step.rules, "POL-06"], tools=(), before=before
+            )
+        return answer, asided
 
-    def unsettled(self) -> Request:
+    def unsettled(self, stopped: Sequence[str] = ("POL-17",)) -> Request:
         return (
             yield from self.offer(
-                Step("abstain", ["POL-17"], "handoff_control"), "clarification_failed"
+                Step("abstain", list(stopped), "handoff_control"),
+                "clarification_failed",
             )
         )
 
@@ -510,7 +542,8 @@ class Conversation:
         cards = list(self.customer.cards)
         if not cards:
             raise NotCoveredError("a customer with no card")
-        asked = 0
+        asked = asided = 0
+        stopped: list[str] = []
         while True:
             named = [
                 c
@@ -538,22 +571,27 @@ class Conversation:
                         handoff=handoff("ambiguous_card", "required"),
                     )
                 rules, listed = ["POL-13", "POL-14"], pool
-            if asked == QUESTIONS:
+            if asked == QUESTIONS or stopped:
+                stopped = ["POL-17", *stopped]
                 if charge:
-                    return self.unsettled_charge(["POL-17"])
-                return (yield from self.unsettled())
+                    return self.unsettled_charge(stopped)
+                return (yield from self.unsettled(stopped))
             tools = ("list_cards",) if asked == 0 else ()
             asked += 1
-            answer = yield from self.asking(
+            answer, asided = yield from self.asking(
                 Step(
                     "clarify",
                     rules,
                     "card",
                     tools=tools,
                     facts={"{card_list}": self.facts.card_list(listed)},
-                )
+                ),
+                asided,
             )
-            hints = hints.merged(answer.hints)
+            if answer is None:
+                stopped = ["POL-06"]
+            else:
+                hints = hints.merged(answer.hints)
 
     def which_transaction(
         self, card: Card, hints: Hints, prefer_declined: bool, charge: bool = False
@@ -565,15 +603,15 @@ class Conversation:
         meant = [t for t in card.transactions[:SEARCHED] if fits(t, hints)]
         if prefer_declined:
             meant = [t for t in meant if t.status == "Declined"] or meant
-        asked = 0
+        asked = asided = 0
         while len(meant) > 1:
             shown = meant[:SHOWN]
             if asked == QUESTIONS:
                 if charge:
-                    return Searched(None, (), unsettled=True)
+                    return Searched(None, (), ("POL-17",))
                 return (yield from self.unsettled())
             asked += 1
-            answer = yield from self.asking(
+            answer, asided = yield from self.asking(
                 Step(
                     "clarify",
                     ["POL-27"],
@@ -583,8 +621,13 @@ class Conversation:
                         "{card}": self.facts.card(card),
                         "{transactions}": self.facts.choices(shown),
                     },
-                )
+                ),
+                asided,
             )
+            if answer is None:
+                if charge:
+                    return Searched(None, (), ("POL-06", "POL-17"))
+                return (yield from self.unsettled(("POL-06", "POL-17")))
             if answer.hints.newest:
                 meant = shown[:1]
             else:
@@ -731,14 +774,16 @@ class Conversation:
         if not card.active:
             return Step("decline", ["POL-13", "POL-34"], facts=facts())
         reason = family.extract.get("block_reason")
-        asked = 0
+        asked = asided = 0
         while reason is None:
             if asked == QUESTIONS:
                 return (yield from self.unsettled())
             asked += 1
-            answer = yield from self.asking(
-                Step("clarify", ["POL-35"], "reason", facts=facts())
+            answer, asided = yield from self.asking(
+                Step("clarify", ["POL-35"], "reason", facts=facts()), asided
             )
+            if answer is None:
+                return (yield from self.unsettled(("POL-06", "POL-17")))
             reason = answer.block_reason
         shown = yield Step(
             "block", ["POL-35", "POL-36"], "confirm_control", facts=facts()
@@ -798,8 +843,7 @@ class Conversation:
         )
         if isinstance(searched, Step):
             return searched
-        found, tools, unsettled = searched
-        stopped = ["POL-17"] if unsettled else []
+        found, tools, stopped = searched
         facts = {"{card}": self.facts.card(card)}
         if found is not None:
             facts["{transaction}"] = self.facts.found(found)

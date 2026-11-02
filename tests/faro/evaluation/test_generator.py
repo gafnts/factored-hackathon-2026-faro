@@ -102,7 +102,7 @@ def test_a_situations_asides_are_drawn_in_order_each_a_phrasing_of_its_own(
     situation = replace(
         generator.BY_NAME["status.aside"],
         asides=("aside", "aside", "aside"),
-        path=[*[("clarify", "card")] * 4, ("answer", "none")],
+        path=[*[("clarify", "card")] * 3, ("abstain", "handoff_control")],
     )
     monkeypatch.setitem(generator.BY_NAME, situation.name, situation)
     drawing = generator.Generator(

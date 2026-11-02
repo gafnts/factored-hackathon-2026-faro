@@ -116,7 +116,7 @@ def test_a_status_asks_which_card_then_answers_it(
 def test_a_message_that_doesnt_answer_which_card_gets_the_question_again(
     con: duckdb.DuckDBPyConnection,
 ) -> None:
-    # POL-06, version 6: it counts toward no limit (POL-17), so the answer after it is still the first.
+    # POL-06: it counts toward none of POL-17's limit, so the answer after it is still the first.
     expected = play(
         con,
         case(
@@ -155,6 +155,77 @@ def test_each_aside_gets_the_question_again(con: duckdb.DuckDBPyConnection) -> N
         ("aside", [("card_status", "clarify")], "card"),
         ("card", [("card_status", "answer")], "none"),
     ]
+
+
+def asides(played: dict[str, Any], *kinds: str) -> dict[str, Any]:
+    played["script"]["answers"]["aside"] = [
+        {"id": f"{kind}-0{n}/es", "text": "-"} for n, kind in enumerate(kinds, 1)
+    ]
+    return played
+
+
+def test_the_third_aside_ends_the_question_as_an_unsettled_detail_does(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    played = case(
+        EXAMPLE_CUSTOMER,
+        "card_status-01",
+        answers={"card": "card_last_four-01", "handoff_control": "decline"},
+        means={"product_id": "PRD-EXAMPLE00008"},
+    )
+
+    expected = play(con, asides(played, "aside", "aside", "aside"))
+
+    assert path(expected) == [
+        ("message", [("card_status", "clarify")], "card"),
+        ("aside", [("card_status", "clarify")], "card"),
+        ("aside", [("card_status", "clarify")], "card"),
+        ("aside", [("card_status", "abstain")], "handoff_control"),
+        ("decline", [("card_status", "answer")], "none"),
+    ]
+    assert expected["turns"][3]["decisions"][0]["rules"] == ["POL-06", "POL-17"]
+
+
+def test_a_question_about_the_last_reply_gets_an_abstention_then_the_question(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    played = case(
+        EXAMPLE_CUSTOMER,
+        "card_status-01",
+        answers={"card": "card_last_four-01"},
+        means={"product_id": "PRD-EXAMPLE00008"},
+    )
+
+    expected = play(con, asides(played, "last_reply"))
+
+    assert path(expected)[1] == (
+        "aside",
+        [(None, "abstain"), ("card_status", "clarify")],
+        "card",
+    )
+    abstained = expected["turns"][1]["decisions"][0]
+    assert abstained["rules"] == ["POL-06", "POL-18", "POL-29"]
+
+
+def test_the_third_aside_at_a_charges_question_still_offers_the_block(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    customer = state.read(con, "CLI-EVAL00000015")
+    assert customer is not None
+    played = case(
+        "CLI-EVAL00000015",
+        "unrecognized_charge-01",
+        answers={"confirm_control": "confirm"},
+        means={"product_id": customer.cards[0].product_id},
+    )
+
+    expected = play(con, asides(played, "frustration", "aside", "frustration"))
+
+    assert path(expected)[3:] == [
+        ("aside", [("unrecognized_charge", "block")], "confirm_control"),
+        ("confirm", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    assert {"POL-06", "POL-17"} <= set(expected["turns"][3]["decisions"][0]["rules"])
 
 
 def test_an_interjection_isnt_read_yet(con: duckdb.DuckDBPyConnection) -> None:
