@@ -57,6 +57,13 @@ def problems(case: dict[str, Any]) -> list[str]:
     return found + overlay_problems(case)
 
 
+def kind(text_id: str) -> str:
+    """
+    The kind of answer an answer's ID names, whatever source wrote it: outside.reason_lost-02/es is reason_lost.
+    """
+    return text_id.split("/")[0].rsplit("-", 1)[0].rsplit(".", 1)[-1]
+
+
 def asides(answers: Mapping[str, Any]) -> list[dict[str, str]]:
     """
     The script's messages that answer nothing, in the order they're sent; a case drawn before 2026-11-02 holds one.

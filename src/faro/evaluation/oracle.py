@@ -263,7 +263,7 @@ class Conversation:
             return None if press == "ignore" else Answer(press)
         if awaiting not in answers:
             return Answer("dont_know", language=said_in(answers.get("dont_know")))
-        kind = answers[awaiting]["id"].split("/")[0].rsplit("-", 1)[0]
+        kind = cases.kind(answers[awaiting]["id"])
         language = said_in(answers[awaiting])
         if awaiting == "reason":
             return Answer("reason", block_reason=REASONS[kind], language=language)

@@ -477,6 +477,36 @@ def test_a_block_among_several_active_cards_asks_which_then_why(
     assert expected["blocked"] == ["PRD-EVAL00000502"]
 
 
+@pytest.mark.parametrize("source", ["", "outside."])
+def test_an_answer_is_read_by_its_kind_whatever_source_wrote_it(
+    con: duckdb.DuckDBPyConnection, source: str
+) -> None:
+    expected = play(
+        con,
+        case(
+            "CLI-EVAL00000005",
+            "block_card-01",
+            answers={
+                "card": f"{source}card_last_four-01",
+                "reason": f"{source}reason_lost-01",
+                "confirm_control": "confirm",
+                "handoff_control": "decline",
+            },
+            means={"product_id": "PRD-EVAL00000502"},
+        ),
+    )
+
+    assert path(expected)[1:3] == [
+        ("card", [("block_card", "clarify")], "reason"),
+        ("reason", [("block_card", "block")], "confirm_control"),
+    ]
+    assert expected["turns"][3]["decisions"][0]["rules"] == [
+        "POL-03",
+        "POL-37",
+        "POL-38",
+    ]
+
+
 def test_a_cancelled_block_leaves_the_card(con: duckdb.DuckDBPyConnection) -> None:
     expected = play(
         con,
