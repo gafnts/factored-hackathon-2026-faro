@@ -247,6 +247,43 @@ def test_the_word_lists_spare_the_policys_words_and_a_merchants_name() -> None:
             assert grader.worded(1, text, language, set()) == [], name
 
 
+def test_the_list_of_what_the_chat_does_is_caught_and_no_other_fixed_text() -> None:
+    for name, by_language in FIXED.items():
+        for language, text in by_language.items():
+            listed = grader.listing(1, text, language)
+            assert bool(listed) == name.startswith(("capabilities", "no_request")), name
+
+
+def test_a_turn_files_one_case_citing_what_a_request_that_joined_it_adds() -> None:
+    disputed = {
+        "reason_code": "unrecognized_charge",
+        "trigger": "required",
+        "queue": "dispute_intake",
+        "priority": "urgent",
+    }
+    expected = {
+        "facts": {},
+        "withheld": [],
+        "handoff": {**disputed, "cites": ["POL-44"]},
+    }
+    filed = {"kind": "handoff", "status": "filed", "handoff_id": "h-2", **disputed}
+    complaint = {
+        **filed,
+        "handoff_id": "h-1",
+        "reason_code": "complaint",
+        "queue": "customer_service",
+        "priority": "normal",
+    }
+
+    def graded(entries: list[dict[str, Any]], rules: list[str]) -> list[str]:
+        cases = {"h-2": {"payload": {"rules": rules}}}
+        return checks(grader.content(1, expected, "", entries, cases))
+
+    assert graded([filed], ["POL-06", "POL-39", "POL-44"]) == []
+    assert graded([filed], ["POL-06", "POL-39"]) == ["handoff.cites"]
+    assert graded([complaint, filed], ["POL-39", "POL-44"]) == ["cases_filed"]
+
+
 def test_a_fact_may_take_a_capital_only_where_it_opens_a_sentence_or_a_line() -> None:
     # ADR-0004's code capitalizes a value the model put first, so the fact is stated all the same.
     card = "tarjeta de crédito terminada en 4821"
