@@ -109,6 +109,7 @@ class Situation:
     answers: Mapping[str, str] = field(default_factory=dict)
     kinds: frozenset[str] = ORDINARY
     family: Callable[[Family], bool] = lambda f: True
+    # The kinds of family sent after the first, in order, each from the case's side and with the situation's labels.
     then: tuple[str, ...] = ()
     # A fact the case's turns must state, which tells the situation apart from its neighbors on the same path.
     fact: str | None = None
@@ -206,7 +207,7 @@ def a_transaction(
         if not chosen:
             return None
         meant = rng.choice(chosen)
-        slots = _transaction_slots(family, meant)
+        slots = _transaction_slots(family, card, meant)
         if slots is None:
             return None
         return Pick(
@@ -218,12 +219,14 @@ def a_transaction(
 
 
 def _transaction_slots(
-    family: Family, meant: state.Transaction
+    family: Family, card: state.Card, meant: state.Transaction
 ) -> dict[str, str] | None:
     """
-    What the family's message says about the transaction, or None when it can't say it of this one.
+    What the family's message says about the transaction and its card, or None when it can't say it of this one.
     """
     slots: dict[str, str] = {}
+    if "last_four" in family.slots:
+        slots["last_four"] = card.last_four
     if "merchant" in family.slots:
         if meant.merchant is None:
             return None
@@ -281,7 +284,7 @@ def unlisted_decline(
         for t in state.merged(customer, [added]).card(card.product_id).transactions
         if t.transaction_id == added["transaction_id"]
     )
-    slots = _transaction_slots(family, meant)
+    slots = _transaction_slots(family, card, meant)
     if slots is None:
         return None
     return Pick(
@@ -322,7 +325,8 @@ def instructed_merchant(
     added = built.transaction(
         customer, card, built.moment(on, rng), rng.choice(built.INSTRUCTIONS), rng
     )
-    return Pick({"product_id": card.product_id}, {}, (added,))
+    slots = {"last_four": card.last_four} if "last_four" in family.slots else {}
+    return Pick({"product_id": card.product_id}, slots, (added,))
 
 
 def second_page(
@@ -512,7 +516,7 @@ SITUATIONS = [
         [("answer", "none"), ("answer", "none")],
         {"card": "card_last_four"},
         family=lambda f: _plain_read(f) and _no_hints(f),
-        then=("recent_transactions-04",),
+        then=("follow_up",),
         fact="{transactions}",
         asks_card=True,
     ),
@@ -978,6 +982,10 @@ class Drawn:
     short: list[dict[str, Any]]
 
 
+class GeneratorError(ValueError):
+    pass
+
+
 def summarize(con: duckdb.DuckDBPyConnection) -> None:
     for statement in SUMMARY.split(";"):
         if statement.strip():
@@ -1036,7 +1044,6 @@ class Generator:
         self.con = con
         self.side = side
         self.families = [f for f in families if (f.family_id in held) == wanted]
-        self.all_families = list(families)
         self.answers = [a for a in answers if (a.answer_id in held) == wanted]
         self.held = held
         self.words = words
@@ -1051,9 +1058,22 @@ class Generator:
         """
         composition is the set's cases per language by situation, when it isn't one of COMPOSITIONS (held_out()).
         """
+        chosen = composition or COMPOSITIONS[set_name]
+        if self.side == "held_out":
+            unworded = [
+                f"{name} in {language}"
+                for name in chosen
+                for language in BY_NAME[name].languages
+                if not self._worded(BY_NAME[name], language)
+            ]
+            if unworded:
+                raise GeneratorError(
+                    f"no held-out wording fits {', '.join(unworded)}; a held-out set borrows none "
+                    "(ADR-0011, Wording sources)"
+                )
         drawn: list[dict[str, Any]] = []
         short = []
-        for name, per_language in (composition or COMPOSITIONS[set_name]).items():
+        for name, per_language in chosen.items():
             situation = BY_NAME[name]
             for language in situation.languages:
                 rng = random.Random(f"{seed}/{name}/{language}")
@@ -1250,16 +1270,6 @@ class Generator:
         share: bool = False,
     ) -> list[dict[str, Any]]:
         fitting = [f for f in self.families if situation.fits(f) and _said(f, language)]
-        phrasing = self.side
-        if not fitting and self.side == "held_out":
-            # The split takes hashes, not shapes (ADR-0005, The split): a shape with no held-out family
-            # borrows development phrasing, and the case says so.
-            fitting = [
-                f
-                for f in self._development()
-                if situation.fits(f) and _said(f, language)
-            ]
-            phrasing = "development"
         if not fitting:
             return []
         made: list[dict[str, Any]] = []
@@ -1290,7 +1300,6 @@ class Generator:
                     set_name,
                     seed,
                     start,
-                    phrasing,
                 )
                 if case is not None:
                     made.append(case)
@@ -1322,7 +1331,6 @@ class Generator:
         set_name: str,
         seed: int,
         draw: int,
-        phrasing: str,
     ) -> dict[str, Any] | None:
         pick = situation.pick(customer, family, rng)
         if pick is None:
@@ -1356,14 +1364,15 @@ class Generator:
             values["amount"] = facts.amount(meant.amount, meant.currency)
         if "date" in values and meant is not None:
             values["date"] = day(meant.at.date())
+        sent = [family]
+        for kind in situation.then:
+            following = self._following(situation, kind, language)
+            if not following:
+                return None
+            sent.append(following[draw % len(following)])
         messages = []
-        for family_id in (family.family_id, *situation.then):
-            source = (
-                family
-                if family_id == family.family_id
-                else self._family(family_id, phrasing)
-            )
-            message = rng.choice(_said(source, language))
+        for each in sent:
+            message = rng.choice(_said(each, language))
             messages.append({"id": message.id, "text": _fill(message.text, values)})
         answers: dict[str, Any] = {}
         kinds = {**situation.answers, "dont_know": "dont_know"}
@@ -1392,7 +1401,7 @@ class Generator:
             "case_id": cases.case_id(set_name, seed, draw),
             "set": set_name,
             "side": self.side,
-            "phrasing": phrasing,
+            "phrasing": self.side,
             "group": situation.group,
             "situation": situation.name,
             "source": "built" if pick.fixtures else "harness" if faults else "natural",
@@ -1409,7 +1418,7 @@ class Generator:
             "faults": faults,
         }
         try:
-            expected = oracle.expect(customer, case, self.all_families, self.words)
+            expected = oracle.expect(customer, case, self.families, self.words)
         except oracle.NotCoveredError:
             return None
         taken = [
@@ -1432,12 +1441,30 @@ class Generator:
             )
         return case
 
-    def _family(self, family_id: str, phrasing: str) -> Family:
-        pool = self.families if phrasing == self.side else self._development()
-        return next(f for f in pool if f.family_id == family_id)
+    def _following(
+        self, situation: Situation, kind: str, language: str
+    ) -> list[Family]:
+        return [
+            f
+            for f in self.families
+            if f.kind == kind and f.labels == situation.labels and _said(f, language)
+        ]
 
-    def _development(self) -> list[Family]:
-        return [f for f in self.all_families if f.family_id not in self.held]
+    def _worded(self, situation: Situation, language: str) -> bool:
+        """
+        Whether the side holds wording for every message and answer the situation sends in the language.
+        """
+        answered = {a.kind for a in self.answers}
+        asked = {**situation.answers, "dont_know": "dont_know"}
+        return (
+            any(situation.fits(f) and _said(f, language) for f in self.families)
+            and all(self._following(situation, k, language) for k in situation.then)
+            and all(
+                kind in answered
+                for name, kind in asked.items()
+                if name not in ("confirm_control", "handoff_control")
+            )
+        )
 
 
 def digest(case: Mapping[str, Any]) -> str:

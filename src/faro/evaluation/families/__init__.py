@@ -8,12 +8,14 @@ marks, by position in each language's list, the paraphrases that aren't clearly 
 languages share): the scripted models say so, and the oracle keeps the conversation's language for the turn they open
 (POL-50; ADR-0005's amendment of 2026-10-02).
 
-Every family and answer names its source, the body of wording it belongs to (ADR-0011): these files are `ours`.
-
-Each label's families and each kind of answer are split by `split.held_out_families`: a third held out, the rest
-development. `problems()` lists every way the files break these rules; the tests require it to find none.
+Every family and answer names its source, the body of wording it belongs to, and a source serves one side of the split
+(ADR-0011, Wording sources): these files are `ours`, all development. Another source is kept in the same shape under
+data/evaluation/sources/, out of the repository until the first play of a set drawn from it (ADR-0011, The seal); its
+IDs carry its name, and each of its families and answers names the author that wrote it. `problems()` lists every way
+the files break these rules; the tests require it to find none.
 """
 
+import hashlib
 import json
 import re
 import unicodedata
@@ -21,9 +23,8 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from importlib.resources import files
 from itertools import product
+from pathlib import Path
 from typing import Any
-
-from faro.split import held_out_families
 
 # POL-05's order.
 LABELS = (
@@ -96,6 +97,9 @@ ANSWER_KINDS = {
 }
 PER_ANSWER_KIND = 3
 OURS = "ours"
+OUTSIDE = "outside"
+SIDES = {OURS: "development", OUTSIDE: "held_out"}
+SOURCES = Path("data/evaluation/sources")
 SEED_AUTHOR = "team"
 PARAPHRASE_AUTHOR = "claude-opus-5-5"
 MAX_LENGTH = 300
@@ -219,13 +223,17 @@ class Answer:
     kind: str
     texts: Mapping[str, str]
     source: str = OURS
+    author: str | None = None
 
 
 def _messages(family_id: str, body: Mapping[str, Any]) -> Iterator[Message]:
     unclear = body.get("unclear", {})
     for language in (*LANGUAGES, *OTHER_LANGUAGES):
         for n, text in enumerate(body.get(language, ())):
-            author = SEED_AUTHOR if n == 0 else PARAPHRASE_AUTHOR
+            # Ours name no author: the seed is ours and the rest Claude's. Another source's family names its own.
+            author = body.get("author") or (
+                SEED_AUTHOR if n == 0 else PARAPHRASE_AUTHOR
+            )
             yield Message(
                 f"{family_id}/{language}/{n}",
                 language,
@@ -235,7 +243,7 @@ def _messages(family_id: str, body: Mapping[str, Any]) -> Iterator[Message]:
             )
 
 
-def _family(group: str, body: Mapping[str, Any]) -> Family:
+def _family(group: str, body: Mapping[str, Any], source: str = OURS) -> Family:
     return Family(
         family_id=body["family_id"],
         group=group,
@@ -247,6 +255,17 @@ def _family(group: str, body: Mapping[str, Any]) -> Family:
         when=body.get("when"),
         complaint=bool(body.get("complaint", False)),
         unclear={k: tuple(v) for k, v in body.get("unclear", {}).items()},
+        source=source,
+    )
+
+
+def _answer(body: Mapping[str, Any], source: str = OURS) -> Answer:
+    return Answer(
+        body["answer_id"],
+        body["kind"],
+        {k: body[k] for k in LANGUAGES},
+        source,
+        body.get("author"),
     )
 
 
@@ -263,24 +282,57 @@ def load() -> tuple[Family, ...]:
 
 
 def load_answers() -> tuple[Answer, ...]:
-    return tuple(
-        Answer(a["answer_id"], a["kind"], {k: a[k] for k in LANGUAGES})
-        for a in _read("answers")["answers"]
+    return tuple(_answer(a) for a in _read("answers")["answers"])
+
+
+def load_source(
+    name: str, root: Path = SOURCES
+) -> tuple[tuple[Family, ...], tuple[Answer, ...]]:
+    """
+    Another source's families and answers, from root/name: a file per group it writes for, and answers.json.
+    """
+    if name == OURS or name not in SIDES:
+        raise ValueError(f"{name!r} isn't another source")
+    directory = root / name
+
+    def read(file: str, key: str) -> list[Any]:
+        path = directory / f"{file}.json"
+        return (
+            json.loads(path.read_text(encoding="utf-8"))[key] if path.is_file() else []
+        )
+
+    return (
+        tuple(
+            _family(group, body, name)
+            for group in GROUPS
+            for body in read(group, "families")
+        ),
+        tuple(_answer(body, name) for body in read("answers", "answers")),
     )
+
+
+def source_hash(name: str, root: Path = SOURCES) -> str:
+    folder = Path(__file__).parent if name == OURS else root / name
+    digest = hashlib.sha256()
+    for path in sorted(folder.glob("*.json")):
+        digest.update(path.name.encode() + b"\0" + path.read_bytes())
+    return digest.hexdigest()
 
 
 def held_out_ids(
     families: Sequence[Family], answers: Sequence[Answer] = ()
 ) -> frozenset[str]:
     """
-    The families and answers on the held-out side, by the shared split over each group.
+    The families and answers on the held-out side: those of the sources that serve it (ADR-0011, Wording sources).
     """
-    chosen: set[str] = set()
-    for group in GROUPS:
-        chosen |= held_out_families(f.family_id for f in families if f.group == group)
-    for kind in ANSWER_KINDS:
-        chosen |= held_out_families(a.answer_id for a in answers if a.kind == kind)
-    return frozenset(chosen)
+    return frozenset(
+        [f.family_id for f in families if SIDES[f.source] == "held_out"]
+        + [a.answer_id for a in answers if SIDES[a.source] == "held_out"]
+    )
+
+
+def _named(source: str) -> str:
+    return "" if source == OURS else re.escape(f"{source}.")
 
 
 def normalized(text: str) -> str:
@@ -342,8 +394,13 @@ def _message_problems(family: Family, message: Message) -> Iterator[str]:
 
 def _family_problems(family: Family) -> Iterator[str]:
     fid = family.family_id
-    if not re.fullmatch(rf"{family.group}-\d{{2}}", fid):
-        yield f"{fid} isn't named after its group"
+    if not re.fullmatch(rf"{_named(family.source)}{family.group}-\d{{2}}", fid):
+        yield f"{fid} isn't named after its group and its source"
+    if family.source != OURS and {m.author for m in family.messages} & {
+        SEED_AUTHOR,
+        PARAPHRASE_AUTHOR,
+    }:
+        yield f"{fid} names no author of its own"
     if family.kind not in KINDS:
         yield f"{fid} has an unknown kind {family.kind!r}"
     if any(label not in LABELS for label in family.labels):
@@ -397,8 +454,12 @@ def _answer_problems(answer: Answer) -> Iterator[str]:
     if answer.kind not in ANSWER_KINDS:
         yield f"{answer.answer_id} has an unknown kind"
         return
-    if not re.fullmatch(rf"{answer.kind}-\d{{2}}", answer.answer_id):
-        yield f"{answer.answer_id} isn't named after its kind"
+    if not re.fullmatch(
+        rf"{_named(answer.source)}{answer.kind}-\d{{2}}", answer.answer_id
+    ):
+        yield f"{answer.answer_id} isn't named after its kind and its source"
+    if answer.source != OURS and not answer.author:
+        yield f"{answer.answer_id} names no author"
     for language, text in answer.texts.items():
         if set(SLOT.findall(text)) != ANSWER_KINDS[answer.kind]:
             yield f"{answer.answer_id}/{language} doesn't give exactly its kind's slots"
@@ -446,14 +507,15 @@ def problems(
     found += [
         f"{i} appears twice" for i in sorted({i for i in ids if ids.count(i) > 1})
     ]
+    # Another source's counts are its study's to set.
     for group in GROUPS:
-        count = sum(f.group == group for f in families)
+        count = sum(f.group == group and f.source == OURS for f in families)
         if count != PER_GROUP:
-            found.append(f"{group} has {count} families, not {PER_GROUP}")
+            found.append(f"{group} has {count} families of ours, not {PER_GROUP}")
     for kind in ANSWER_KINDS:
-        count = sum(a.kind == kind for a in answers)
+        count = sum(a.kind == kind and a.source == OURS for a in answers)
         if count != PER_ANSWER_KIND:
-            found.append(f"{kind} has {count} answers, not {PER_ANSWER_KIND}")
+            found.append(f"{kind} has {count} answers of ours, not {PER_ANSWER_KIND}")
     for family in families:
         found += _family_problems(family)
     for answer in answers:

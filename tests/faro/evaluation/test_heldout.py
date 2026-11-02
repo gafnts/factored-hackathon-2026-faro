@@ -22,6 +22,7 @@ from faro.evaluation import (
 )
 from faro.evaluation.facts import contract_words
 
+from . import outside
 from .bank import Bank
 
 pytestmark = pytest.mark.xdist_group("evaluation_bank")
@@ -31,13 +32,15 @@ SITUATIONS = ("status.one_card", "block.reason_given", "person.asked")
 
 @pytest.fixture(scope="module")
 def drawn(bank: Bank) -> generator.Drawn:
-    loaded, answers = families.load(), families.load_answers()
-    held = families.held_out_ids(loaded, answers)
+    every = (*families.load(), *outside.FAMILIES)
+    every_answer = (*families.load_answers(), *outside.ANSWERS)
+    held = families.held_out_ids(every, every_answer)
+    workload = generator.held_out(240)
     with bronze.connect(bank.database, "held_out") as con:
         drawing = generator.Generator(
-            con, "held_out", loaded, answers, held, contract_words(), reuse=True
+            con, "held_out", every, every_answer, held, contract_words(), reuse=True
         )
-        found = drawing.draw(heldout.NAME, 7, generator.held_out(240))
+        found = drawing.draw(heldout.NAME, 7, {s: workload[s] for s in SITUATIONS})
     return generator.Drawn([c for c in found.cases if c["situation"] in SITUATIONS], [])
 
 
@@ -155,9 +158,17 @@ def test_the_held_out_workload_keeps_the_selections_proportions_at_each_size() -
 
 
 def test_the_held_out_side_draws_every_case_on_its_side(drawn: generator.Drawn) -> None:
+    wording = [
+        m["id"]
+        for c in drawn.cases
+        for m in [*c["script"]["messages"], *c["script"]["answers"].values()]
+        if isinstance(m, dict)
+    ]
+
     assert drawn.cases
     assert {c["side"] for c in drawn.cases} == {"held_out"}
     assert {c["set"] for c in drawn.cases} == {heldout.NAME}
+    assert all(w.startswith(f"{families.OUTSIDE}.") for w in wording)
 
 
 def test_the_held_out_side_plays_in_process_with_the_baseline_alone(

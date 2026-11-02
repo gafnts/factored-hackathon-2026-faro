@@ -1,0 +1,25 @@
+{
+  "label": "card_status",
+  "families": [
+    {
+      "family_id": "outside.card_status-01",
+      "kind": "plain",
+      "labels": [
+        "card_status"
+      ],
+      "author": "fixture",
+      "es": [
+        "Buenas, ¿podría revisar en qué estado quedó mi tarjeta?",
+        "Necesito confirmar si la tarjeta que tengo con ustedes sigue vigente.",
+        "¿Me ayuda a ver si mi tarjeta se encuentra en regla?",
+        "Quisiera conocer la condición actual de mi tarjeta."
+      ],
+      "pt": [
+        "Bom dia, poderia ver em que situação ficou o meu cartão?",
+        "Preciso confirmar se o cartão que tenho com vocês continua valendo.",
+        "Pode me ajudar a ver se o meu cartão está em ordem?",
+        "Queria conhecer a condição atual do meu cartão."
+      ]
+    }
+  ]
+}

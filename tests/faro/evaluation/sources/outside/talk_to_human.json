@@ -1,0 +1,25 @@
+{
+  "label": "talk_to_human",
+  "families": [
+    {
+      "family_id": "outside.talk_to_human-01",
+      "kind": "plain",
+      "labels": [
+        "talk_to_human"
+      ],
+      "author": "fixture",
+      "es": [
+        "Prefiero que me atienda una persona de carne y hueso.",
+        "¿Me puede pasar con alguien del equipo de servicio?",
+        "Quiero conversar con un asesor de la entidad.",
+        "Necesito que me comunique con una persona del banco."
+      ],
+      "pt": [
+        "Prefiro ser atendido por uma pessoa de verdade.",
+        "Pode me passar para alguém da equipe de atendimento?",
+        "Quero conversar com um atendente do banco.",
+        "Preciso que me coloque em contato com uma pessoa da equipe."
+      ]
+    }
+  ]
+}

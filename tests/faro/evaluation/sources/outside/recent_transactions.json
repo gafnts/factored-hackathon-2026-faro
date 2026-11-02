@@ -1,0 +1,25 @@
+{
+  "label": "recent_transactions",
+  "families": [
+    {
+      "family_id": "outside.recent_transactions-01",
+      "kind": "plain",
+      "labels": [
+        "recent_transactions"
+      ],
+      "author": "fixture",
+      "es": [
+        "Cuénteme por dónde ha andado mi tarjeta estas semanas.",
+        "Enséñeme en qué se ha ido gastando la tarjeta.",
+        "Quiero repasar lo último que se cobró en mi tarjeta.",
+        "¿Me lista los consumos más nuevos de la tarjeta?"
+      ],
+      "pt": [
+        "Me conte por onde o meu cartão andou nestas semanas.",
+        "Mostre em que o cartão anda sendo usado.",
+        "Quero revisar o que foi cobrado por último no meu cartão.",
+        "Pode listar os gastos mais novos do cartão?"
+      ]
+    }
+  ]
+}

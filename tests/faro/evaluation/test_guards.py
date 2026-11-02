@@ -1,6 +1,7 @@
 """
-The split's guards: a case sits wholly on its side, no development artifact holds a held-out family's words, and only
-the bronze opener names the pipeline's database.
+The split's guards: a case sits wholly on its side, borrowing nothing, no development artifact holds a held-out
+source's words, and only the bronze opener names the pipeline's database. The artifacts are checked against the real
+outside source where it's kept, before each PR merges, since it stays out of the repository (ADR-0011, The seal).
 """
 
 from importlib.resources import files
@@ -12,15 +13,22 @@ import pytest
 import faro.evaluation
 from faro.evaluation import baseline, families, guards
 
+from . import outside
 from .bank import HELD_OUT_CUSTOMER
 from .test_cases import example
 
-HELD = families.held_out_ids(families.load(), families.load_answers())
+HELD = families.held_out_ids(
+    (*families.load(), *outside.FAMILIES),
+    (*families.load_answers(), *outside.ANSWERS),
+)
 
 
 @pytest.fixture(scope="module")
 def held_messages() -> list[tuple[str, str]]:
-    return families.texts(families.load(), families.load_answers(), HELD)
+    found, answers = families.load_source(families.OUTSIDE)
+    if not found and not answers:
+        pytest.skip("no outside source here; it's checked where it's kept")
+    return families.texts(found, answers, families.held_out_ids(found, answers))
 
 
 def test_a_development_case_on_development_ground_passes() -> None:
@@ -29,14 +37,14 @@ def test_a_development_case_on_development_ground_passes() -> None:
 
 def test_a_case_off_its_side_is_caught() -> None:
     case: dict[str, Any] = example()
-    case["family_id"] = "card_status-03"
-    case["script"]["answers"]["card"]["id"] = "card_last_four-02/es"
+    case["family_id"] = "outside.card_status-01"
+    case["script"]["answers"]["card"]["id"] = "outside.dont_know-01/es"
     case["script"]["means"]["other_customer_id"] = HELD_OUT_CUSTOMER
 
     assert guards.case_problems(case, HELD) == [
         "its other customer isn't on the development side",
-        "card_last_four-02 isn't on the development side",
-        "card_status-03 isn't on the development side",
+        "outside.card_status-01 isn't on the development side",
+        "outside.dont_know-01 isn't on the development side",
     ]
 
 
@@ -50,25 +58,16 @@ def test_a_held_out_case_must_be_held_out_throughout() -> None:
     assert "card_status-01 isn't on the held_out side" in found
 
 
-def test_a_held_out_case_may_borrow_development_messages_but_not_answers() -> None:
+@pytest.mark.parametrize(
+    ("side", "phrasing"), [("held_out", "development"), ("development", "held_out")]
+)
+def test_no_case_borrows_the_other_sides_phrasing(side: str, phrasing: str) -> None:
     case: dict[str, Any] = example()
-    case["side"], case["phrasing"] = "held_out", "development"
+    case["side"], case["phrasing"] = side, phrasing
 
     found = guards.case_problems(case, HELD)
 
-    assert "its customer isn't on the held_out side" in found
-    assert "card_status-01 isn't on the held_out side" not in found
-    assert "card_last_four-01 isn't on the held_out side" in found
-
-
-def test_a_development_case_borrows_nothing() -> None:
-    case: dict[str, Any] = example()
-    case["phrasing"] = "held_out"
-
-    found = guards.case_problems(case, HELD)
-
-    assert found[0] == "a development case borrows no phrasing"
-    assert "card_status-01 isn't on the held_out side" in found
+    assert found[0] == "a case borrows no phrasing"
 
 
 def test_a_held_out_message_in_an_artifact_is_caught() -> None:

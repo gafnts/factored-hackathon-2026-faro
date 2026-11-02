@@ -168,11 +168,11 @@ def test_an_unknown_label_names_its_row(tmp_path: Path) -> None:
         labels.score(out)
 
 
-def test_the_committed_families_draw_fifty_across_both_sides(tmp_path: Path) -> None:
+def test_the_committed_families_draw_fifty_all_development(tmp_path: Path) -> None:
     manifest = labels.sample(tmp_path / "sample")
 
     assert manifest["rows"] == 50
     assert manifest["by_language"] == {"es": 25, "pt": 25}
     assert set(manifest["by_group"]) == set(families.GROUPS)
-    assert set(manifest["by_side"]) == {"development", "held_out"}
+    assert set(manifest["by_side"]) == {"development"}
     assert set(manifest["by_author"]) == {"team", "claude-opus-5-5"}

@@ -1,13 +1,18 @@
 """
 The request families and the scripted customer's answers keep their rules: no value from the records, slots as
-declared, the language they're filed under, a third of each group held out, and no held-out message close to a
-development one (ADR-0005, decision 2, as amended on 2026-10-01; DML-09, SEC-02).
+declared, the language they're filed under, ours all development and another source's wording held out, and no
+held-out message close to a development one (ADR-0005, decision 2, as amended on 2026-10-01; ADR-0011, Wording
+sources; DML-09, SEC-02).
 """
+
+from pathlib import Path
 
 import pytest
 
 from faro.evaluation import families
 from faro.evaluation.families import Answer, Family, Message
+
+from . import outside
 
 
 def family(
@@ -55,14 +60,41 @@ def test_the_families_and_answers_break_no_rule() -> None:
     assert families.problems() == []
 
 
-def test_every_group_holds_out_a_third_of_its_families() -> None:
+def test_ours_is_all_development_and_another_sources_wording_is_held_out() -> None:
     loaded, answers = families.load(), families.load_answers()
-    held = families.held_out_ids(loaded, answers)
+    every = (*loaded, *outside.FAMILIES)
+    every_answer = (*answers, *outside.ANSWERS)
 
-    for group in families.GROUPS:
-        assert sum(f.family_id in held for f in loaded if f.group == group) == 4
-    for kind in families.ANSWER_KINDS:
-        assert sum(a.answer_id in held for a in answers if a.kind == kind) == 1
+    assert families.held_out_ids(loaded, answers) == frozenset()
+    assert families.held_out_ids(every, every_answer) == {
+        *(f.family_id for f in outside.FAMILIES),
+        *(a.answer_id for a in outside.ANSWERS),
+    }
+    assert families.problems(every, every_answer) == []
+
+
+def test_another_sources_ids_carry_its_name_and_its_authors() -> None:
+    unnamed = family(
+        {"es": SPANISH, "pt": PORTUGUESE},
+        family_id="card_status-01",
+        source=families.OUTSIDE,
+    )
+    answer = Answer(
+        "dont_know-01", "dont_know", {"es": "No sé.", "pt": "Não sei."}, "outside"
+    )
+
+    assert any("its source" in p for p in families._family_problems(unnamed))
+    assert any("no author of its own" in p for p in families._family_problems(unnamed))
+    assert any("its source" in p for p in families._answer_problems(answer))
+    assert any("names no author" in p for p in families._answer_problems(answer))
+    assert [f.messages[0].author for f in outside.FAMILIES] == ["fixture"] * 4
+
+
+def test_only_another_source_loads_from_its_folder(tmp_path: Path) -> None:
+    assert families.load_source(families.OUTSIDE, tmp_path) == ((), ())
+    for name in (families.OURS, "elsewhere"):
+        with pytest.raises(ValueError, match="isn't another source"):
+            families.load_source(name, tmp_path)
 
 
 def test_every_family_and_answer_here_is_ours() -> None:

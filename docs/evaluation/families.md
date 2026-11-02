@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > **Team-generated (SEC-02).** Every message here was written for this evaluation: the seeds by us, the paraphrases by a model. No customer wrote any of them, and the snapshot holds no real request in any language ([ADR-0005](../adr/0005-offline-scenario-evaluation.md), Negative).
 
-The families are the requests the evaluation's scripted customer sends ([ADR-0005](../adr/0005-offline-scenario-evaluation.md), decision 2, as amended on 2026-10-01). They live in [`src/faro/evaluation/families/`](../../src/faro/evaluation/families/), one file per label of the [policy's request table](../policy/card-support.md#requests) and one, `none`, for messages that hold no card request.
+The families are the requests the evaluation's scripted customer sends ([ADR-0005](../adr/0005-offline-scenario-evaluation.md), decision 2, as amended on 2026-10-01). They are the wording source `ours`, all on the development side since 2026-11-02: held-out wording comes from another source ([ADR-0011](../adr/0011-pre-registered-studies.md#wording-sources)). They live in [`src/faro/evaluation/families/`](../../src/faro/evaluation/families/), one file per label of the [policy's request table](../policy/card-support.md#requests) and one, `none`, for messages that hold no card request.
 
 ## What a family is
 
@@ -17,7 +17,7 @@ One request, written in Spanish and in Portuguese: a seed in each language, then
 
 `answers.json` holds what the customer says when the agent asks: which card, a reason, which listed transaction, that it doesn't know, a message that doesn't answer (a greeting, thanks, or what else the chat does, POL-06), and a typed yes (which never confirms a block, POL-36). Three phrasings per kind, in both languages.
 
-108 families (12 per label and 12 in `none`) and 39 answers, 1,284 family messages in all.
+108 families (12 per label and 12 in `none`) and 45 answers (15 kinds), 1,284 family messages in all.
 
 ## How they were written
 
@@ -30,12 +30,13 @@ Each message names its author: the first in each language is the seed (`team`), 
 
 ## The split
 
-Within each label, and within each kind of answer, the third whose IDs have the lowest MD5 is held out (`split.held_out_families`): four families per label, 36 in all, and one answer per kind. The rule is shared code, like the split by customer, so no one chooses which families are held out. Development cases, prompts, the baseline's keywords, and the router's tuning use development families only, and a test checks that no development artifact holds a held-out message ([split guards](../adr/0005-offline-scenario-evaluation.md#the-split)).
+Every family and answer here is development wording. Held-out wording is another source's, written by another model family from a guide we write, so it's neither our wording nor our model family's ([ADR-0011](../adr/0011-pre-registered-studies.md#wording-sources)). Its messages pass the checks above against these, and a test, run where that source is kept, checks that no development artifact (cases, prompts, the baseline's keywords, the router's data) holds one of its messages ([split guards](../adr/0005-offline-scenario-evaluation.md#the-split)).
+
+Until 2026-11-02, a third of these were held out: within each label and each kind of answer, the third whose IDs had the lowest MD5, so four families per label, 36 in all, and one answer per kind. The first held-out set, `held_out`, was drawn under that rule, and the commit that drew it rebuilds it. The rule took hashes, not shapes, so it left fifteen situations with no held-out family, put the one follow-up family and all three `access` families (someone else's card, another customer's number) on one side, and gave each kind of answer a single held-out phrasing, which one misread could fail throughout (D-013).
 
 ## Limits
 
 - **All of it is ours.** Our phrasing may be easier than customers' would be; the router comparison's results describe these families, not real traffic (EVL-13).
 - **A model's paraphrases.** Claude Opus 5.5 is an Anthropic model, and so are the router comparison's LLM candidates, Claude Haiku 4.5 and Claude Sonnet 5.5: the bias favors neither over the other, but may favor both over the keyword router. The report says so beside the comparison (DML-11).
-- **One follow-up family.** The next page has a single family, which the split put on the development side, so held-out cases can't ask for a next page in held-out words.
-- **No development access family.** The split put all three `access` families (someone else's card, another customer's number) on the held-out side, so no development case asks in words about another customer's records; the harness's access cases (another customer's thread or session, a tool called directly) cover access on the development side.
+- **One follow-up family.** The next page has a single family here; a case's follow-up comes from its own side, so a held-out source writes its own.
 - **Label quality** wasn't measured. The blind relabel of 50 messages was drawn and not graded, for time ([report](report.md#label-quality), DML-08).

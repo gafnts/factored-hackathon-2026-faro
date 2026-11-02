@@ -13,7 +13,6 @@ token, or a value (SEC-03).
 
 import argparse
 import asyncio
-import hashlib
 import json
 import subprocess
 import sys
@@ -45,7 +44,6 @@ from faro.pipeline import runner
 SETS = ("regression", "selection")
 PLAYED = (*SETS, heldout.NAME)
 SET_DOCS = Path("docs/evaluation/sets")
-FAMILIES = Path(families.__file__).parent
 
 
 def commit() -> str:
@@ -66,13 +64,6 @@ def commit() -> str:
         check=True,
     ).stdout.strip()
     return f"{head}+dirty" if dirty else head
-
-
-def families_hash() -> str:
-    digest = hashlib.sha256()
-    for path in sorted(FAMILIES.glob("*.json")):
-        digest.update(path.name.encode() + b"\0" + path.read_bytes())
-    return digest.hexdigest()
 
 
 def generate(
@@ -99,6 +90,14 @@ def generate(
     protocol = heldout.registered() if held_out is not None and not played else None
     loaded, answers = families.load(), families.load_answers()
     held = families.held_out_ids(loaded, answers)
+    every, every_answer = loaded, answers
+    if held_out is not None:
+        # The held-out side's wording is the outside source's, checked against ours before anything is drawn.
+        outside, outside_answers = families.load_source(families.OUTSIDE)
+        every, every_answer = (*loaded, *outside), (*answers, *outside_answers)
+        found = families.problems(every, every_answer)
+        if found:
+            raise LockError(f"the outside source breaks the families' rules: {found}")
 
     def keep(
         set_name: str, drawn: generator.Drawn, more: dict[str, Any] | None = None
@@ -124,7 +123,7 @@ def generate(
         versions = {
             **built,
             "generator": commit(),
-            "families": families_hash(),
+            "sources": {families.OURS: families.source_hash(families.OURS)},
             "policy": oracle.POLICY_VERSION,
             "case_format": cases.VERSION,
         }
@@ -137,12 +136,21 @@ def generate(
         return
     with bronze.connect(database, "held_out") as con:
         drawing = generator.Generator(
-            con, "held_out", loaded, answers, held, contract_words()
+            con,
+            "held_out",
+            every,
+            every_answer,
+            families.held_out_ids(every, every_answer),
+            contract_words(),
         )
         drawn = drawing.draw(heldout.NAME, seed, generator.held_out(held_out))
     if not played:
         registration = {"path": str(heldout.PROTOCOL), "sha256": protocol}
-        keep(heldout.NAME, drawn, {"protocol": registration})
+        sources = {
+            name: families.source_hash(name)
+            for name in (families.OURS, families.OUTSIDE)
+        }
+        keep(heldout.NAME, drawn, {"protocol": registration, "sources": sources})
         return
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     heldout.reproduce(played, drawn.cases, manifest, heldout.committed(manifest_path))
@@ -484,6 +492,7 @@ def main(argv: list[str] | None = None) -> int:
         deployed.StackError,
         endtoend.RunError,
         heldout.HeldOutError,
+        generator.GeneratorError,
     ) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

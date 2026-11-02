@@ -1,8 +1,7 @@
 """
-The split's guards (ADR-0005, The split): a case's customer and answers sit on its side, its messages on the side its
-phrasing names (a held-out situation no held-out family fits borrows development phrasing), and no development
-artifact (cases, prompts, the baseline's keywords, the router's data) holds a held-out customer or a held-out family's
-words. The tests run them over every artifact in the repository; the generator runs them over every set it writes.
+The split's guards (ADR-0005, The split, as ADR-0011 amends it): a case's customer, messages, and answers sit on its
+side, held-out wording coming only from held-out sources, and no development artifact (cases, prompts, the baseline's
+keywords, the router's data) holds a held-out customer or a held-out source's words. The tests run them over every artifact in the repository; the generator runs them over every set it writes.
 """
 
 from collections.abc import Iterable, Mapping
@@ -18,13 +17,13 @@ CONTAINED_WORDS = 3
 
 def case_problems(case: Mapping[str, Any], held_families: frozenset[str]) -> list[str]:
     """
-    held_families: the held-out families' and answers' IDs (families.held_out_ids).
+    held_families: the held-out sources' family and answer IDs (families.held_out_ids).
     """
     want = case["side"] == "held_out"
     phrasing = case.get("phrasing", case["side"])
     found = []
-    if phrasing != case["side"] and not want:
-        found.append("a development case borrows no phrasing")
+    if phrasing != case["side"]:
+        found.append("a case borrows no phrasing")
     customers = [("customer", case["customer_id"])]
     if "other_customer_id" in case["script"]["means"]:
         customers.append(
