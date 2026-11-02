@@ -65,6 +65,11 @@ def test_every_group_holds_out_a_third_of_its_families() -> None:
         assert sum(a.answer_id in held for a in answers if a.kind == kind) == 1
 
 
+def test_every_family_and_answer_here_is_ours() -> None:
+    assert {f.source for f in families.load()} == {families.OURS}
+    assert {a.source for a in families.load_answers()} == {families.OURS}
+
+
 def test_the_seed_is_ours_and_the_rest_are_paraphrases() -> None:
     first = families.load()[0]
 

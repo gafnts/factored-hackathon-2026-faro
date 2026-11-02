@@ -8,6 +8,8 @@ marks, by position in each language's list, the paraphrases that aren't clearly 
 languages share): the scripted models say so, and the oracle keeps the conversation's language for the turn they open
 (POL-50; ADR-0005's amendment of 2026-10-02).
 
+Every family and answer names its source, the body of wording it belongs to (ADR-0011): these files are `ours`.
+
 Each label's families and each kind of answer are split by `split.held_out_families`: a third held out, the rest
 development. `problems()` lists every way the files break these rules; the tests require it to find none.
 """
@@ -93,6 +95,7 @@ ANSWER_KINDS = {
     "typed_yes": set(),
 }
 PER_ANSWER_KIND = 3
+OURS = "ours"
 SEED_AUTHOR = "team"
 PARAPHRASE_AUTHOR = "claude-opus-5-5"
 MAX_LENGTH = 300
@@ -204,6 +207,7 @@ class Family:
     when: str | None = None
     complaint: bool = False
     unclear: Mapping[str, tuple[int, ...]] = field(default_factory=dict)
+    source: str = OURS
 
     def in_language(self, language: str) -> tuple[Message, ...]:
         return tuple(m for m in self.messages if m.language == language)
@@ -214,6 +218,7 @@ class Answer:
     answer_id: str
     kind: str
     texts: Mapping[str, str]
+    source: str = OURS
 
 
 def _messages(family_id: str, body: Mapping[str, Any]) -> Iterator[Message]:
