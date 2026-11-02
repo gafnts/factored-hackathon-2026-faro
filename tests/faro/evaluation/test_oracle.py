@@ -228,23 +228,54 @@ def test_the_third_aside_at_a_charges_question_still_offers_the_block(
     assert {"POL-06", "POL-17"} <= set(expected["turns"][3]["decisions"][0]["rules"])
 
 
-def test_an_interjection_isnt_read_yet(con: duckdb.DuckDBPyConnection) -> None:
+def corrected(kind: str) -> dict[str, Any]:
+    # The message names the credit card ending in 4417, three charges on it; the customer means 7302's one.
     played = case(
-        EXAMPLE_CUSTOMER,
-        "card_status-01",
-        answers={"card": "card_last_four-01"},
-        means={"product_id": "PRD-EXAMPLE00008"},
+        "CLI-EVAL00000005",
+        "unrecognized_charge-06",
+        answers={"card": "card_last_four-01", "confirm_control": "confirm"},
+        means={"product_id": "PRD-EVAL00000501"},
+        slots={"last_four": "4417"},
     )
     played["script"]["answers"]["interjection"] = {
-        "at": "card",
-        "id": "talk_to_human-06/es/0",
+        "at": "transaction",
+        "id": f"{kind}-01/es",
         "text": "-",
     }
-    customer = state.read(con, EXAMPLE_CUSTOMER)
-    assert customer is not None
+    return played
 
-    with pytest.raises(oracle.NotCoveredError, match="interjection"):
-        oracle.expect(customer, played, FAMILIES, contract_words())
+
+def test_a_card_named_at_a_charges_question_moves_the_request(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    expected = play(con, corrected("card_correction"))
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "clarify")], "transaction"),
+        ("interjection", [("unrecognized_charge", "block")], "confirm_control"),
+        ("confirm", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    moved = expected["turns"][1]
+    assert moved["facts"]["{card}"] == "tarjeta de crédito terminada en 7302"
+    assert moved["tools_required"] == ["find_transactions"]
+    assert "POL-13" in moved["decisions"][0]["rules"]
+    assert expected["blocked"] == ["PRD-EVAL00000501"]
+
+
+def test_another_card_unnamed_asks_which_of_the_others(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    expected = play(con, corrected("another_card"))
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "clarify")], "transaction"),
+        ("interjection", [("unrecognized_charge", "clarify")], "card"),
+        ("card", [("unrecognized_charge", "block")], "confirm_control"),
+        ("confirm", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    listed = expected["turns"][1]["facts"]["{card_list}"]
+    assert "4417" not in listed and "7302" in listed and "6650" in listed
+    assert expected["blocked"] == ["PRD-EVAL00000501"]
 
 
 @pytest.mark.parametrize(

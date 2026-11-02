@@ -112,6 +112,8 @@ class Hints:
     amount: Decimal | None = None
     on: date | None = None
     newest: bool = False
+    # The card left out when the customer says only that it's another one (POL-13).
+    besides: str | None = None
 
     def given(self) -> bool:
         return self.card_type is not None or self.last_four is not None
@@ -157,6 +159,14 @@ class Searched(NamedTuple):
     tools: tuple[str, ...]
     # The rules that stopped a search left unsettled, which a charge records in its handoff (POL-17, POL-39).
     stopped: tuple[str, ...] = ()
+
+
+class Moved(NamedTuple):
+    """
+    Another card named at a question about a transaction, which moves the request to it (POL-13).
+    """
+
+    hints: Hints
 
 
 def handoff(reason_code: str, trigger: str, priority: str = "normal") -> dict[str, str]:
@@ -238,6 +248,11 @@ class Conversation:
         )
         self.typed = False
         self.asides = cases.asides(self.script["answers"])
+        self.interjection: Mapping[str, str] | None = self.script["answers"].get(
+            "interjection"
+        )
+        # Rules the next decision cites besides its own, for a turn whose request moved (POL-13).
+        self.cite: list[str] = []
         self.paging: tuple[Card, int] | None = None
         self.turns: list[dict[str, Any]] = []
         self.blocked: list[str] = []
@@ -261,9 +276,10 @@ class Conversation:
 
     def answer_for(self, awaiting: str) -> Answer | None:
         answers = self.script["answers"]
-        interjection = answers.get("interjection")
+        interjection = self.interjection
         if interjection is not None and interjection["at"] == awaiting:
-            raise NotCoveredError("an interjection")
+            self.interjection = None
+            return self.interjected(interjection)
         if awaiting in ASKED and self.asides:
             aside = self.asides.pop(0)
             return Answer(
@@ -306,6 +322,22 @@ class Conversation:
             ),
             language=language,
         )
+
+    def interjected(self, text: Mapping[str, str]) -> Answer:
+        """
+        What an interjection says: another card, named or not (POL-13).
+        """
+        if len(text["id"].split("/")) == 3:
+            raise NotCoveredError("a family's message sent at a wait")
+        kind = cases.kind(text["id"])
+        language = said_in(text)
+        if kind == "card_correction":
+            assert self.card is not None
+            hints = Hints(last_four=self.card.last_four)
+            return Answer("interjection", hints, language=language, said=kind)
+        if kind == "another_card":
+            return Answer("interjection", language=language, said=kind)
+        raise NotCoveredError(f"an interjection of kind {kind}")
 
     def heard(self, family: Family, message_id: str) -> str | None:
         """
@@ -389,6 +421,9 @@ class Conversation:
         return turn
 
     def decide(self, turn: dict[str, Any], label: str | None, step: Step) -> None:
+        if self.cite:
+            step = replace(step, rules=[*step.rules, *self.cite])
+            self.cite = []
         for outcome_class, rules in step.before:
             turn["decisions"].append(
                 {
@@ -539,7 +574,7 @@ class Conversation:
         POL-13 to POL-17: the card the customer means, asked for while more than one is left. For a charge, a card that
         can't be settled goes to dispute intake at once, the request's only handoff (POL-39).
         """
-        cards = list(self.customer.cards)
+        cards = [c for c in self.customer.cards if c.product_id != hints.besides]
         if not cards:
             raise NotCoveredError("a customer with no card")
         asked = asided = 0
@@ -595,10 +630,11 @@ class Conversation:
 
     def which_transaction(
         self, card: Card, hints: Hints, prefer_declined: bool, charge: bool = False
-    ) -> Generator[Step, Answer, Searched | Step]:
+    ) -> Generator[Step, Answer, Searched | Moved | Step]:
         """
         POL-27 and POL-39: the transaction meant among the card's newest, the Declined ones first for a decline. A
-        charge left unsettled is recorded in its handoff, not offered a person on its own (POL-39).
+        charge left unsettled is recorded in its handoff, not offered a person on its own (POL-39), and another card
+        named at the question moves the request (POL-13).
         """
         meant = [t for t in card.transactions[:SEARCHED] if fits(t, hints)]
         if prefer_declined:
@@ -628,6 +664,10 @@ class Conversation:
                 if charge:
                     return Searched(None, (), ("POL-06", "POL-17"))
                 return (yield from self.unsettled(("POL-06", "POL-17")))
+            if answer.sends == "interjection":
+                if answer.said == "another_card":
+                    return Moved(Hints(besides=card.product_id))
+                return Moved(answer.hints)
             if answer.hints.newest:
                 meant = shown[:1]
             else:
@@ -635,6 +675,25 @@ class Conversation:
         return Searched(
             meant[0] if meant else None, () if asked else ("find_transactions",)
         )
+
+    def searching(
+        self, card: Card, hints: Hints, prefer_declined: bool, charge: bool = False
+    ) -> Generator[Step, Answer, tuple[Card, Searched] | Step]:
+        """
+        The transaction meant on the card, searched again on another card the customer names at the question, which the
+        turn's next decision cites (POL-13).
+        """
+        while True:
+            searched = yield from self.which_transaction(
+                card, hints, prefer_declined, charge
+            )
+            if not isinstance(searched, Moved):
+                return searched if isinstance(searched, Step) else (card, searched)
+            self.cite.append("POL-13")
+            moved = yield from self.which_card(searched.hints, None, charge)
+            if isinstance(moved, Step):
+                return moved
+            card = moved
 
     def card_status(self, family: Family, hints: Hints) -> Request:
         if family.extract.get("cards") == "all":
@@ -733,10 +792,10 @@ class Conversation:
             return card
         if self.fails("find_transactions"):
             return (yield from self.unavailable("find_transactions"))
-        searched = yield from self.which_transaction(card, hints, prefer_declined=True)
-        if isinstance(searched, Step):
-            return searched
-        found, tools, _ = searched
+        searching = yield from self.searching(card, hints, prefer_declined=True)
+        if isinstance(searching, Step):
+            return searching
+        card, (found, tools, _) = searching
         facts = {"{card}": self.facts.card(card)}
         if found is None:
             return Step("answer", ["POL-27"], tools=tools, facts=facts)
@@ -838,12 +897,12 @@ class Conversation:
             return card
         for tool in ("find_transactions", "block_card", "get_card"):
             self.unplanned(tool)
-        searched = yield from self.which_transaction(
+        searching = yield from self.searching(
             card, hints, prefer_declined=False, charge=True
         )
-        if isinstance(searched, Step):
-            return searched
-        found, tools, stopped = searched
+        if isinstance(searching, Step):
+            return searching
+        card, (found, tools, stopped) = searching
         facts = {"{card}": self.facts.card(card)}
         if found is not None:
             facts["{transaction}"] = self.facts.found(found)
