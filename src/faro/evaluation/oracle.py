@@ -133,8 +133,10 @@ class Answer:
     hints: Hints = Hints()
     block_reason: str | None = None
     language: str | None = None
-    # The kind of answer an aside is, which decides its short reply (POL-06).
+    # The kind of answer an aside or an interjection is, which decides its short reply (POL-06).
     said: str | None = None
+    # The family of a message sent at a wait, which makes a request (POL-06, POL-39).
+    family: Family | None = None
 
 
 @dataclass
@@ -253,6 +255,8 @@ class Conversation:
         )
         # Rules the next decision cites besides its own, for a turn whose request moved (POL-13).
         self.cite: list[str] = []
+        # The charges handed off to dispute intake, one case per transaction, or per card for one not found (POL-39).
+        self.disputes: set[tuple[str, str | None]] = set()
         self.paging: tuple[Card, int] | None = None
         self.turns: list[dict[str, Any]] = []
         self.blocked: list[str] = []
@@ -325,10 +329,18 @@ class Conversation:
 
     def interjected(self, text: Mapping[str, str]) -> Answer:
         """
-        What an interjection says: another card, named or not (POL-13).
+        What an interjection says: another card, named or not (POL-13), or a family's message, with what it says about
+        the card and the transaction.
         """
-        if len(text["id"].split("/")) == 3:
-            raise NotCoveredError("a family's message sent at a wait")
+        family_id, *message = text["id"].split("/")
+        if len(message) == 2:
+            family = self.families[family_id]
+            return Answer(
+                "interjection",
+                self.message_hints(family),
+                language=self.heard(family, text["id"]),
+                family=family,
+            )
         kind = cases.kind(text["id"])
         language = said_in(text)
         if kind == "card_correction":
@@ -665,9 +677,21 @@ class Conversation:
                     return Searched(None, (), ("POL-06", "POL-17"))
                 return (yield from self.unsettled(("POL-06", "POL-17")))
             if answer.sends == "interjection":
-                if answer.said == "another_card":
-                    return Moved(Hints(besides=card.product_id))
-                return Moved(answer.hints)
+                said = answer.hints
+                if answer.family is None:
+                    if answer.said == "another_card":
+                        return Moved(Hints(besides=card.product_id))
+                    return Moved(said)
+                if not charge or answer.family.labels != ("unrecognized_charge",):
+                    raise NotCoveredError("a request sent at a question")
+                # POL-39: the charge reported again answers the question, narrowing the search on the card it names.
+                if said.given() and (
+                    said.last_four not in (None, card.last_four)
+                    or said.card_type not in (None, card.type)
+                ):
+                    return Moved(said)
+                meant = [t for t in meant if fits(t, said)] or meant
+                continue
             if answer.hints.newest:
                 meant = shown[:1]
             else:
@@ -850,16 +874,23 @@ class Conversation:
         while shown.sends == "typed_yes":
             shown = yield Step("block", ["POL-36"], "confirm_control")
         charge = reason == "unrecognized_charge"
+        # POL-39: the charge isn't looked for on this path, so the case is the card's.
+        key = (card.product_id, None)
         if shown.sends == "cancel":
             if charge:
-                return self.disputed(["POL-36", "POL-39"], ("file_handoff",), "urgent")
+                return self.disputed(
+                    key, ["POL-36", "POL-39"], ("file_handoff",), "urgent"
+                )
             return Step("answer", ["POL-36"])
         if self.fails("block_card"):
             # POL-37: not verified, so handed off without another confirmation; POL-47 for a card reported missing or a
             # charge, whose handoff goes to dispute intake (POL-39).
             if charge:
                 return self.disputed(
-                    ["POL-37", "POL-39"], ("block_card", "file_handoff"), "urgent"
+                    key,
+                    ["POL-37", "POL-39"],
+                    ("block_card", "file_handoff"),
+                    "urgent",
                 )
             return Step(
                 "hand_off",
@@ -875,6 +906,7 @@ class Conversation:
         self.unplanned("get_card")
         if charge:
             return self.disputed(
+                key,
                 ["POL-37", "POL-39", "POL-45"],
                 ("block_card", "file_handoff"),
                 blocked=card.product_id,
@@ -906,7 +938,12 @@ class Conversation:
         facts = {"{card}": self.facts.card(card)}
         if found is not None:
             facts["{transaction}"] = self.facts.found(found)
+        key = (card.product_id, found.transaction_id if found is not None else None)
+        if key in self.disputes:
+            # POL-39: a charge reported again once its case is filed gets that case's reference, not a second case.
+            return Step("answer", ["POL-39"], tools=tools, facts=facts)
         if not card.active:
+            self.disputes.add(key)
             priority = "normal" if card.status == "Blocked" else "urgent"
             return Step(
                 "hand_off",
@@ -921,8 +958,9 @@ class Conversation:
         while shown.sends == "typed_yes":
             shown = yield Step("block", ["POL-36"], "confirm_control")
         if shown.sends == "cancel":
-            return self.disputed(["POL-36", "POL-39"], ("file_handoff",), "urgent")
+            return self.disputed(key, ["POL-36", "POL-39"], ("file_handoff",), "urgent")
         return self.disputed(
+            key,
             ["POL-37", "POL-39", "POL-45"],
             ("block_card", "file_handoff"),
             blocked=card.product_id,
@@ -942,6 +980,7 @@ class Conversation:
 
     def disputed(
         self,
+        key: tuple[str, str | None],
         rules: list[str],
         tools: tuple[str, ...],
         priority: str = "normal",
@@ -949,8 +988,9 @@ class Conversation:
     ) -> Step:
         """
         POL-39's handoff to dispute intake once the block's confirmation ends, whether the charge was reported or given
-        as a block's reason.
+        as a block's reason; the case is the charge's, keyed by its card and its transaction if one was found.
         """
+        self.disputes.add(key)
         return Step(
             "hand_off",
             rules,

@@ -278,6 +278,73 @@ def test_another_card_unnamed_asks_which_of_the_others(
     assert expected["blocked"] == ["PRD-EVAL00000501"]
 
 
+def one_of_several_charges(con: duckdb.DuckDBPyConnection) -> tuple[str, str]:
+    """
+    CLI-EVAL00000015's one card and a merchant only one of its charges has.
+    """
+    customer = state.read(con, "CLI-EVAL00000015")
+    assert customer is not None
+    card = customer.cards[0]
+    merchants = [t.merchant for t in card.transactions[: oracle.SEARCHED]]
+    merchant = next(m for m in merchants if m is not None and merchants.count(m) == 1)
+    return card.product_id, merchant
+
+
+def test_a_charge_reported_again_at_its_question_answers_it(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    card_id, merchant = one_of_several_charges(con)
+    played = case(
+        "CLI-EVAL00000015",
+        "unrecognized_charge-01",
+        answers={"confirm_control": "confirm"},
+        means={"product_id": card_id},
+        slots={"merchant": merchant},
+    )
+    played["script"]["answers"]["interjection"] = {
+        "at": "transaction",
+        "id": "unrecognized_charge-02/es/0",
+        "text": "-",
+    }
+
+    expected = play(con, played)
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "clarify")], "transaction"),
+        ("interjection", [("unrecognized_charge", "block")], "confirm_control"),
+        ("confirm", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    assert merchant in expected["turns"][1]["facts"]["{transaction}"]
+
+
+def test_a_charge_reported_again_once_handed_off_gets_its_reference(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    card_id, merchant = one_of_several_charges(con)
+
+    expected = play(
+        con,
+        case(
+            "CLI-EVAL00000015",
+            "unrecognized_charge-02",
+            "unrecognized_charge-02",
+            answers={"confirm_control": "cancel"},
+            means={"product_id": card_id},
+            slots={"merchant": merchant},
+        ),
+    )
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "block")], "confirm_control"),
+        ("cancel", [("unrecognized_charge", "hand_off")], "none"),
+        ("message", [("unrecognized_charge", "answer")], "none"),
+    ]
+    again = expected["turns"][2]
+    assert again["decisions"][0]["rules"] == ["POL-39"]
+    assert again["tools_required"] == ["find_transactions"]
+    assert again["tools_forbidden"] == ["block_card", "file_handoff"]
+
+
 @pytest.mark.parametrize(
     ("card_id", "outcome", "fact"),
     [
