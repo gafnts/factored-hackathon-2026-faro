@@ -34,6 +34,7 @@ Amended as built, each correction applied in the section it names:
 - 2026-11-02: the form of address and a verdict or a promise checked by word lists, which the judge read before; grader version 7 ([ADR-0011](0011-pre-registered-studies.md#grading-by-code)) ([Grading](#grading)).
 - 2026-11-02: no model judges: the judge, its rubric, and its validation sample removed, the submission's verdicts kept in its results ([ADR-0011](0011-pre-registered-studies.md#grading-by-code)) ([Decision](#decision), [The development selection set](#the-development-selection-set), [Budget and the pilot](#budget-and-the-pilot), [Grading](#grading), [Baselines](#baselines), [Reporting](#reporting), [The run manifest](#the-run-manifest), [Settled at acceptance](#settled-at-acceptance), [Consequences](#consequences)).
 - 2026-11-02: two systems' runs of one set compared case by case, as a study chooses ([ADR-0011](0011-pre-registered-studies.md#studies)) ([Reporting](#reporting)).
+- 2026-11-02: the sizes, the budget, and the hypothesis here are the submission's measurement's, described as a study after the fact; a later study sets its own ([ADR-0011](0011-pre-registered-studies.md#studies)) ([Coverage and size](#coverage-and-size)).
 
 ## Context
 
@@ -61,7 +62,7 @@ One customer from one split, one scripted conversation from one authored request
 
 ### Coverage and size
 
-About 600 held-out cases, 300 per language (decision 1), fewer only as the [pilot](#budget-and-the-pilot)'s scope rule steps down. The size is a setting of the generator, and the table's counts scale with it. Every group has cases in both languages, and every policy rule is exercised by at least one case. Each of the five reason codes whose handoff is offered has a case where the customer accepts with the handoff control and one where the customer declines, in both languages, so unnecessary transfers can be counted (M-03).
+The sizes here are the submission's measurement's ([held-out-1](../evaluation/studies/held-out-1.md)); a later study sets its own in its protocol ([ADR-0011](0011-pre-registered-studies.md#studies)). About 600 held-out cases, 300 per language (decision 1), fewer only as the [pilot](#budget-and-the-pilot)'s scope rule steps down. The size is a setting of the generator, and the table's counts scale with it. Every group has cases in both languages, and every policy rule is exercised by at least one case. Each of the five reason codes whose handoff is offered has a case where the customer accepts with the handoff control and one where the customer declines, in both languages, so unnecessary transfers can be counted (M-03).
 
 | Group | Covers | Requirements | Cases per language | Source |
 |---|---|---|---|---|
