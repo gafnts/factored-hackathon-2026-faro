@@ -190,7 +190,13 @@
         "reason_code": { "$ref": "urn:banking-agent:card-support:execution-record:1#/$defs/reason_code" },
         "trigger": { "enum": ["required", "accepted_offer"] },
         "queue": { "enum": ["customer_service", "dispute_intake"] },
-        "priority": { "enum": ["urgent", "normal"] }
+        "priority": { "enum": ["urgent", "normal"] },
+        "cites": {
+          "description": "Rules the filed case cites besides its own: POL-44 for a complaint or a request for a person that joined it (policy version 7).",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^POL-[0-9]{2}$" }
+        }
       }
     },
     "turn": {

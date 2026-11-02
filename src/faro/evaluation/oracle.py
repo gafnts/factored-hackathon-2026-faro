@@ -148,8 +148,8 @@ class Step:
     facts: dict[str, str] = field(default_factory=dict)
     handoff: dict[str, str] | None = None
     blocked: str | None = None
-    # Decisions the turn records before the step's own, about no request: an outcome class and its rules.
-    before: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    # Decisions the turn records before the step's own: a request's label, if any, an outcome class, and its rules.
+    before: tuple[tuple[str | None, str, tuple[str, ...]], ...] = ()
 
 
 Request = Generator[Step, Answer, Step]
@@ -257,6 +257,10 @@ class Conversation:
         self.cite: list[str] = []
         # The charges handed off to dispute intake, one case per transaction, or per card for one not found (POL-39).
         self.disputes: set[tuple[str, str | None]] = set()
+        # Requests sent at a question that ended it, served next in the same turn (POL-06).
+        self.pending: list[Family] = []
+        # The label whose handoff each turn files, by the turn's number.
+        self.filer: dict[int, str | None] = {}
         self.paging: tuple[Card, int] | None = None
         self.turns: list[dict[str, Any]] = []
         self.blocked: list[str] = []
@@ -395,20 +399,38 @@ class Conversation:
                 self.decide(turn, queue[0], step)
                 continue
             for label in queue:
-                request = self.request(label, family, hints)
-                answer: Answer | None = None
-                while True:
-                    try:
-                        step = request.send(answer) if answer else next(request)
-                    except StopIteration as done:
-                        self.decide(turn, label, done.value)
-                        break
-                    self.decide(turn, label, step)
-                    answer = self.answer_for(step.awaiting)
-                    if answer is None:
-                        return self.expected()
-                    turn = self.open(answer.sends, answer.language)
+                served = self.serve(turn, label, family, hints)
+                while served is not None and self.pending:
+                    sent = self.pending.pop(0)
+                    for extra in sorted(sent.labels, key=ORDER.index):
+                        if served is not None:
+                            served = self.serve(
+                                served, extra, sent, self.message_hints(sent)
+                            )
+                if served is None:
+                    return self.expected()
+                turn = served
         return self.expected()
+
+    def serve(
+        self, turn: dict[str, Any], label: str, family: Family, hints: Hints
+    ) -> dict[str, Any] | None:
+        """
+        One request from the turn it opens in, and the turn it ends in, or None when the customer sends nothing more.
+        """
+        request = self.request(label, family, hints)
+        answer: Answer | None = None
+        while True:
+            try:
+                step = request.send(answer) if answer else next(request)
+            except StopIteration as done:
+                self.decide(turn, label, done.value)
+                return turn
+            self.decide(turn, label, step)
+            answer = self.answer_for(step.awaiting)
+            if answer is None:
+                return None
+            turn = self.open(answer.sends, answer.language)
 
     def open(self, sends: str, language: str | None = None) -> dict[str, Any]:
         """
@@ -436,10 +458,10 @@ class Conversation:
         if self.cite:
             step = replace(step, rules=[*step.rules, *self.cite])
             self.cite = []
-        for outcome_class, rules in step.before:
+        for before, outcome_class, rules in step.before:
             turn["decisions"].append(
                 {
-                    "request_label": None,
+                    "request_label": before,
                     "outcome_class": outcome_class,
                     "rules": sorted(set(rules)),
                 }
@@ -455,9 +477,30 @@ class Conversation:
         turn["tools_required"] = sorted({*turn["tools_required"], *step.tools})
         turn["facts"] |= step.facts
         if step.handoff is not None:
-            turn["handoff"] = step.handoff
+            self.file(turn, label, step.handoff)
         if step.blocked is not None and step.blocked not in self.blocked:
             self.blocked.append(step.blocked)
+
+    def file(
+        self, turn: dict[str, Any], label: str | None, filed: dict[str, Any]
+    ) -> None:
+        """
+        A turn's case: one, since a complaint or a request for a person in a turn that files another required handoff
+        joins that case, which cites POL-44 (version 7).
+        """
+        n = len(self.turns)
+        held = turn.get("handoff")
+        if held is None:
+            turn["handoff"], self.filer[n] = filed, label
+            return
+        if held["trigger"] == filed["trigger"] == "required":
+            if label == "talk_to_human":
+                turn["handoff"] = {**held, "cites": ["POL-44"]}
+                return
+            if self.filer[n] == "talk_to_human":
+                turn["handoff"], self.filer[n] = {**filed, "cites": ["POL-44"]}, label
+                return
+        raise NotCoveredError("two cases filed in one turn")
 
     def expected(self) -> dict[str, Any]:
         if any(self.left.values()):
@@ -562,7 +605,7 @@ class Conversation:
             if asided == ASIDES:
                 return None, asided
             before = (
-                (("abstain", ("POL-06", "POL-18", "POL-29")),)
+                ((None, "abstain", ("POL-06", "POL-18", "POL-29")),)
                 if answer.said == "last_reply"
                 else ()
             )
@@ -637,6 +680,12 @@ class Conversation:
             )
             if answer is None:
                 stopped = ["POL-06"]
+            elif answer.sends == "interjection":
+                if not (charge and answer.family and self.asks_for_person(answer)):
+                    raise NotCoveredError("a request sent at a question")
+                # POL-06: it ends the question and is served after the dispute's handoff, which it joins (POL-44).
+                self.pending.append(answer.family)
+                return self.unsettled_charge(["POL-06"])
             else:
                 hints = hints.merged(answer.hints)
 
@@ -682,6 +731,10 @@ class Conversation:
                     if answer.said == "another_card":
                         return Moved(Hints(besides=card.product_id))
                     return Moved(said)
+                if charge and self.asks_for_person(answer):
+                    # POL-06: it ends the question and is served after the dispute's handoff, which it joins (POL-44).
+                    self.pending.append(answer.family)
+                    return self.unsettled_charge(["POL-06"], card)
                 if not charge or answer.family.labels != ("unrecognized_charge",):
                     raise NotCoveredError("a request sent at a question")
                 # POL-39: the charge reported again answers the question, narrowing the search on the card it names.
@@ -868,11 +921,9 @@ class Conversation:
             if answer is None:
                 return (yield from self.unsettled(("POL-06", "POL-17")))
             reason = answer.block_reason
-        shown = yield Step(
-            "block", ["POL-35", "POL-36"], "confirm_control", facts=facts()
+        shown = yield from self.confirming(
+            Step("block", ["POL-35", "POL-36"], "confirm_control", facts=facts())
         )
-        while shown.sends == "typed_yes":
-            shown = yield Step("block", ["POL-36"], "confirm_control")
         charge = reason == "unrecognized_charge"
         # POL-39: the charge isn't looked for on this path, so the case is the card's.
         key = (card.product_id, None)
@@ -952,11 +1003,11 @@ class Conversation:
                 facts=facts,
                 handoff=handoff("unrecognized_charge", "required", priority),
             )
-        shown = yield Step(
-            "block", ["POL-36", "POL-39", *stopped], "confirm_control", tools, facts
+        shown = yield from self.confirming(
+            Step(
+                "block", ["POL-36", "POL-39", *stopped], "confirm_control", tools, facts
+            )
         )
-        while shown.sends == "typed_yes":
-            shown = yield Step("block", ["POL-36"], "confirm_control")
         if shown.sends == "cancel":
             return self.disputed(key, ["POL-36", "POL-39"], ("file_handoff",), "urgent")
         return self.disputed(
@@ -966,11 +1017,13 @@ class Conversation:
             blocked=card.product_id,
         )
 
-    def unsettled_charge(self, rules: list[str]) -> Step:
+    def unsettled_charge(self, rules: list[str], card: Card | None = None) -> Step:
         """
-        A charge whose card can't be settled, handed off to dispute intake at once with no card to block (POL-39,
-        POL-47).
+        A charge whose card or transaction can't be settled, handed off to dispute intake at once with no block
+        offered (POL-39, POL-47).
         """
+        if card is not None:
+            self.disputes.add((card.product_id, None))
         return Step(
             "hand_off",
             [*rules, "POL-39"],
@@ -999,14 +1052,44 @@ class Conversation:
             blocked=blocked,
         )
 
+    def confirming(self, step: Step) -> Generator[Step, Answer, Answer]:
+        """
+        The confirm control, pointed to again after a typed yes; a complaint or a request for a person sent while it
+        shows is handed off at once and leaves it pending (POL-36, version 7).
+        """
+        shown = yield step
+        while shown.sends in ("typed_yes", "interjection"):
+            if shown.sends == "interjection":
+                if shown.family is None or not self.asks_for_person(shown):
+                    raise NotCoveredError(
+                        "a request sent while the confirm control shows"
+                    )
+                shown = yield Step(
+                    "block",
+                    ["POL-36"],
+                    "confirm_control",
+                    tools=("file_handoff",),
+                    handoff=self.person(shown.family),
+                    before=(("talk_to_human", "hand_off", ("POL-36", "POL-44")),),
+                )
+                continue
+            shown = yield Step("block", ["POL-36"], "confirm_control")
+        return shown
+
+    def asks_for_person(self, answer: Answer) -> bool:
+        """
+        Whether a message sent at a wait is a complaint or a request for a person.
+        """
+        return answer.family is not None and answer.family.labels == ("talk_to_human",)
+
+    def person(self, family: Family) -> dict[str, str]:
+        return handoff(
+            "complaint" if family.complaint else "customer_request", "required"
+        )
+
     def talk_to_human(self, family: Family) -> Request:
         return Step(
-            "hand_off",
-            ["POL-44"],
-            tools=("file_handoff",),
-            handoff=handoff(
-                "complaint" if family.complaint else "customer_request", "required"
-            ),
+            "hand_off", ["POL-44"], tools=("file_handoff",), handoff=self.person(family)
         )
         yield
 

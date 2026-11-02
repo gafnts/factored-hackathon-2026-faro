@@ -345,6 +345,104 @@ def test_a_charge_reported_again_once_handed_off_gets_its_reference(
     assert again["tools_forbidden"] == ["block_card", "file_handoff"]
 
 
+COMPLAINT = next(f for f in FAMILIES if f.complaint and not f.slots)
+DISPUTED = {
+    "reason_code": "unrecognized_charge",
+    "trigger": "required",
+    "queue": "dispute_intake",
+}
+
+
+def test_a_complaint_at_a_charges_question_joins_the_dispute_it_ends_in(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    customer = state.read(con, "CLI-EVAL00000015")
+    assert customer is not None
+    played = case(
+        "CLI-EVAL00000015",
+        "unrecognized_charge-01",
+        means={"product_id": customer.cards[0].product_id},
+    )
+    played["script"]["answers"]["interjection"] = {
+        "at": "transaction",
+        "id": f"{COMPLAINT.family_id}/es/0",
+        "text": "-",
+    }
+
+    expected = play(con, played)
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "clarify")], "transaction"),
+        (
+            "interjection",
+            [("unrecognized_charge", "hand_off"), ("talk_to_human", "hand_off")],
+            "none",
+        ),
+    ]
+    ended = expected["turns"][1]
+    assert ended["decisions"][0]["rules"] == ["POL-06", "POL-39"]
+    assert ended["handoff"] == {**DISPUTED, "priority": "urgent", "cites": ["POL-44"]}
+
+
+def test_a_complaint_while_the_confirm_control_shows_is_handed_off_at_once(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    played = case(
+        "CLI-EVAL00000003",
+        "unrecognized_charge-05",
+        answers={"confirm_control": "confirm"},
+    )
+    played["script"]["answers"]["interjection"] = {
+        "at": "confirm_control",
+        "id": f"{COMPLAINT.family_id}/es/0",
+        "text": "-",
+    }
+
+    expected = play(con, played)
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "block")], "confirm_control"),
+        (
+            "interjection",
+            [("talk_to_human", "hand_off"), ("unrecognized_charge", "block")],
+            "confirm_control",
+        ),
+        ("confirm", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    complained, confirmed = expected["turns"][1:]
+    assert complained["handoff"]["reason_code"] == "complaint"
+    assert complained["tools_forbidden"] == ["block_card"]
+    assert confirmed["handoff"] == {**DISPUTED, "priority": "normal"}
+    assert expected["blocked"]
+
+
+def test_a_person_asked_for_in_a_turn_that_files_a_dispute_joins_it(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    expected = play(
+        con,
+        case(
+            "CLI-EVAL00000003",
+            "block_card-09",
+            answers={
+                "reason": "reason_unrecognized_charge-01",
+                "confirm_control": "confirm",
+            },
+        ),
+    )
+
+    assert path(expected)[-1] == (
+        "confirm",
+        [("block_card", "hand_off"), ("talk_to_human", "hand_off")],
+        "none",
+    )
+    assert expected["turns"][-1]["handoff"] == {
+        **DISPUTED,
+        "priority": "normal",
+        "cites": ["POL-44"],
+    }
+
+
 @pytest.mark.parametrize(
     ("card_id", "outcome", "fact"),
     [
