@@ -26,7 +26,6 @@ from faro.evaluation import (
     baseline,
     blind,
     classifier,
-    families,
     judge,
     labels,
     router,
@@ -244,10 +243,7 @@ def run_router(args: argparse.Namespace, code: dict[str, Any]) -> None:
     calls: list[dict[str, Any]] = []
     chosen = [CANDIDATES[name](args.env_file, calls) for name in args.candidate]
     if args.estimate:
-        loaded, answers = families.load(), families.load_answers()
-        found = router.messages(
-            loaded, families.held_out_ids(loaded, answers), args.side
-        )
+        found, _ = router.side_messages(args.side)
         for name, priced in router.estimate(chosen, found).items():
             print(
                 f"{name}: {priced['calls']} calls, about {priced['cost_usd']:.2f} USD"

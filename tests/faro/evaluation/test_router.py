@@ -286,12 +286,27 @@ def test_the_held_out_side_runs_only_from_a_clean_tree_and_never_in_folds(
             {"clean": True},
             resamples=20,
             sources=outside.ROOT,
+            played=["20261201T000000Z-aaaa"],
         )
     )
 
     assert report["side"] == "held_out"
     assert report["families"]["families"] == len(outside.FAMILIES)
     assert list(report["families"]["sources"]) == [families.OUTSIDE]
+
+
+def test_the_held_out_wording_stays_sealed_until_its_set_is_played() -> None:
+    with pytest.raises(router.RouterError, match="sealed"):
+        router.side_messages("held_out", outside.ROOT, played=[])
+
+    found, read_from = router.side_messages(
+        "held_out", outside.ROOT, played=["20261201T000000Z-aaaa"]
+    )
+    development, ours = router.side_messages("development")
+
+    assert {m.family_id for m in found} == {f.family_id for f in outside.FAMILIES}
+    assert read_from == [families.OUTSIDE]
+    assert ours == [families.OURS] and development == DEVELOPMENT
 
 
 def test_the_command_prices_registered_candidates_without_a_call(

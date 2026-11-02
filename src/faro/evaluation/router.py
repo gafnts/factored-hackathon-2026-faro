@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from faro.agent.models import ORDER, RouterOutput
-from faro.evaluation import families, intervals, language
+from faro.evaluation import families, heldout, intervals, language
 from faro.evaluation.families import Family
 
 NONE = "none"
@@ -119,6 +119,24 @@ class Result:
 
 def spoken(language_code: str) -> str:
     return language_code if language_code in families.LANGUAGES else "other"
+
+
+def side_messages(
+    side: str, sources: Path = families.SOURCES, played: Sequence[str] | None = None
+) -> tuple[list[Message], list[str]]:
+    """
+    The side's messages and the sources they come from: ours for development, the outside source's for the held-out
+    side, which is read only once a run has played the held-out set drawn from it (ADR-0011, The seal).
+    """
+    if side != "held_out":
+        return messages(families.load(), frozenset(), side), [families.OURS]
+    if not (heldout.runs_against(heldout.NAME) if played is None else played):
+        raise RouterError(
+            f"the held-out wording is sealed until {heldout.NAME} is played; until then the comparison reads "
+            "development wording only (ADR-0011, The seal)"
+        )
+    found = families.load_source(families.OUTSIDE, sources)[0]
+    return messages(found, families.held_out_ids(found), side), [families.OUTSIDE]
 
 
 def messages(
@@ -474,11 +492,12 @@ async def compare(
     parallel: int = PARALLEL,
     resamples: int = intervals.RESAMPLES,
     sources: Path = families.SOURCES,
+    played: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """
     Reads the side's messages with each candidate, keeps the readings, the errors, the calls each candidate recorded,
     and the report, which is the run's manifest; returns the report. calls is the list the candidates record into,
-    read once they are done. The held-out side's messages are the outside source's, kept under sources.
+    read once they are done. played is the runs against the held-out set, found when not given (side_messages).
     """
     if side == "held_out" and k is not None:
         raise RouterError("the held-out side is never tuned, so it runs in no fold")
@@ -488,12 +507,7 @@ async def compare(
         )
     if len({c.name for c in candidates}) != len(candidates) or not candidates:
         raise RouterError("name each candidate once")
-    loaded = families.load()
-    read_from = [families.OURS]
-    if side == "held_out":
-        loaded += families.load_source(families.OUTSIDE, sources)[0]
-        read_from = [families.OUTSIDE]
-    found = messages(loaded, families.held_out_ids(loaded), side)
+    found, read_from = side_messages(side, sources, played)
     started = datetime.now(UTC)
     read = {c.name: await read_all(c, found, parallel) for c in candidates}
     ended = datetime.now(UTC)
