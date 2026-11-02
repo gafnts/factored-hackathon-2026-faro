@@ -118,6 +118,31 @@ def test_git_says_whether_a_manifest_is_committed(tmp_path: Path) -> None:
     assert not heldout.committed(loose)
 
 
+PROTOCOL = "# Study\n\nThe bar.\n\n## Record\n\nNone yet.\n"
+
+
+def test_a_protocol_registers_its_text_above_the_record_with_no_decision_open() -> None:
+    registered = heldout.protocol_hash(PROTOCOL)
+
+    assert heldout.protocol_hash(PROTOCOL.replace("None yet.", "A look.")) == registered
+    assert heldout.protocol_hash(PROTOCOL.replace("The bar.", "Another.")) != registered
+    with pytest.raises(heldout.HeldOutError, match="open decision"):
+        heldout.protocol_hash(PROTOCOL.replace("The bar.", "The bar (**Open**)."))
+    with pytest.raises(heldout.HeldOutError, match="no Record"):
+        heldout.protocol_hash("# Study\n\nThe bar.\n")
+
+
+def test_the_held_out_set_is_drawn_only_under_a_committed_protocol(
+    tmp_path: Path,
+) -> None:
+    loose = tmp_path / "protocol.md"
+    loose.write_text(PROTOCOL, encoding="utf-8")
+
+    assert heldout.committed(heldout.PROTOCOL)
+    with pytest.raises(heldout.HeldOutError, match="isn't committed"):
+        heldout.registered(loose)
+
+
 def test_the_held_out_workload_keeps_the_selections_proportions_at_each_size() -> None:
     selection = generator.COMPOSITIONS["selection"]
 

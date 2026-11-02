@@ -1,7 +1,7 @@
 """
 The evaluation's commands. generate draws the development regression and selection sets from the pinned snapshot's
-bronze (the last pipeline build) into data/evaluation/sets/, and the held-out set when asked (once; after a run, a
-redraw only rebuilds it, heldout.py), and writes their manifests to docs/evaluation/sets/: case IDs, hashes, and
+bronze (the last pipeline build) into data/evaluation/sets/, and the held-out set when asked (once, under its study's
+registered protocol; after a run, a redraw only rebuilds it, heldout.py), and writes their manifests to docs/evaluation/sets/: case IDs, hashes, and
 counts. play plays a drawn set in process with the scripted models, or the deterministic baseline's, and grades it,
 keeping the evidence, grades, and manifest under data/evaluation/runs/. run plays a drawn set end to end against a
 deployed stack and grades it, keeping each case's results under data/evaluation/runs/ and in the stack's evaluation
@@ -96,12 +96,17 @@ def generate(
         raise LockError(
             f"runs name the held-out set, and it has no manifest at {manifest_path}"
         )
+    protocol = heldout.registered() if held_out is not None and not played else None
     loaded, answers = families.load(), families.load_answers()
     held = families.held_out_ids(loaded, answers)
 
-    def keep(set_name: str, drawn: generator.Drawn) -> None:
+    def keep(
+        set_name: str, drawn: generator.Drawn, more: dict[str, Any] | None = None
+    ) -> None:
         cases.write(data_dir / "evaluation" / "sets" / f"{set_name}.jsonl", drawn.cases)
-        written = generator.manifest(set_name, seed, drawn, versions)
+        written = generator.manifest(
+            set_name, seed, drawn, {**versions, **(more or {})}
+        )
         docs.mkdir(parents=True, exist_ok=True)
         (docs / f"{set_name}.json").write_text(
             json.dumps(written, indent=2, ensure_ascii=False) + "\n",
@@ -136,7 +141,8 @@ def generate(
         )
         drawn = drawing.draw(heldout.NAME, seed, generator.held_out(held_out))
     if not played:
-        keep(heldout.NAME, drawn)
+        registration = {"path": str(heldout.PROTOCOL), "sha256": protocol}
+        keep(heldout.NAME, drawn, {"protocol": registration})
         return
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     heldout.reproduce(played, drawn.cases, manifest, heldout.committed(manifest_path))
