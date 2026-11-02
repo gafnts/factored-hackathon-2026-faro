@@ -1,0 +1,18 @@
+{
+  "answers": [
+    {
+      "answer_id": "outside.card_last_four-01",
+      "kind": "card_last_four",
+      "author": "fixture",
+      "es": "Esa, la de {last_four} al final.",
+      "pt": "Essa, a do final {last_four}."
+    },
+    {
+      "answer_id": "outside.dont_know-01",
+      "kind": "dont_know",
+      "author": "fixture",
+      "es": "La verdad no lo tengo claro.",
+      "pt": "Sinceramente não tenho certeza."
+    }
+  ]
+}

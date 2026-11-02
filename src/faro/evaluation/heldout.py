@@ -6,6 +6,10 @@ the ones the committed manifest describes, and the manifest is never rewritten, 
 the snapshot (OPS-07) and no one can change it under its name. A play is refused unless the set is the one its
 committed manifest describes, so an edited case can't play under the set's name. A changed held-out set is a new
 version, drawn under a new name, with earlier results reported against the old one.
+
+A first draw happens only under the study's protocol (ADR-0011, Studies): committed, with no decision open, and the hash
+of its registered text, everything above its Record, written into the set's manifest, so anyone can check that the bar
+was fixed before the cases existed. Looks and deviations are appended under the Record and leave the hash alone.
 """
 
 import hashlib
@@ -17,7 +21,10 @@ from typing import Any
 
 from faro.evaluation import generator
 
-NAME = "held_out"
+NAME = "held_out_2"
+PROTOCOL = Path("docs/evaluation/studies/held-out-2.md")
+RECORD = "\n## Record\n"
+OPEN = "**Open**"
 REPORTED = Path("docs/evaluation/runs")
 KEPT = Path("data/evaluation/runs")
 
@@ -58,6 +65,27 @@ def reproduce(
         "committed manifest describes; a redraw only rebuilds it, at its size and seed, and a changed held-out set is a "
         "new version under a new name (ADR-0005, The split)"
     )
+
+
+def protocol_hash(text: str) -> str:
+    registered, found, _ = text.partition(RECORD)
+    if not found:
+        raise HeldOutError(
+            "the protocol has no Record section, which keeps looks and deviations apart from its registered text"
+        )
+    if OPEN in registered:
+        raise HeldOutError(
+            "the protocol still holds an open decision; it is settled before the set is drawn (ADR-0011, Studies)"
+        )
+    return hashlib.sha256(registered.encode()).hexdigest()
+
+
+def registered(path: Path = PROTOCOL) -> str:
+    if not committed(path):
+        raise HeldOutError(
+            f"{path} isn't committed; a held-out set is drawn only under its registered protocol (ADR-0011, Studies)"
+        )
+    return protocol_hash(path.read_text(encoding="utf-8"))
 
 
 def committed(path: Path) -> bool:

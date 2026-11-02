@@ -18,9 +18,12 @@ from faro.evaluation import __main__ as cli
 from faro.evaluation import families, model_commands, router
 from faro.evaluation.router import Candidate, Message, Reading, Result
 
+from . import outside
+
 LOADED, ANSWERS = families.load(), families.load_answers()
-HELD = families.held_out_ids(LOADED, ANSWERS)
-DEVELOPMENT = router.messages(LOADED, HELD, "development")
+EVERY = (*LOADED, *outside.FAMILIES)
+HELD = families.held_out_ids(EVERY)
+DEVELOPMENT = router.messages(EVERY, HELD, "development")
 LABELS = {m.text: m.labels for m in DEVELOPMENT}
 
 
@@ -47,12 +50,11 @@ def read(c: Candidate, found: Sequence[Message] = DEVELOPMENT) -> list[Result]:
 
 
 def test_each_side_holds_only_its_own_families_with_slots_filled() -> None:
-    held_out = router.messages(LOADED, HELD, "held_out")
+    held_out = router.messages(EVERY, HELD, "held_out")
 
     assert {m.family_id for m in DEVELOPMENT}.isdisjoint(HELD)
-    assert {m.family_id for m in held_out} <= HELD
-    assert len({m.family_id for m in DEVELOPMENT}) == 72
-    assert len({m.family_id for m in held_out}) == 36
+    assert {m.family_id for m in held_out} == {f.family_id for f in outside.FAMILIES}
+    assert len({m.family_id for m in DEVELOPMENT}) == 108
     assert {m.language for m in DEVELOPMENT} == {"es", "pt", "other"}
     assert not any("{" in m.text for m in DEVELOPMENT + held_out)
     assert all(m.has_request == bool(m.labels) for m in DEVELOPMENT)
@@ -141,7 +143,8 @@ def test_candidates_are_paired_over_the_same_families() -> None:
 
 
 def test_a_language_with_one_family_per_group_decides_nothing() -> None:
-    other = [m for m in DEVELOPMENT if m.language == "other"]
+    third = next(m.family_id for m in DEVELOPMENT if m.language == "other")
+    other = [m for m in DEVELOPMENT if m.family_id == third]
     eager = candidate("eager", lambda text: ["card_status"])
 
     found = router.by_language(
@@ -277,12 +280,33 @@ def test_the_held_out_side_runs_only_from_a_clean_tree_and_never_in_folds(
 
     report = asyncio.run(
         router.compare(
-            [SILENT], "held_out", tmp_path / "d", {"clean": True}, resamples=20
+            [SILENT],
+            "held_out",
+            tmp_path / "d",
+            {"clean": True},
+            resamples=20,
+            sources=outside.ROOT,
+            played=["20261201T000000Z-aaaa"],
         )
     )
 
     assert report["side"] == "held_out"
-    assert report["families"]["families"] == 36
+    assert report["families"]["families"] == len(outside.FAMILIES)
+    assert list(report["families"]["sources"]) == [families.OUTSIDE]
+
+
+def test_the_held_out_wording_stays_sealed_until_its_set_is_played() -> None:
+    with pytest.raises(router.RouterError, match="sealed"):
+        router.side_messages("held_out", outside.ROOT, played=[])
+
+    found, read_from = router.side_messages(
+        "held_out", outside.ROOT, played=["20261201T000000Z-aaaa"]
+    )
+    development, ours = router.side_messages("development")
+
+    assert {m.family_id for m in found} == {f.family_id for f in outside.FAMILIES}
+    assert read_from == [families.OUTSIDE]
+    assert ours == [families.OURS] and development == DEVELOPMENT
 
 
 def test_the_command_prices_registered_candidates_without_a_call(

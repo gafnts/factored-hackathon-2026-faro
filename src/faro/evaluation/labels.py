@@ -1,8 +1,8 @@
 """
-Label quality (DML-08, EVL-08; ADR-0005, Grading, Labels): 50 of the families' messages relabeled by hand, blind to
-the labels their families carry, and the agreement reported. relabel-sample draws the sheet, stratified over the
-request groups and alternating the languages, from every family on both sides of the split, since the labels under
-test are the families' own; the person reads the policy's request list first and writes every request the message
+Label quality (DML-08, EVL-08; ADR-0005, Grading, Labels): 50 of a source's messages relabeled by hand, blind to the
+labels their families carry, and the agreement reported. relabel-sample draws the sheet from one source, a held-out
+source before any set draws from it (ADR-0011, Wording sources), stratified over the request groups and alternating
+the languages, since the labels under test are its families' own; the person reads the policy's request list first and writes every request the message
 makes, or none. relabel-agreement scores the filled sheet: exact agreement on the set of labels with a Wilson
 interval, Cohen's kappa on the first label with a bootstrap interval, and the disagreements by row for the policy's
 text to settle, a message dropped when it can't (ADR-0005). The files hold message IDs and labels, never a text but
@@ -10,11 +10,10 @@ the sheet's own (SEC-03).
 """
 
 import csv
-import hashlib
 import json
 import random
 from collections import Counter
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -84,12 +83,9 @@ def parse(cell: str) -> tuple[str, ...]:
     return ordered([w for w in words if w != NONE])
 
 
-def pool(loaded: Sequence[Family], held: Collection[str]) -> list[Drawn]:
+def pool(loaded: Sequence[Family], side: str) -> list[Drawn]:
     return [
-        Drawn(m, f, "held_out" if f.family_id in held else "development")
-        for f in loaded
-        for m in f.messages
-        if m.language in LANGUAGES
+        Drawn(m, f, side) for f in loaded for m in f.messages if m.language in LANGUAGES
     ]
 
 
@@ -175,18 +171,23 @@ def sheet_rows(chosen: Sequence[Drawn]) -> list[dict[str, str]]:
 
 def sample(
     out: Path,
+    source: str = families.OUTSIDE,
     loaded: Sequence[Family] | None = None,
-    held: Collection[str] | None = None,
     seed: int = SEED,
     rows: int = ROWS,
+    root: Path = families.SOURCES,
 ) -> dict[str, Any]:
     """
-    Draws and writes the sheet, its guide, the key, and a manifest; returns the manifest.
+    Draws and writes the sheet, its guide, the key, and a manifest; returns the manifest. loaded is the source's
+    families, read from it when not given.
     """
-    loaded = families.load() if loaded is None else loaded
-    if held is None:
-        held = families.held_out_ids(loaded, families.load_answers())
-    found = pool(loaded, held)
+    if loaded is None:
+        loaded = (
+            families.load()
+            if source == families.OURS
+            else families.load_source(source, root)[0]
+        )
+    found = pool(loaded, families.SIDES[source])
     if not found:
         raise LabelsError("no message to draw from")
     chosen = draw(found, random.Random(seed), rows)
@@ -212,7 +213,11 @@ def sample(
         "sample": out.name,
         "seed": seed,
         "rows": len(chosen),
-        "families": {"sha256": _families_hash(), "count": len(loaded)},
+        "families": {
+            "source": source,
+            "sha256": families.source_hash(source, root),
+            "count": len(loaded),
+        },
         "by_language": dict(
             sorted(Counter(d.message.language for d in chosen).items())
         ),
@@ -225,13 +230,6 @@ def sample(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )
     return manifest
-
-
-def _families_hash() -> str:
-    digest = hashlib.sha256()
-    for path in sorted(Path(families.__file__).parent.glob("*.json")):
-        digest.update(path.name.encode() + b"\0" + path.read_bytes())
-    return digest.hexdigest()
 
 
 def score(sample_dir: Path) -> dict[str, Any]:

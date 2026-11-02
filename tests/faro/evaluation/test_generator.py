@@ -15,6 +15,7 @@ import pytest
 from faro.evaluation import bronze, families, generator, oracle
 from faro.evaluation.facts import contract_words
 
+from . import outside
 from .bank import Bank
 
 pytestmark = pytest.mark.xdist_group("evaluation_bank")
@@ -73,9 +74,9 @@ def test_the_same_seed_draws_the_same_set(
 
 
 def test_every_message_is_filled_and_development_only(
-    regression: generator.Drawn,
+    con: duckdb.DuckDBPyConnection, regression: generator.Drawn
 ) -> None:
-    for case in regression.cases:
+    for case in [*regression.cases, *draw(con, "selection").cases]:
         texts = [m["text"] for m in case["script"]["messages"]]
         texts += [
             a["text"] for a in case["script"]["answers"].values() if isinstance(a, dict)
@@ -225,36 +226,29 @@ def test_a_situation_with_customers_to_spare_shares_none(
     assert generator.manifest("spare", 7, drawn, {})["shared"] == []
 
 
-def test_a_held_out_situation_no_held_out_family_fits_borrows_development_phrasing(
-    bank: Bank, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    situation = generator.BY_NAME["status.one_card"]
-    # As if the split had put every family of this shape on the development side.
-    held = frozenset(
-        h
-        for h in HELD
-        if not any(f.family_id == h and situation.fits(f) for f in LOADED)
-    )
-    monkeypatch.setitem(generator.COMPOSITIONS, "borrowed", {situation.name: 1})
+def test_a_held_out_set_borrows_no_wording(bank: Bank) -> None:
+    every = (*LOADED, *outside.FAMILIES)
+    every_answer = (*ANSWERS, *outside.ANSWERS)
+    held = families.held_out_ids(every, every_answer)
+    # The outside fixture opens a page of transactions but writes nothing to send after it, and nothing about a decline.
+    unworded = {"transactions.next_page": 1, "decline.listed_code": 1}
     with bronze.connect(bank.database, "held_out") as held_con:
         drawing = generator.Generator(
-            held_con, "held_out", LOADED, ANSWERS, held, contract_words(), reuse=True
+            held_con,
+            "held_out",
+            every,
+            every_answer,
+            held,
+            contract_words(),
+            reuse=True,
         )
-        drawn = drawing.draw("borrowed", 7)
-    found = [c for c in drawn.cases if c["situation"] == situation.name]
+        with pytest.raises(generator.GeneratorError) as raised:
+            drawing.draw("unworded", 7, {**unworded, "status.one_card": 1})
 
-    assert [c["language"] for c in found] == ["es", "pt"]
-    assert drawn.short == []
-    for case in found:
-        assert case["side"] == "held_out"
-        assert case["phrasing"] == "development"
-        assert case["family_id"] not in held
-        answers = [a for a in case["script"]["answers"].values() if isinstance(a, dict)]
-        assert all(a["id"].split("/")[0] in held for a in answers)
-    assert generator.manifest("borrowed", 7, drawn, {})["borrowed"] == [
-        {"situation": situation.name, "language": "es", "cases": 1},
-        {"situation": situation.name, "language": "pt", "cases": 1},
-    ]
+    named = str(raised.value)
+    for situation in unworded:
+        assert f"{situation} in es" in named and f"{situation} in pt" in named
+    assert "status.one_card" not in named
 
 
 def listed(case: dict[str, Any]) -> int:

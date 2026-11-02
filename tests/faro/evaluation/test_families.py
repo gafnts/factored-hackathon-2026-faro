@@ -1,13 +1,18 @@
 """
 The request families and the scripted customer's answers keep their rules: no value from the records, slots as
-declared, the language they're filed under, a third of each group held out, and no held-out message close to a
-development one (ADR-0005, decision 2, as amended on 2026-10-01; DML-09, SEC-02).
+declared, the language they're filed under, ours all development and another source's wording held out, and no
+held-out message close to a development one (ADR-0005, decision 2, as amended on 2026-10-01; ADR-0011, Wording
+sources; DML-09, SEC-02).
 """
+
+from pathlib import Path
 
 import pytest
 
 from faro.evaluation import families
 from faro.evaluation.families import Answer, Family, Message
+
+from . import outside
 
 
 def family(
@@ -55,14 +60,46 @@ def test_the_families_and_answers_break_no_rule() -> None:
     assert families.problems() == []
 
 
-def test_every_group_holds_out_a_third_of_its_families() -> None:
+def test_ours_is_all_development_and_another_sources_wording_is_held_out() -> None:
     loaded, answers = families.load(), families.load_answers()
-    held = families.held_out_ids(loaded, answers)
+    every = (*loaded, *outside.FAMILIES)
+    every_answer = (*answers, *outside.ANSWERS)
 
-    for group in families.GROUPS:
-        assert sum(f.family_id in held for f in loaded if f.group == group) == 4
-    for kind in families.ANSWER_KINDS:
-        assert sum(a.answer_id in held for a in answers if a.kind == kind) == 1
+    assert families.held_out_ids(loaded, answers) == frozenset()
+    assert families.held_out_ids(every, every_answer) == {
+        *(f.family_id for f in outside.FAMILIES),
+        *(a.answer_id for a in outside.ANSWERS),
+    }
+    assert families.problems(every, every_answer) == []
+
+
+def test_another_sources_ids_carry_its_name_and_its_authors() -> None:
+    unnamed = family(
+        {"es": SPANISH, "pt": PORTUGUESE},
+        family_id="card_status-01",
+        source=families.OUTSIDE,
+    )
+    answer = Answer(
+        "dont_know-01", "dont_know", {"es": "No sé.", "pt": "Não sei."}, "outside"
+    )
+
+    assert any("its source" in p for p in families._family_problems(unnamed))
+    assert any("no author of its own" in p for p in families._family_problems(unnamed))
+    assert any("its source" in p for p in families._answer_problems(answer))
+    assert any("names no author" in p for p in families._answer_problems(answer))
+    assert [f.messages[0].author for f in outside.FAMILIES] == ["fixture"] * 4
+
+
+def test_only_another_source_loads_from_its_folder(tmp_path: Path) -> None:
+    assert families.load_source(families.OUTSIDE, tmp_path) == ((), ())
+    for name in (families.OURS, "elsewhere"):
+        with pytest.raises(ValueError, match="isn't another source"):
+            families.load_source(name, tmp_path)
+
+
+def test_every_family_and_answer_here_is_ours() -> None:
+    assert {f.source for f in families.load()} == {families.OURS}
+    assert {a.source for a in families.load_answers()} == {families.OURS}
 
 
 def test_the_seed_is_ours_and_the_rest_are_paraphrases() -> None:
@@ -149,6 +186,53 @@ def test_a_held_out_message_close_to_a_development_one_is_named() -> None:
         "held-out h is too close to development d"
     ]
     assert families.similarity(held[0][1], "Bloquee la tarjeta.") < families.TOO_CLOSE
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "alike"),
+    [
+        (
+            "¿Cuánto cupo me queda en la tarjeta de crédito?",
+            "¿Cuánto cupo me queda en mi tarjeta de crédito?",
+            True,
+        ),
+        ("bloquear tarjeta", "bloquear la tarjeta", True),
+        # Four words or fewer share most of their trigrams by necessity, so their bar is looser.
+        ("estado tarjeta", "estado de mi tarjeta", False),
+        ("¿Mi tarjeta está activa?", "Quiero el estado de mi tarjeta.", False),
+    ],
+)
+def test_two_phrasings_too_alike_count_as_one(
+    first: str, second: str, alike: bool
+) -> None:
+    found = list(families._alike([("a", first), ("b", second)]))
+
+    assert found == (
+        ["a and b are too alike to count as two phrasings"] if alike else []
+    )
+
+
+def test_a_family_or_a_kind_of_answer_with_phrasings_too_alike_is_named() -> None:
+    texts = {"es": [*SPANISH, SPANISH[0].replace("¿Mi", "¿La")], "pt": PORTUGUESE}
+    answers = [
+        Answer(f"dont_know-0{n}", "dont_know", {"es": "No lo sé.", "pt": text})
+        for n, text in ((1, "Não sei, não."), (2, "Não sei, não!"))
+    ]
+
+    found = families.problems([family(texts)], answers)
+
+    assert (
+        "card_status-01/es/0 and card_status-01/es/4 are too alike to count as two phrasings"
+        in found
+    )
+    assert (
+        "dont_know-01/es and dont_know-02/es are too alike to count as two phrasings"
+        in found
+    )
+    assert (
+        "dont_know-01/pt and dont_know-02/pt are too alike to count as two phrasings"
+        in found
+    )
 
 
 def test_an_answer_must_give_exactly_its_kinds_slots() -> None:

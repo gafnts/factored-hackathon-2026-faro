@@ -6,6 +6,20 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Added
+
+- Studies: each reported measurement has a protocol, committed before its held-out set is drawn, and the set's manifest holds its hash, so the bar provably came first ([ADR-0011](docs/adr/0011-pre-registered-studies.md)). The second study's protocol is drafted, and the submission's measurement is described as the first, after the fact ([#163]).
+- `make eval-compare`, which compares two systems' runs of one set case by case, with an interval over families within each language ([#163]).
+- Grader checks on what the model writes: a card ending or a date a reply names must be one the conversation read, a handoff's summary must agree with its verified facts, and word lists catch a ruled-out form of address and a fraud verdict or a promised refund ([#163]).
+
+### Changed
+
+- Held-out wording comes from a source another model family writes, kept out of the repository until its first play; every family and answer of ours is development, and the router comparison reads no held-out wording until then. Phrasings within a family or a kind of answer must differ, and three of ours were reworded. Nothing deployed changes ([#163]).
+
+### Removed
+
+- The model judge, its rubric, and its validation sample: code grades every reply ([#163]).
+
 ## [1.9.0] - 2026-11-01 (Promotion 15)
 
 ### Added
@@ -177,6 +191,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#158]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/158
 [#159]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/159
 [#160]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/160
+[#163]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/163
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q

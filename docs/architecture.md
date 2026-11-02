@@ -238,7 +238,7 @@ Offline, on scripted conversations played against the deployed stack and graded 
 
 ```mermaid
 flowchart LR
-  FAM["108 request families, both languages, a third held out"]
+  FAM["Wording: our 108 families for development, another model family's held out"]
   GEN["Generator: cases from one side of the split"]
   CASES[("Case sets: manifests committed, cases kept out of git")]
   CUST["Scripted customer: reacts to decision entries and controls, never to prose"]
@@ -247,23 +247,21 @@ flowchart LR
   REC[("Evidence: the stream, the execution record, the sandbox, the cases filed")]
   ORC["Oracle: the policy over bronze"]
   GRADE["Grader: code, from stored evidence"]
-  JUDGE["Judge: wording only, where it agreed with hand grades"]
   OUT["Report, run index, disagreement log"]
   FAM --> GEN --> CASES --> CUST
   CUST --> SYS --> REC
   CUST --> PROC --> REC
   REC --> GRADE
-  REC --> JUDGE --> OUT
   ORC --> GRADE --> OUT
 ```
 
 - **The families** ([families.md](evaluation/families.md)): seeds we wrote and paraphrases a model wrote, checked for slots, digits, language, and closeness; team-generated (SEC-02).
-- **The split** holds by customer, by family, and by time (DML-09), with tests that no development artifact holds a held-out customer or message.
+- **The split** holds by customer, by the wording's source (ours for development, another model family's held out), and by time (DML-09), with tests that no development artifact holds a held-out customer or message ([ADR-0011](adr/0011-pre-registered-studies.md)).
 - **Three sets**, with their manifests in [sets/](evaluation/sets/): a regression set of 71 cases that CI plays in process on a team-generated bank, a selection set of 157, and a held-out set of 608 drawn once at the freeze.
 - **The harness** plays a case end to end against the deployed stack: a test user of its own, the chat's own client paced to the usage limits, fixtures and fault plans written under its sign-in, write-once evidence in the evaluation bucket. The unauthorized-access cases call the Gateway's tools directly and expect Cedar to deny them.
 - **The grader** is a function of the case and its stored evidence, so a later version regrades without running the system. Where it and the oracle disagree, the question goes to the [disagreement log](evaluation/disagreements.md), and CI's regression gate lets a finding through only while an open entry matches it.
 - **The baseline** is the same graph with a keyword router, pattern extraction, and templated replies, so no model runs; it played the same held-out cases once (EVL-01).
-- **The judge**, Claude Opus 5.5, reads only wording, form of address, and clarity. It was validated against our blind hand grades on 136 replies before any held-out verdict was read, and is used on the one question of nine that met the bar (EVL-10).
+- **No model judges.** The submission's measurement had a judge, Claude Opus 5.5, for wording, validated against our blind hand grades on 136 replies; one question of nine met the bar (EVL-10). It was dropped after the submission, and code now checks the form of address and the words a reply may not use ([ADR-0011](adr/0011-pre-registered-studies.md)).
 - **The tests** ([tests/README.md](../tests/README.md)) check what must hold on every turn, apart from how well the agent does: each thing we expect a judge to try, from another customer's number to a typed yes, has an integration test against a deployed stack.
 - **The result**, three runs of the frozen agent: 65% of 602 conversation cases resolved without a person, against the baseline's 43%; 133 of 136 required handoffs right; no disclosure and no unauthorized action in 608 cases, which bounds the rate at 0.6% without proving it zero (M-04); about 4 seconds a turn and 1.3 cents a resolution. The runs agree within half a point. One misread accounted for 56 of the 80 failing cases and was fixed in code after the freeze; the numbers stand as measured. Every reported run's manifest is indexed in [runs.md](evaluation/runs.md).
 
@@ -274,7 +272,8 @@ flowchart LR
 | [ADR-0003](adr/0003-choose-workflow-from-evidence.md) | Card support, from the [selection report](analysis/selection.md) |
 | [The policy](policy/card-support.md) | What Faro answers, does, refuses, and hands off, one ID per rule |
 | [ADR-0004](adr/0004-agent-architecture-on-agentcore.md) | The agent, the tools, the stores, the confirmation, the handoff, operations |
-| [ADR-0005](adr/0005-offline-scenario-evaluation.md) | The evaluation, the oracle, the baseline, the judge, reporting |
+| [ADR-0005](adr/0005-offline-scenario-evaluation.md) | The evaluation, the oracle, the baseline, reporting |
+| [ADR-0011](adr/0011-pre-registered-studies.md) | Where held-out wording comes from, the seal, a protocol per measurement, grading by code |
 | [ADR-0006](adr/0006-batch-medallion-pipeline.md) | The pipeline, its contracts and checks, freshness, lineage |
 | [ADR-0007](adr/0007-role-gated-web-app.md) | The web app, sign-in, the console API, handoffs as cases |
 | [docs/analysis/](analysis/) | The profile, the traffic, and the card support numbers the policy and the ADRs cite |

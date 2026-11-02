@@ -1,7 +1,7 @@
 """
 The evaluation's commands. generate draws the development regression and selection sets from the pinned snapshot's
-bronze (the last pipeline build) into data/evaluation/sets/, and the held-out set when asked (once; after a run, a
-redraw only rebuilds it, heldout.py), and writes their manifests to docs/evaluation/sets/: case IDs, hashes, and
+bronze (the last pipeline build) into data/evaluation/sets/, and the held-out set when asked (once, under its study's
+registered protocol; after a run, a redraw only rebuilds it, heldout.py), and writes their manifests to docs/evaluation/sets/: case IDs, hashes, and
 counts. play plays a drawn set in process with the scripted models, or the deterministic baseline's, and grades it,
 keeping the evidence, grades, and manifest under data/evaluation/runs/. run plays a drawn set end to end against a
 deployed stack and grades it, keeping each case's results under data/evaluation/runs/ and in the stack's evaluation
@@ -13,7 +13,6 @@ token, or a value (SEC-03).
 
 import argparse
 import asyncio
-import hashlib
 import json
 import subprocess
 import sys
@@ -45,7 +44,6 @@ from faro.pipeline import runner
 SETS = ("regression", "selection")
 PLAYED = (*SETS, heldout.NAME)
 SET_DOCS = Path("docs/evaluation/sets")
-FAMILIES = Path(families.__file__).parent
 
 
 def commit() -> str:
@@ -66,13 +64,6 @@ def commit() -> str:
         check=True,
     ).stdout.strip()
     return f"{head}+dirty" if dirty else head
-
-
-def families_hash() -> str:
-    digest = hashlib.sha256()
-    for path in sorted(FAMILIES.glob("*.json")):
-        digest.update(path.name.encode() + b"\0" + path.read_bytes())
-    return digest.hexdigest()
 
 
 def generate(
@@ -96,12 +87,25 @@ def generate(
         raise LockError(
             f"runs name the held-out set, and it has no manifest at {manifest_path}"
         )
+    protocol = heldout.registered() if held_out is not None and not played else None
     loaded, answers = families.load(), families.load_answers()
     held = families.held_out_ids(loaded, answers)
+    every, every_answer = loaded, answers
+    if held_out is not None:
+        # The held-out side's wording is the outside source's, checked against ours before anything is drawn.
+        outside, outside_answers = families.load_source(families.OUTSIDE)
+        every, every_answer = (*loaded, *outside), (*answers, *outside_answers)
+        found = families.problems(every, every_answer)
+        if found:
+            raise LockError(f"the outside source breaks the families' rules: {found}")
 
-    def keep(set_name: str, drawn: generator.Drawn) -> None:
+    def keep(
+        set_name: str, drawn: generator.Drawn, more: dict[str, Any] | None = None
+    ) -> None:
         cases.write(data_dir / "evaluation" / "sets" / f"{set_name}.jsonl", drawn.cases)
-        written = generator.manifest(set_name, seed, drawn, versions)
+        written = generator.manifest(
+            set_name, seed, drawn, {**versions, **(more or {})}
+        )
         docs.mkdir(parents=True, exist_ok=True)
         (docs / f"{set_name}.json").write_text(
             json.dumps(written, indent=2, ensure_ascii=False) + "\n",
@@ -119,7 +123,7 @@ def generate(
         versions = {
             **built,
             "generator": commit(),
-            "families": families_hash(),
+            "sources": {families.OURS: families.source_hash(families.OURS)},
             "policy": oracle.POLICY_VERSION,
             "case_format": cases.VERSION,
         }
@@ -132,11 +136,21 @@ def generate(
         return
     with bronze.connect(database, "held_out") as con:
         drawing = generator.Generator(
-            con, "held_out", loaded, answers, held, contract_words()
+            con,
+            "held_out",
+            every,
+            every_answer,
+            families.held_out_ids(every, every_answer),
+            contract_words(),
         )
         drawn = drawing.draw(heldout.NAME, seed, generator.held_out(held_out))
     if not played:
-        keep(heldout.NAME, drawn)
+        registration = {"path": str(heldout.PROTOCOL), "sha256": protocol}
+        sources = {
+            name: families.source_hash(name)
+            for name in (families.OURS, families.OUTSIDE)
+        }
+        keep(heldout.NAME, drawn, {"protocol": registration, "sources": sources})
         return
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     heldout.reproduce(played, drawn.cases, manifest, heldout.committed(manifest_path))
@@ -262,8 +276,6 @@ def write_report(args: argparse.Namespace) -> None:
         customers,
         disagreements.load(),
         baseline,
-        args.judged,
-        args.agreement,
         labels=args.labels,
     )
     out = report.write(found, args.out, args.page)
@@ -273,6 +285,34 @@ def write_report(args: argparse.Namespace) -> None:
         f"{rep['cases']} cases played every time"
     )
     print(headline(loaded[0].summary["metrics"]) + " (the first run)")
+
+
+def compare_runs(args: argparse.Namespace) -> None:
+    """
+    Two systems' runs of one set, case by case, from stored grades alone; it writes counts, rates, and intervals.
+    """
+    sets = args.data_dir / "evaluation" / "sets"
+    first = [report.load_run(path, sets) for path in args.first]
+    second = [report.load_run(path, sets) for path in args.second]
+    found = report.compare(first, second, args.left_out, args.unit)
+    args.out.mkdir(parents=True, exist_ok=True)
+    out = args.out / f"{first[0].run_id}--{second[0].run_id}.json"
+    out.write_text(json.dumps(found, indent=2) + "\n", encoding="utf-8")
+    print(
+        f"{found['cases']} cases of {found['set']} in {found['units']} units of one {found['unit']}, "
+        f"{len(found['left_out'])} situations left out"
+    )
+    for name, d in found["differences"].items():
+        print(
+            f"{name}: {d['first']} against {d['second']} over {d['cases']} cases, difference {d['value']} "
+            f"[{d['low']}, {d['high']}]{', which excludes zero' if d['excludes_zero'] else ''}"
+            f"{', too few units to decide' if d['too_few_units'] else ''}"
+        )
+    for side in ("first", "second"):
+        print(
+            f"M-04, the {side} system: the hypothesis {found['M-04'][side]['verdict']}"
+        )
+    print(f"kept in {out}")
 
 
 def tree() -> dict[str, Any]:
@@ -379,7 +419,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     reporting = commands.add_parser(
         "report",
-        help="Write the results page from the reported runs' stored grades, with the baseline and the judge where given",
+        help="Write the results page from the reported runs' stored grades, with the baseline where given",
     )
     reporting.add_argument(
         "--run",
@@ -391,19 +431,27 @@ def main(argv: list[str] | None = None) -> int:
     )
     reporting.add_argument("--baseline", type=Path, default=None)
     reporting.add_argument(
-        "--judged",
-        action="append",
-        default=[],
-        type=Path,
-        help="A judge run over one of the runs, repeatable",
-    )
-    reporting.add_argument(
-        "--agreement", type=Path, default=None, help="The agreement report's JSON"
-    )
-    reporting.add_argument(
         "--labels", type=Path, default=None, help="The relabel agreement's JSON"
     )
     reporting.add_argument("--docs", type=Path, default=SET_DOCS)
+    comparing = commands.add_parser(
+        "compare",
+        help="Compare two systems' runs of one set, case by case, paired over a unit within each language",
+    )
+    comparing.add_argument(
+        "--first", action="append", type=Path, required=True, help="A run, repeatable"
+    )
+    comparing.add_argument(
+        "--second", action="append", type=Path, required=True, help="A run, repeatable"
+    )
+    comparing.add_argument(
+        "--left-out",
+        action="append",
+        default=[],
+        help="A situation left out of the comparison, repeatable",
+    )
+    comparing.add_argument("--unit", choices=report.UNITS, default="family")
+    comparing.add_argument("--out", type=Path, default=report.COMPARISONS)
     reporting.add_argument("--out", type=Path, default=report.RESULTS)
     reporting.add_argument("--page", type=Path, default=report.PAGE)
     checking = commands.add_parser(
@@ -443,6 +491,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Error: {error}", file=sys.stderr)
             return 1
         return 0
+    if args.command == "compare":
+        try:
+            compare_runs(args)
+        except report.ReportError as error:
+            print(f"Error: {error}", file=sys.stderr)
+            return 1
+        return 0
     if args.command == "disagreements":
         found = disagreements.problems(disagreements.load())
         for problem in found:
@@ -478,6 +533,7 @@ def main(argv: list[str] | None = None) -> int:
         deployed.StackError,
         endtoend.RunError,
         heldout.HeldOutError,
+        generator.GeneratorError,
     ) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

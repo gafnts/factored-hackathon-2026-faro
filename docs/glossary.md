@@ -30,12 +30,12 @@ The words this repository uses in its own way, in plain terms. The policy's rule
 | Term | Meaning |
 |---|---|
 | Family | One request we wrote, with its paraphrases in both languages; 108 in all ([families.md](evaluation/families.md)) |
-| Held out | A fifth of the customers and a third of the families, never read while building; the split guards are the tests that keep it so |
+| Held out | A fifth of the customers, and wording another model family wrote, never read while building; the split guards are the tests that keep it so. Until 2026-11-02 a third of our own families were held out instead |
 | Case | One scripted conversation: a customer, a situation, and what the scripted customer sends, turn by turn |
 | Oracle | Our own code that applies the policy to the frozen bank and computes each case's expected outcome; it shares nothing with Faro's tools |
 | Grader | Code that compares a case's stored evidence with the oracle's expectation |
 | Baseline | The same graph with a keyword router, pattern extraction, and templated replies, so no model runs |
-| Judge | A model, Claude Opus 5.5, that reads only what code can't: wording, form of address, clarity. Used only on the questions where it agreed with our blind hand grades |
+| Judge | A model, Claude Opus 5.5, that graded wording in the submission's measurement, used only on the one question of nine where it agreed with our blind hand grades; dropped since, and code grades every reply ([ADR-0011](adr/0011-pre-registered-studies.md)) |
 | Run | One play of a set, with a manifest naming its code, data, policy, prompt, and model versions ([runs.md](evaluation/runs.md)) |
 | Disagreement, `D-NNN` | A case where Faro and the oracle differ, triaged in writing before anything changes ([disagreements.md](evaluation/disagreements.md)) |
 | Freeze | The moment after which the agent's prompts stopped moving, so the held-out runs measure one configuration |

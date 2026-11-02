@@ -435,7 +435,7 @@ AWS_PROFILE=default aws sns subscribe --protocol email --notification-endpoint y
 
 Budgets reads the account's charges a few times a day, so a notice can arrive hours after the spending that set it off. The budget warns and stops nothing: what bounds the stack's spending is the limit on turns per sign-in and per user (ADR-0004, decision 21).
 
-The model's limit is set in Anthropic's console, since no API sets it for an individual account. Anthropic limits a workspace or the whole organization, never a key, and the Default workspace takes no limit, so every key the project uses comes from a workspace of its own: both environments' secrets, and the `.env` the judge, the router comparison, and the language check read.
+The model's limit is set in Anthropic's console, since no API sets it for an individual account. Anthropic limits a workspace or the whole organization, never a key, and the Default workspace takes no limit, so every key the project uses comes from a workspace of its own: both environments' secrets, and the `.env` the router comparison and the language check read.
 
 1. Under [Workspaces](https://platform.claude.com/settings/workspaces) in the Claude Console, open the project's workspace, and under its **Spend limits** set a monthly limit (ours is 50 USD) and alerts as spending nears it.
 2. On the [Billing](https://platform.claude.com/settings/billing) page, set the organization's limit at or above the workspace's, so it also caps whatever else the organization runs.
@@ -478,18 +478,16 @@ make eval-cleanup               # Delete a stopped run's leftover test users
 make eval-index                 # Regenerate docs/evaluation/runs.md
 make disagreements              # Regenerate docs/evaluation/disagreements.md
 make eval-report                # Write docs/evaluation/results.md
+make eval-compare               # Compare two systems' runs of one set, case by case
 make language-check             # Read the paraphrases with the real prompts
 make router-compare             # Compare the keyword router with model routers
-make judge                      # Judge a run's replies through the batch API
-make judge-sample               # Draw the judge's blind sample and its sheet
-make judge-agreement            # Score the judge against the filled sheet
-make relabel-sample             # Draw 50 messages to relabel blind
+make relabel-sample             # Draw 50 messages of a source to relabel blind
 make relabel-agreement          # Score the filled sheet against the labels
 ```
 
 `make eval-run` needs `AWS_PROFILE`, the stack's outputs (`STACK_OUTPUTS`, default `build/<env>.outputs.json`), and the model key stored. It creates one test user per case in the pool's evaluation group and deletes it when the case ends, and keeps each case's evidence under `data/evaluation/runs/` and in the stack's evaluation bucket; `SITUATIONS=`, `LANGUAGES=`, and `LIMIT=` narrow a run, and `PARALLEL=` sets how many cases play at once. To report a run, commit its manifest and summary under `docs/evaluation/runs/` and run `make eval-index`. Where the system and the oracle disagree, add an entry to `docs/evaluation/disagreements.json` and run `make disagreements`: CI's regression job fails on any finding without an open entry.
 
-`make language-check`, `make router-compare`, and `make judge` call the model and cost money: they read `ANTHROPIC_API_KEY` from `.env` (`ENV_FILE=` names another file), and `ESTIMATE=1` prices a judge or router run without making it. A judge's verdicts count only on the questions `make judge-agreement` shows met the bar (ADR-0005, Grading). The judge, relabel, and report targets take their inputs as variables, which `make help` names and [Configuration](#configuration) describes; `make eval-report` takes every input at once or the page loses a section. To rerun what the reports rest on, start at [Reproduce the results](#reproduce-the-results).
+`make language-check` and `make router-compare` call the model and cost money: they read `ANTHROPIC_API_KEY` from `.env` (`ENV_FILE=` names another file), and `ESTIMATE=1` prices a router run without making it. No model grades the replies (ADR-0011). The relabel and report targets take their inputs as variables, which `make help` names and [Configuration](#configuration) describes; `make eval-report` takes every input at once or the page loses a section. To rerun what the reports rest on, start at [Reproduce the results](#reproduce-the-results).
 
 ### Promote to prototype
 
@@ -601,11 +599,12 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 | `SET`, `SITUATIONS`, `LANGUAGES`, `LIMIT`, `PARALLEL` | `regression`, all, all, none, `2` | `make eval-play` (`SET` only) and `make eval-run` |
 | `MODELS` | `scripted` | `make eval-play`: `baseline` plays the deterministic baseline, the only models the held-out set plays in process |
 | `HELD_OUT` | Unset: no held-out draw | `make eval-sets`: the held-out set's size, `600`, `400`, or `240` by the scope rule (ADR-0005); its manifest is committed before its first run, and after one, a draw is kept only when it rebuilds the committed set |
-| `RUN` | Unset: every stopped run | `make eval-cleanup`; `make judge` and `make judge-sample` take a run under `data/evaluation/runs/` |
-| `RUNS`, `BASELINE`, `JUDGED`, `AGREEMENT`, `LABELS` | Unset | `make eval-report`: the runs, the baseline run, the judge runs, the agreement file, and the relabel sample it reads |
-| `ENV_FILE`, `ESTIMATE` | `.env`, unset | `make language-check`, `make judge`, `make router-compare`: the file holding the model key, and `1` to price a run without making it |
+| `RUN` | Unset: every stopped run | `make eval-cleanup` |
+| `RUNS`, `BASELINE`, `LABELS` | Unset | `make eval-report`: the runs, the baseline run, and the relabel sample it reads |
+| `FIRST`, `SECOND`, `LEFT_OUT`, `UNIT` | Unset, unset, none, `family` | `make eval-compare`: each system's runs, the situations its study leaves out, and what the interval resamples within each language (`family` or `case`) |
+| `ENV_FILE`, `ESTIMATE` | `.env`, unset | `make language-check`, `make router-compare`: the file holding the model key, and `1` to price a run without making it |
 | `FAMILIES` | All | `make language-check`: a few families, for cents |
-| `ITEMS`, `SEEDED`, `SAMPLE`, `ROWS`, `SEED` | Unset, the bar's 10, none, `50`, fixed | `make judge` (a sample's items, in place of `RUN`), `make judge-sample` (seeded replies per question, never below the bar's), `make judge-agreement` and `make relabel-agreement` (the filled sample), `make relabel-sample` |
+| `SOURCE`, `SAMPLE`, `ROWS`, `SEED` | `outside`, none, `50`, fixed | `make relabel-sample` (the source it draws from), `make relabel-agreement` (the filled sample) |
 | `ROUTERS`, `SIDE`, `FOLDS` | `keyword haiku sonnet`, `development`, unset: no folds | `make router-compare` |
 
 ### What's pinned

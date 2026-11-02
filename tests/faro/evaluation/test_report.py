@@ -1,8 +1,8 @@
 """
 The results page from stored grades (ADR-0005, Reporting): the runs' grades joined to the set they played, which must
 hash as the manifest says; the metrics per run and over the runs; the slices with their intervals and the suppression
-of small ones; every failed case classified; the baseline paired on common cases; the judge joined by item and used
-only where the agreement report allows; and a page that holds counts and rates alone.
+of small ones; every failed case classified; the baseline paired on common cases; and a page that holds counts and rates
+alone.
 """
 
 import hashlib
@@ -400,120 +400,62 @@ def test_the_baseline_is_paired_on_the_cases_both_played(
     assert difference["interval"][0] < difference["value"] < difference["interval"][1]
 
 
-def write_judge(tmp_path: Path, run: report.Run) -> tuple[Path, Path]:
-    judged = tmp_path / "judge" / "20261004T180000Z-dddd"
-    judged.mkdir(parents=True)
-    rows = []
-    for i, (c, _) in enumerate(run.graded):
-        rows.append(
-            {
-                "item_id": f"{c['case_id']}-t01",
-                "outcome": "judged",
-                "questions": {
-                    "language": {
-                        "answer": "es_usted",
-                        "passes": i % 5 != 0,
-                        "by_hand": False,
-                        "confidence": "high",
-                    },
-                    "clear": {
-                        "answer": 4,
-                        "passes": True,
-                        "by_hand": i == 1,
-                        "confidence": "low" if i == 1 else "high",
-                    },
-                },
-            }
-        )
-    (judged / "judgments.jsonl").write_text(
-        "".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8"
-    )
-    (judged / "manifest.json").write_text(
-        json.dumps(
-            {
-                "run": judged.name,
-                "source": {"run": run.run_id},
-                "items": len(rows),
-                "judge": {
-                    "model_requested": "claude-opus-5-5",
-                    "prompt_version": "8aaf0b83cd72c7a2",
-                    "rubric": {"version": 1},
-                },
-                "totals": {"cost_usd": 1.25},
-            }
-        ),
-        encoding="utf-8",
-    )
-    agreement = tmp_path / "agreement.json"
-    scored = {
-        "question": "language",
-        "pairs": 60,
-        "natural": 50,
-        "seeded": 10,
-        "deserve_no": {"natural": 2, "seeded": 10},
-        "agreement": {"value": 0.95, "low": 0.86, "high": 0.98},
-        "kappa": {"value": 0.8, "low": 0.6, "high": 0.9},
-        "caught": {
-            "natural": {"failing": 2, "caught": 2},
-            "seeded": {"failing": 10, "caught": 9},
-        },
-        "verdict": "judge",
-        "why": [],
-    }
-    agreement.write_text(
-        json.dumps(
-            {
-                "sample": "20261004T040652Z-97e8",
-                "judge_run": judged.name,
-                "bar": {"agreement": 0.9, "kappa": 0.6, "deserve_no": 10},
-                "questions": [
-                    scored,
-                    {
-                        **scored,
-                        "question": "clear",
-                        "verdict": "hand_or_drop",
-                        "why": ["kappa below the bar or undefined"],
-                    },
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-    return judged, agreement
-
-
-def test_the_judge_is_joined_by_item_and_used_only_where_the_bar_allows(
+def test_two_systems_are_compared_case_by_case_on_what_both_played(
     tmp_path: Path, sets: tuple[Path, list[dict[str, Any]]]
 ) -> None:
     sets_dir, found = sets
-    runs = two_runs(tmp_path, found)
-    judged, agreement = write_judge(tmp_path, runs[0])
-
-    built = report.build(
-        runs,
-        set_manifest(found),
-        profiles_for(found),
-        [],
-        judged=[judged],
-        agreement=agreement,
-    )
-
-    section = built["judge"]
-    assert [q["verdict"] for q in section["agreement"]["questions"]] == [
-        "judge",
-        "hand_or_drop",
+    first = two_runs(tmp_path, found)
+    passing = [grade(c, transferred=c["situation"] == "person.asked") for c in found]
+    second = [
+        report.load_run(
+            write_run(tmp_path, "20261004T170000Z-cccc", found, passing), sets_dir
+        )
     ]
-    (per_run,) = section["per_run"]
-    assert per_run["source_run"] == runs[0].run_id
-    language = per_run["questions"]["language"]
-    assert (
-        language["items"],
-        language["passes"],
-        language["fails"],
-        language["used"],
-    ) == (24, 19, 5, True)
-    assert per_run["questions"]["clear"]["by_hand"] == 1
-    assert per_run["questions"]["clear"]["used"] is False
+
+    compared = report.compare(first, second, resamples=200)
+
+    # The first system resolves 16 of 22 conversations on average over its runs (one case in neither run, two in one
+    # of them), the second 18; of the four handoffs, it misses one in one run.
+    assert compared["cases"] == 22 and compared["units"] == 22
+    m01, m03 = compared["differences"]["M-01"], compared["differences"]["M-03"]
+    assert (m01["first"], m01["second"]) == (round(16 / 22, 4), round(18 / 22, 4))
+    assert m01["value"] == round(-2 / 22, 4)
+    assert m01["low"] <= m01["value"] <= m01["high"]
+    assert (m03["cases"], m03["value"]) == (4, -0.125)
+    assert compared["differences"]["M-01/pt"]["value"] == 0.0
+    assert compared["M-04"]["first"]["verdict"] == "refuted"
+    assert compared["M-04"]["second"]["verdict"] == "held"
+
+
+def test_a_comparison_leaves_out_situations_and_resamples_its_unit(
+    tmp_path: Path,
+) -> None:
+    found = drawn()
+    for c in found:
+        c["family_id"] = f"{c['group']}-0{int(c['case_id'], 16) % 3}"
+    cases.write(tmp_path / "sets" / "held_out.jsonl", found)
+    first = two_runs(tmp_path, found)
+
+    by_family = report.compare(first, first, resamples=50)
+    by_case = report.compare(first, first, unit="case", resamples=50)
+    apart = report.compare(first, first, left_out={"person.asked"}, resamples=50)
+
+    assert by_family["units"] < by_case["units"] == 22
+    assert by_family["differences"]["M-01"]["value"] == 0.0
+    assert apart["cases"] == 18 and apart["differences"]["M-03"]["value"] is None
+    # One family per language: every resample is the same draw, so no difference decides anything.
+    for c in found:
+        c["family_id"] = f"reads-0{c['language'] == 'pt'}"
+    cases.write(tmp_path / "single" / "sets" / "held_out.jsonl", found)
+    one, two = two_runs(tmp_path / "single", found)
+    single = report.compare([one], [two], resamples=50)
+    assert single["units"] == 2
+    assert single["differences"]["M-01"]["too_few_units"]
+    assert not single["differences"]["M-01"]["excludes_zero"]
+    with pytest.raises(report.ReportError, match="no unit"):
+        report.compare(first, first, unit="customer")
+    with pytest.raises(report.ReportError, match="a run to compare"):
+        report.compare(first, [])
 
 
 def test_the_page_holds_every_section_and_no_case_or_customer(
@@ -521,7 +463,6 @@ def test_the_page_holds_every_section_and_no_case_or_customer(
 ) -> None:
     sets_dir, found = sets
     runs = two_runs(tmp_path, found)
-    judged, agreement = write_judge(tmp_path, runs[0])
     theirs = [grade(c) for c in found]
     baseline = report.load_run(
         write_run(
@@ -540,8 +481,6 @@ def test_the_page_holds_every_section_and_no_case_or_customer(
         profiles_for(found),
         [],
         baseline=baseline,
-        judged=[judged],
-        agreement=agreement,
     )
 
     out = report.write(
@@ -561,7 +500,6 @@ def test_the_page_holds_every_section_and_no_case_or_customer(
         "## Unsafe outcomes (M-04) and the hypothesis",
         "## Failures, counted and classified",
         "## Against the baseline",
-        "## The judge",
     ):
         assert heading in text
     assert "held-out fifth" in text
