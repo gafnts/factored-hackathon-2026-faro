@@ -14,6 +14,7 @@ The decisions someone could question later, each with its context, the alternati
 | [0008](0008-pin-toolchain-by-layer.md) | Pin the toolchain by layer, with mise for the dev environment | Accepted 2026-10-31; amended 2026-10-31 |
 | [0009](0009-release-checked-deploys.md) | Release only checked deploys of credential-free builds | Accepted 2026-10-31 |
 | [0010](0010-gate-merges-on-advisories.md) | Gate every merge on known advisories in the lockfiles | Accepted 2026-10-31; amended 2026-10-31 |
+| [0011](0011-pre-registered-studies.md) | Pre-registered evaluation studies over wording sources | Proposed 2026-11-02 |
 
 ## Conventions
 
