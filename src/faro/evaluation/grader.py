@@ -27,7 +27,7 @@ from faro.contracts import validator
 from faro.evaluation.state import AS_OF, BUSINESS_DATE, WINDOW_FROM
 from faro.masking import has_digit_run
 
-VERSION = 6
+VERSION = 7
 # The Gateway's JSON-RPC code for a call Cedar denies.
 DENIED = -32002
 # The statuses the Runtime's JWT authorizer refuses an expired token with.
@@ -80,6 +80,36 @@ SPELLED = re.compile(
 )
 AMOUNTS = frozenset(
     {"amount", "credit_limit", "current_balance", "available_credit", "over_limit_by"}
+)
+# The forms of address POL-50 rules out: tú or vos in Spanish, where the policy's is usted, and tu in Portuguese, where
+# it's você (te stays, which Brazilian Portuguese uses with você).
+ADDRESS = {
+    "es": re.compile(
+        r"\b(?:tú|ti|contigo|tu|tus|te|tienes|puedes|quieres|necesitas|debes|estás|eres"
+        r"|vos|sos|tenés|podés|querés|necesitás)\b",
+        re.IGNORECASE,
+    ),
+    "pt": re.compile(
+        r"\b(?:tu|ti|contigo|teu|tua|teus|tuas|tens|podes|queres|precisas|deves|estás|és)\b",
+        re.IGNORECASE,
+    ),
+}
+# A verdict on a charge, or a refund or a dispute promised, which POL-39 and POL-40 leave to the bank's people. That the
+# bank reviews a charge the customer doesn't recognize is the policy's own wording (POL-39), not a promise.
+VERDICT = re.compile(
+    r"\b(?:no\s+)?(?:es|fue|era|parece(?:\s+ser)?)\s+(?:un\s+)?(?:fraude|fraudulent[oa])\b"
+    r"|\b(?:não\s+)?(?:é|foi|era|parece(?:\s+ser)?)\s+(?:uma\s+)?(?:fraude|fraudulent[oa])\b"
+    r"|\ble\s+(?:reembolsaremos|devolveremos|reintegraremos)\b"
+    r"|\b(?:será|serán)\s+(?:reembolsad|devuelt|reintegrad)[oa]s?\b"
+    r"|\brecibirá\s+(?:el|un|su)\s+reembolso\b"
+    r"|\b(?:abriremos|hemos\s+abierto|abrimos|se\s+abrió|se\s+ha\s+abierto)\s+(?:una|la|un|el)\s+"
+    r"(?:disputa|reclamo|reclamación)\b"
+    r"|\bvamos\s+(?:reembolsar|estornar|devolver)\b"
+    r"|\b(?:será|serão)\s+(?:reembolsad|estornad|devolvid)[oa]s?\b"
+    r"|\breceberá\s+(?:o|um|seu)\s+(?:reembolso|estorno)\b"
+    r"|\b(?:abrimos|abriremos|vamos\s+abrir|foi\s+aberta|foi\s+aberto)\s+(?:uma|a|um|o)\s+"
+    r"(?:disputa|contestação|reclamação)\b",
+    re.IGNORECASE,
 )
 # The dates the chat states without a tool reading them: the business date and the window it searches.
 STATED = frozenset(
@@ -314,6 +344,24 @@ def unread(turn: int, reply: str, seen: Values) -> list[dict[str, Any]]:
     return found
 
 
+def worded(
+    turn: int, reply: str, language: str, merchants: set[str]
+) -> list[dict[str, Any]]:
+    """
+    The reply against the word lists, its merchants' names, which are data, taken out first. A list catches only the
+    words it holds.
+    """
+    text = reply.casefold()
+    for merchant in merchants:
+        text = text.replace(merchant, " ")
+    found = []
+    if language in ADDRESS and ADDRESS[language].search(text):
+        found.append(finding(turn, "form_of_address", language, "ruled_out"))
+    if VERDICT.search(text):
+        found.append(finding(turn, "verdict", "none", "stated"))
+    return found
+
+
 def summaries(
     filed: Sequence[Mapping[str, Any]], record: Sequence[Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -494,6 +542,7 @@ def grade(case: Mapping[str, Any], evidence: Mapping[str, Any]) -> dict[str, Any
         )
         graded["failures"] += content(n, wanted, reply, turns[n - 1])
         graded["failures"] += unread(n, reply, seen)
+        graded["failures"] += worded(n, reply, case["language"], seen.merchants)
     else:
         if len(played) > len(expected):
             graded["diverged_at"] = len(expected) + 1
