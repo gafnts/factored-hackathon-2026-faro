@@ -387,9 +387,10 @@ def unread(turn: int, reply: str, seen: Values) -> list[dict[str, Any]]:
     A card ending or a date the reply names that no tool read. A merchant's name is data, as the reply shows it, a card
     number in it masked (POL-11), so the names read are taken out first.
     """
-    text = reply.casefold()
+    text = reply
     for merchant in seen.merchants:
-        text = text.replace(mask(merchant), " ").replace(merchant, " ")
+        for name in {mask(merchant), merchant}:
+            text = re.sub(re.escape(name), " ", text, flags=re.IGNORECASE)
     named_cards, named_dates, _ = named(text)
     found = []
     if named_cards - seen.cards:

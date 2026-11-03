@@ -177,6 +177,10 @@ def test_a_merchants_name_isnt_read_for_a_card_ending_even_masked() -> None:
     listed = "Su tarjeta terminada en 4417:\n\n- Pago ****9876 Ejemplo, 35.00 USD"
 
     assert grader.unread(1, listed, seen) == []
+    assert (
+        grader.unread(1, f"{listed}\n\nLa referencia de su caso es ABCD-1234.", seen)
+        == []
+    )
     assert checks(grader.unread(1, "La tarjeta terminada en 9876.", seen)) == ["unread"]
 
 
