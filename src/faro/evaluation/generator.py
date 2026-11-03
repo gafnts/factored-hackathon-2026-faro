@@ -1190,11 +1190,21 @@ HELD_OUT_SIZES = (600, 400, 240)
 
 def held_out(size: int) -> dict[str, int]:
     """
-    The held-out workload: the selection's situations in their proportions, scaled to the size, each at least once.
+    The held-out workload: half the size per language, shared among the selection's situations in its proportions by
+    largest remainder, ties by name, so each situation is within a case of its share and the set has the size asked
+    for; each at least once. Rounding each share on its own can miss the size by a case per situation.
     """
     selection = COMPOSITIONS["selection"]
-    scale = size / (2 * sum(selection.values()))
-    return {name: max(1, round(n * scale)) for name, n in selection.items()}
+    per_language = size // 2
+    shares = {
+        n: c * per_language / sum(selection.values()) for n, c in selection.items()
+    }
+    workload = {n: max(1, int(share)) for n, share in shares.items()}
+    left = per_language - sum(workload.values())
+    by_remainder = sorted(shares, key=lambda n: (int(shares[n]) - shares[n], n))
+    for name in by_remainder[: max(0, left)]:
+        workload[name] += 1
+    return workload
 
 
 @dataclass

@@ -168,9 +168,11 @@ def test_the_held_out_workload_keeps_the_selections_proportions_at_each_size() -
 
     for size in generator.HELD_OUT_SIZES:
         workload = generator.held_out(size)
+        share = size / 2 / sum(selection.values())
         assert workload.keys() == selection.keys()
-        assert abs(2 * sum(workload.values()) - size) <= size * 0.1
+        assert 2 * sum(workload.values()) == size
         assert min(workload.values()) >= 1
+        assert all(abs(workload[n] - c * share) < 1 for n, c in selection.items())
     assert generator.held_out(600)["status.one_card"] > selection["status.one_card"]
 
 
