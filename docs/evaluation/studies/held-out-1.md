@@ -34,6 +34,7 @@ From the [report](../report.md#in-short): 65% of 602 conversation cases resolved
 - One held-out phrasing per kind of answer let one misread fail 56 cases in every run (D-013). Its fix was measured on those 56 cases, not on the set.
 - The split by hash left shapes without held-out wording, so a fifth of the cases borrowed ours.
 - The judge's one validated question failed replies only for a sentence POL-39 requires; the other eight questions went unused.
+- No check tested that a drawn message held no slot left unfilled, so 63 cases sent `{last_four}` where a card's digits belonged (fixed in [#163](https://github.com/gafnts/factored-hackathon-2026-faro/pull/163)).
 
 The second study answers each in its design: [held-out-2.md](held-out-2.md).
 
@@ -41,3 +42,4 @@ The second study answers each in its design: [held-out-2.md](held-out-2.md).
 
 - 2026-10-04: D-013's patch, after the freeze, measured on the 56 cases it affected on a separate stack (55 of 56 passed), never on the whole set.
 - 2026-11-02: the stored runs regraded with grader version 7 to test its new checks on real replies; one summary naming an amount its verified charge didn't, in one case of each run, and the reported grades left as they were.
+- 2026-11-02: the triage of D-010 to D-015 read every case behind them. The 63 cases with an unfilled slot passed 62 times and failed once in each run, so the rates move by one case, but a tenth of the set never named a card by its digits. Of the 14 cases that give a charge's amount, 3 showed and disputed another charge in every run. No missing fact or extra figure was a value the grader missed for its format.

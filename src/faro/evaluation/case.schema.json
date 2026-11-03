@@ -91,8 +91,22 @@
             "transaction": { "$ref": "#/$defs/text" },
             "dont_know": { "$ref": "#/$defs/text" },
             "aside": {
-              "description": "Sent once when the agent asks for a detail, before the answer, and answers nothing (POL-06).",
-              "$ref": "#/$defs/text"
+              "description": "Sent when the agent asks for a detail, before the answer, each once and in order, answering nothing (POL-06). A case drawn before 2026-11-02 holds one, not a list.",
+              "oneOf": [
+                { "$ref": "#/$defs/text" },
+                { "type": "array", "minItems": 1, "maxItems": 3, "items": { "$ref": "#/$defs/text" } }
+              ]
+            },
+            "interjection": {
+              "description": "Sent once, at the first turn that waits on what it names, in place of what that turn asks for: an answer that corrects the card (POL-13), or a family's message that makes a request (POL-06, POL-36, POL-39, POL-44).",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["at", "id", "text"],
+              "properties": {
+                "at": { "enum": ["card", "reason", "transaction", "confirm_control", "handoff_control"] },
+                "id": { "$ref": "#/$defs/text/properties/id" },
+                "text": { "$ref": "#/$defs/text/properties/text" }
+              }
             },
             "typed_yes": {
               "description": "Typed when the confirm control shows, in place of pressing it (POL-36).",
@@ -176,7 +190,13 @@
         "reason_code": { "$ref": "urn:banking-agent:card-support:execution-record:1#/$defs/reason_code" },
         "trigger": { "enum": ["required", "accepted_offer"] },
         "queue": { "enum": ["customer_service", "dispute_intake"] },
-        "priority": { "enum": ["urgent", "normal"] }
+        "priority": { "enum": ["urgent", "normal"] },
+        "cites": {
+          "description": "Rules the filed case cites besides its own: POL-44 for a complaint or a request for a person that joined it (policy version 7).",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^POL-[0-9]{2}$" }
+        }
       }
     },
     "turn": {
@@ -186,7 +206,7 @@
       "properties": {
         "sends": {
           "description": "What the customer sends this turn: the script's next message, an answer, or a control press.",
-          "enum": ["message", "card", "reason", "transaction", "dont_know", "aside", "typed_yes", "confirm", "cancel", "accept", "decline"]
+          "enum": ["message", "card", "reason", "transaction", "dont_know", "aside", "interjection", "typed_yes", "confirm", "cancel", "accept", "decline"]
         },
         "decisions": {
           "description": "One per request served, in POL-05's order; the scripted customer reacts to the last.",

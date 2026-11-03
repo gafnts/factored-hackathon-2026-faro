@@ -109,6 +109,34 @@ def test_a_fact_is_named_by_its_placeholder() -> None:
     assert cases.problems(case)
 
 
+def test_a_script_holds_one_aside_or_several_and_an_interjection() -> None:
+    case = example()
+    answers = case["script"]["answers"]
+    aside = {"id": "aside-01/es", "text": "Gracias por la paciencia."}
+    interjection = {
+        "at": "confirm_control",
+        "id": "talk_to_human-06/es/0",
+        "text": "Quiero poner una queja.",
+    }
+    answers |= {"aside": aside, "interjection": interjection}
+
+    assert cases.problems(case) == []
+    assert cases.asides(answers) == [aside]
+    answers["aside"] = [aside, {"id": "aside-02/es", "text": "Hola, ¿sigue ahí?"}]
+    assert cases.problems(case) == []
+    assert [t["id"] for t in cases.texts(answers)] == [
+        "aside-01/es",
+        "aside-02/es",
+        *(
+            v["id"]
+            for k, v in answers.items()
+            if k not in ("aside",) and isinstance(v, dict)
+        ),
+    ]
+    answers["interjection"] = {**interjection, "at": "none"}
+    assert cases.problems(case)
+
+
 def test_a_turn_that_contradicts_itself_is_caught() -> None:
     case = example()
     turn = case["expected"]["turns"][0]

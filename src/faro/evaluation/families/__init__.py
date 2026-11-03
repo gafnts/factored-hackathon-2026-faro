@@ -94,6 +94,11 @@ ANSWER_KINDS = {
     "dont_know": set(),
     "aside": set(),
     "typed_yes": set(),
+    # At a question, version 7: exasperation, a question about the last reply, and another card, named or not.
+    "frustration": set(),
+    "last_reply": set(),
+    "card_correction": {"last_four"},
+    "another_card": set(),
 }
 PER_ANSWER_KIND = 3
 OURS = "ours"

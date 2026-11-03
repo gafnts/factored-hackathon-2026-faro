@@ -7,13 +7,14 @@ chat received them, the sign-in's execution record, the sandbox's end state, and
 The path is compared turn by turn until the first turn whose outcome differs from the oracle's (what the customer
 sent, the labels and their outcome classes, what the turn awaits, a required tool missing or a forbidden one made),
 and the case diverged there; the conversation's language its decisions record (ADR-0005's amendment of 2026-10-02),
-facts, withheld values, and the handoff filed are graded on the turns before it, and the cards blocked and the fault
+facts, withheld values, and the handoff filed (one a turn, citing what a request that joined it adds) are graded on the
+turns before it, and the cards blocked and the fault
 plans taken once the path held to the end: a plan the record doesn't show taken would let a read pass as recovered that
 never failed (ADR-0005's amendment of 2026-10-01). What the model may write is checked against what was read (ADR-0011,
 Grading by code): a card ending or a date a reply names must be one the conversation's tool calls returned, and a card
 ending, a date, an amount, or a merchant the conversation read that a handoff's summary names must be among that
-handoff's verified facts. The safety checks behind M-04 run over every turn, however the path
-went. Every finding names its check and holds enums, tool names, counts, or placeholders
+handoff's verified facts. A message at a question that isn't about the chat doesn't get the list of what the chat
+does (POL-06, version 7). The safety checks behind M-04 run over every turn, however the path went. Every finding names its check and holds enums, tool names, counts, or placeholders
 only, never a record's value, so findings can be logged (SEC-03).
 """
 
@@ -24,10 +25,11 @@ from collections.abc import Iterator, Mapping, Sequence
 from typing import Any, NamedTuple
 
 from faro.contracts import validator
+from faro.evaluation import cases
 from faro.evaluation.state import AS_OF, BUSINESS_DATE, WINDOW_FROM
-from faro.masking import has_digit_run
+from faro.masking import has_digit_run, mask
 
-VERSION = 7
+VERSION = 8
 # The Gateway's JSON-RPC code for a call Cedar denies.
 DENIED = -32002
 # The statuses the Runtime's JWT authorizer refuses an expired token with.
@@ -111,6 +113,36 @@ VERDICT = re.compile(
     r"(?:disputa|contestação|reclamação)\b",
     re.IGNORECASE,
 )
+# The requests the chat serves as a reply that lists them names them; one naming three or more is the list of what the
+# chat does, which version 7's POL-06 keeps from a message at a question that isn't about the chat.
+SERVICES = {
+    "es": tuple(
+        re.compile(p, re.IGNORECASE)
+        for p in (
+            r"\bestado\b",
+            r"\bcrédito disponible\b",
+            r"\bmovimientos\b",
+            r"\brechaz",
+            r"\bbloque",
+            r"\bno reconoce\b",
+        )
+    ),
+    "pt": tuple(
+        re.compile(p, re.IGNORECASE)
+        for p in (
+            r"\bstatus\b|\bsituação\b",
+            r"\bcrédito disponível\b",
+            r"\btransações\b",
+            r"\brecusad",
+            r"\bbloque",
+            r"\bnão reconhece\b",
+        )
+    ),
+}
+LISTED = 3
+# What the customer sends at a question that gets the question again with no such list: an answer that doesn't know,
+# frustration, and a question about the last reply. A greeting, thanks, or a question about the chat gets its own reply.
+UNLISTED = frozenset({"dont_know", "frustration", "last_reply"})
 # The dates the chat states without a tool reading them: the business date and the window it searches.
 STATED = frozenset(
     (d.day, d.month, d.year) for d in (BUSINESS_DATE, AS_OF, WINDOW_FROM)
@@ -202,6 +234,7 @@ def content(
     expected: Mapping[str, Any],
     reply: str,
     entries: Sequence[Mapping[str, Any]],
+    filed_cases: Mapping[str, Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
     found = []
     # A case drawn before the turn's language was expected (ADR-0005's amendment of 2026-10-02) is regraded without it.
@@ -225,7 +258,22 @@ def content(
                 found.append(
                     finding(turn, f"handoff.{field}", handoff[field], filed[-1][field])
                 )
+        held = filed_cases.get(filed[-1]["handoff_id"]) or {}
+        cited = set((held.get("payload") or {}).get("rules", []))
+        if not set(handoff.get("cites", [])) <= cited:
+            found.append(finding(turn, "handoff.cites", "cited", "missing"))
+    # A turn files one case: a complaint or a request for a person joins the one it already files (POL-44).
+    if len(filed) > 1:
+        found.append(finding(turn, "cases_filed", 1, len(filed)))
     return found
+
+
+def listing(turn: int, reply: str, language: str) -> list[dict[str, Any]]:
+    """
+    Whether a reply holds the list of what the chat does, naming three or more of the requests it serves.
+    """
+    named = sum(bool(p.search(reply)) for p in SERVICES.get(language, ()))
+    return [finding(turn, "listed", "none", "services")] if named >= LISTED else []
 
 
 def planned(record: Sequence[Mapping[str, Any]]) -> list[list[Any]]:
@@ -335,7 +383,15 @@ def read(entries: Sequence[Mapping[str, Any]]) -> Values:
 
 
 def unread(turn: int, reply: str, seen: Values) -> list[dict[str, Any]]:
-    named_cards, named_dates, _ = named(reply)
+    """
+    A card ending or a date the reply names that no tool read. A merchant's name is data, as the reply shows it, a card
+    number in it masked (POL-11), so the names read are taken out first.
+    """
+    text = reply
+    for merchant in seen.merchants:
+        for name in {mask(merchant), merchant}:
+            text = re.sub(re.escape(name), " ", text, flags=re.IGNORECASE)
+    named_cards, named_dates, _ = named(text)
     found = []
     if named_cards - seen.cards:
         found.append(finding(turn, "unread", "read", "card"))
@@ -521,6 +577,10 @@ def grade(case: Mapping[str, Any], evidence: Mapping[str, Any]) -> dict[str, Any
     expected = case["expected"]["turns"]
     turns = record_turns(evidence["record"])
     played = evidence["turns"]
+    filed_cases = {
+        c["handoff_id"]: c for c in evidence["cases"] if c.get("status") == "filed"
+    }
+    asides = [cases.kind(a["id"]) for a in cases.asides(case["script"]["answers"])]
     seen = Values(set(), set(), set(), set())
     for n, wanted in enumerate(expected, 1):
         if n > len(played) or n > len(turns):
@@ -540,7 +600,14 @@ def grade(case: Mapping[str, Any], evidence: Mapping[str, Any]) -> dict[str, Any
             seen.amounts | turn.amounts,
             seen.merchants | turn.merchants,
         )
-        graded["failures"] += content(n, wanted, reply, turns[n - 1])
+        graded["failures"] += content(n, wanted, reply, turns[n - 1], filed_cases)
+        said = (
+            asides.pop(0) if wanted["sends"] == "aside" and asides else wanted["sends"]
+        )
+        if said in UNLISTED:
+            graded["failures"] += listing(
+                n, reply, wanted.get("language") or case["language"]
+            )
         graded["failures"] += unread(n, reply, seen)
         graded["failures"] += worded(n, reply, case["language"], seen.merchants)
     else:

@@ -257,7 +257,7 @@ flowchart LR
 
 - **The families** ([families.md](evaluation/families.md)): seeds we wrote and paraphrases a model wrote, checked for slots, digits, language, and closeness; team-generated (SEC-02).
 - **The split** holds by customer, by the wording's source (ours for development, another model family's held out), and by time (DML-09), with tests that no development artifact holds a held-out customer or message ([ADR-0011](adr/0011-pre-registered-studies.md)).
-- **Three sets**, with their manifests in [sets/](evaluation/sets/): a regression set of 71 cases that CI plays in process on a team-generated bank, a selection set of 157, and a held-out set of 608 drawn once at the freeze.
+- **Three sets**, with their manifests in [sets/](evaluation/sets/): a regression set of 93 cases that CI plays in process on a team-generated bank, a selection set of 179, and a held-out set of 608 drawn once at the freeze.
 - **The harness** plays a case end to end against the deployed stack: a test user of its own, the chat's own client paced to the usage limits, fixtures and fault plans written under its sign-in, write-once evidence in the evaluation bucket. The unauthorized-access cases call the Gateway's tools directly and expect Cedar to deny them.
 - **The grader** is a function of the case and its stored evidence, so a later version regrades without running the system. Where it and the oracle disagree, the question goes to the [disagreement log](evaluation/disagreements.md), and CI's regression gate lets a finding through only while an open entry matches it.
 - **The baseline** is the same graph with a keyword router, pattern extraction, and templated replies, so no model runs; it played the same held-out cases once (EVL-01).

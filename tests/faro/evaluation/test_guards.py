@@ -39,12 +39,22 @@ def test_a_case_off_its_side_is_caught() -> None:
     case: dict[str, Any] = example()
     case["family_id"] = "outside.card_status-01"
     case["script"]["answers"]["card"]["id"] = "outside.dont_know-01/es"
+    case["script"]["answers"]["aside"] = [
+        {"id": "outside.card_last_four-01/es", "text": "-"}
+    ]
+    case["script"]["answers"]["interjection"] = {
+        "at": "card",
+        "id": "outside.talk_to_human-01/es/0",
+        "text": "-",
+    }
     case["script"]["means"]["other_customer_id"] = HELD_OUT_CUSTOMER
 
     assert guards.case_problems(case, HELD) == [
         "its other customer isn't on the development side",
+        "outside.card_last_four-01 isn't on the development side",
         "outside.card_status-01 isn't on the development side",
         "outside.dont_know-01 isn't on the development side",
+        "outside.talk_to_human-01 isn't on the development side",
     ]
 
 

@@ -7,6 +7,7 @@ keywords, the router's data) holds a held-out customer or a held-out source's wo
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from faro.evaluation import cases
 from faro.evaluation.families import TOO_CLOSE, normalized, trigrams
 from faro.split import held_out
 
@@ -34,8 +35,7 @@ def case_problems(case: Mapping[str, Any], held_families: frozenset[str]) -> lis
             found.append(f"its {name} isn't on the {case['side']} side")
     sides = {
         a["id"].split("/")[0]: case["side"]
-        for a in case["script"]["answers"].values()
-        if isinstance(a, dict)
+        for a in cases.texts(case["script"]["answers"])
     }
     sides |= {m["id"].split("/")[0]: phrasing for m in case["script"]["messages"]}
     if case["family_id"] is not None:
