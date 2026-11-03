@@ -39,6 +39,7 @@ from bedrock_agentcore.services.identity import IdentityClient
 from botocore.config import Config
 from langgraph.graph.state import CompiledStateGraph
 from langgraph_checkpoint_aws import DynamoDBSaver
+from opentelemetry.util.types import AttributeValue
 
 from faro.agent import metrics, tracing
 from faro.agent.claims import Claims, ClaimsRefusedError, read_claims, token_of
@@ -75,6 +76,7 @@ from faro.policy import POLICY_VERSION
 WORKLOAD_TOKEN_HEADERS = ("workloadaccesstoken", "x-amz-bedrock-agentcore-identity-wat")
 CHECKPOINTS_KEPT = timedelta(days=7)
 CLIENT_ID = re.compile(r"^[A-Za-z0-9_-]{7,64}$")
+AGENT = "card_support"
 # One attempt per invocation: Filing retries under the same call ID and records each attempt.
 LAMBDA_CONFIG = Config(
     connect_timeout=5, read_timeout=15, retries={"total_max_attempts": 1}
@@ -243,6 +245,7 @@ class Entrypoint:
         client_thread_id: str | None,
         errors: list[dict[str, str]] | None = None,
     ) -> BaseEvent:
+        tracing.annotate({"faro.refused": code, "faro.source": source})
         if sign_in is None:
             logger.warning(
                 "refused a request as %s without a sign-in to record it in", code
@@ -259,6 +262,8 @@ class Entrypoint:
         if errors:
             fields["errors"] = errors
         turn = Turn(self.services.records, sign_in, source, started, self.services.now)
+        tracing.annotate({"faro.turn_id": turn.turn_id})
+        fields.update(tracing.trace_id())
         try:
             await turn.write("request_refused", **fields)
         except Exception:
@@ -267,6 +272,26 @@ class Entrypoint:
 
     async def run(
         self, run_input: RunAgentInput, context: RequestContext
+    ) -> AsyncIterator[BaseEvent]:
+        """
+        Under the span AgentCore's request arrived with, when its headers name one.
+        """
+        headers = context.request.headers if context.request is not None else {}
+        attributes: dict[str, AttributeValue] = {
+            "gen_ai.operation.name": "invoke_agent",
+            "gen_ai.agent.name": AGENT,
+        }
+        if context.session_id:
+            attributes["session.id"] = context.session_id
+        with tracing.span(f"invoke_agent {AGENT}", attributes, tracing.joined(headers)):
+            async for event in self.serve(run_input, context, headers):
+                yield event
+
+    async def serve(
+        self,
+        run_input: RunAgentInput,
+        context: RequestContext,
+        headers: Mapping[str, str],
     ) -> AsyncIterator[BaseEvent]:
         services = self.services
         started = services.now()
@@ -330,7 +355,7 @@ class Entrypoint:
         turn = Turn(
             services.records, claims.origin_jti, claims.source, started, services.now
         )
-        headers = context.request.headers if context.request is not None else {}
+        tracing.annotate({"faro.turn_id": turn.turn_id, "faro.source": claims.source})
         async for event in self.turn(
             turn, claims, token_of(authorization), key, run_input, parsed,
             snapshot.values.get("language", DEFAULT), session_id, workload_token(headers),
@@ -367,7 +392,9 @@ class Entrypoint:
                 language=language,
                 clock=services.settings.clock,
                 versions=self.versions(),
+                **tracing.trace_id(),
             )
+            tracing.annotate({"faro.input": recorded_input(parsed)["kind"]})
             logger.info("turn %s opened", turn.turn_id)
             if isinstance(parsed, Warmup):
                 yield checked(
@@ -409,7 +436,7 @@ class Entrypoint:
                 )
             )
             wrapper = LangGraphAgent(
-                name="card_support",
+                name=AGENT,
                 graph=services.graph,
                 emit_raw_events=False,
                 enable_legacy_on_interrupt_event=False,
@@ -490,6 +517,7 @@ class Entrypoint:
         }
         if outcome == "error":
             fields["error_code"] = "internal"
+        tracing.annotate({"faro.outcome": outcome})
         await turn.write("turn_closed", **fields)
         logger.info("turn %s closed: %s", turn.turn_id, outcome)
 

@@ -7,9 +7,13 @@ may quote a model's output.
 
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 
 from opentelemetry import trace
+from opentelemetry.context import Context
+from opentelemetry.propagators.aws import AwsXRayPropagator
+from opentelemetry.propagators.composite import CompositePropagator
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import (
@@ -18,7 +22,9 @@ from opentelemetry.sdk.trace.export import (
     SpanExportResult,
 )
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON
-from opentelemetry.trace import Link, Status
+from opentelemetry.trace import Link, Span, Status, StatusCode
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from opentelemetry.util.types import AttributeValue
 
 # In the GenAI semantic conventions' names where they have one, and in ours otherwise; each value is a count, a model's
 # or a tool's name, an ID we drew, the runtime session's ID (as the logs carry it), or an enumerated value.
@@ -56,6 +62,51 @@ ATTRIBUTES = frozenset(
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer("faro")
+# AgentCore's span may arrive in either header (ADR-0004, To verify on the first deploy).
+PROPAGATOR = CompositePropagator([AwsXRayPropagator(), TraceContextTextMapPropagator()])
+
+
+def joined(headers: Mapping[str, str]) -> Context:
+    """
+    The context of the span the request arrived under, if its headers name one.
+    """
+    return PROPAGATOR.extract(headers)
+
+
+@contextmanager
+def span(
+    name: str,
+    attributes: Mapping[str, AttributeValue],
+    context: Context | None = None,
+) -> Iterator[Span]:
+    """
+    A span that ends in an error records the exception's type alone.
+    """
+    with tracer.start_as_current_span(
+        name,
+        context=context,
+        attributes=attributes,
+        record_exception=False,
+        set_status_on_exception=False,
+    ) as current:
+        try:
+            yield current
+        except Exception as error:
+            current.set_status(StatusCode.ERROR)
+            current.set_attribute("error.type", type(error).__qualname__)
+            raise
+
+
+def annotate(attributes: Mapping[str, AttributeValue]) -> None:
+    trace.get_current_span().set_attributes(attributes)
+
+
+def trace_id() -> dict[str, str]:
+    """
+    The current trace's ID as a record field, or none when no span is recorded.
+    """
+    context = trace.get_current_span().get_span_context()
+    return {"trace_id": f"{context.trace_id:032x}"} if context.is_valid else {}
 
 
 def kept(span: ReadableSpan) -> ReadableSpan:

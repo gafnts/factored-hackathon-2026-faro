@@ -1,7 +1,8 @@
 """
 The Runtime's spans hold no text: the exporter passes only the listed attributes, and no event, link attribute, or
 status description; every trace is kept whatever the request's sampling flag, and the Runtime exports to X-Ray in its
-own Region (ADR-0004, Operations, Tracing; OPS-01, SEC-03).
+own Region. Each request's span joins the trace AgentCore's request arrived under, and the record's first entry names
+the trace (ADR-0004, Operations, Tracing; OPS-01, SEC-03).
 """
 
 import logging
@@ -11,7 +12,7 @@ from typing import Any
 import pytest
 from amazon.opentelemetry.distro.exporter.otlp.aws.traces import otlp_aws_span_exporter
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import (
     NonRecordingSpan,
@@ -23,7 +24,12 @@ from opentelemetry.trace import (
 
 from faro.agent import tracing
 
+from .conftest import Harness, customer, run_body, session_id
+
 TYPED = "4111 1111 1111 1111"
+TRACE = 0x5759E988BD862E3FE1BE46A994272793
+PARENT = 0x53995C3F42CD8AD8
+REQUEST = "invoke_agent card_support"
 
 
 def exported(run: Callable[[trace.Tracer], None]) -> list[Any]:
@@ -108,3 +114,59 @@ def test_the_runtime_exports_to_x_ray_in_its_region_and_logs_only_the_names_it_r
     assert provider.resource.attributes["service.name"] == "runtime-under-test"
     assert "OTEL_SERVICE_NAME" in caplog.text
     assert "runtime-under-test" not in caplog.text
+
+
+def request_span(spans: list[ReadableSpan]) -> ReadableSpan:
+    [request] = [span for span in spans if span.name == REQUEST]
+    return request
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        {"traceparent": f"00-{TRACE:032x}-{PARENT:016x}-01"},
+        {
+            "X-Amzn-Trace-Id": "Root=1-5759e988-bd862e3fe1be46a994272793;Parent=53995c3f42cd8ad8;Sampled=1"
+        },
+    ],
+)
+def test_a_turn_is_traced_under_the_span_its_request_arrived_with(
+    harness: Harness,
+    spans: Callable[[], list[ReadableSpan]],
+    header: dict[str, str],
+) -> None:
+    who = customer()
+    session = session_id()
+    harness.post(run_body(), who.token(), session, traced=header)
+
+    request = request_span(spans())
+    assert request.context.trace_id == TRACE
+    assert request.parent is not None and request.parent.span_id == PARENT
+    [opened] = [
+        e for e in harness.records.of(who.origin_jti) if e["kind"] == "turn_opened"
+    ]
+    assert opened["trace_id"] == f"{TRACE:032x}"
+    assert dict(request.attributes or {}) == {
+        "gen_ai.operation.name": "invoke_agent",
+        "gen_ai.agent.name": "card_support",
+        "session.id": session,
+        "faro.turn_id": opened["turn_id"],
+        "faro.source": "demo",
+        "faro.input": "message",
+        "faro.outcome": "finished",
+    }
+
+
+def test_a_refused_request_is_traced_and_its_entry_names_the_trace(
+    harness: Harness, spans: Callable[[], list[ReadableSpan]]
+) -> None:
+    who = customer()
+    harness.post(run_body(), who.token())
+
+    request = request_span(spans())
+    [refused] = harness.records.of(who.origin_jti)
+    assert refused["code"] == "session_refused"
+    assert refused["trace_id"] == f"{request.context.trace_id:032x}"
+    assert request.attributes is not None
+    assert request.attributes["faro.refused"] == "session_refused"
+    assert request.attributes["faro.turn_id"] == refused["turn_id"]
