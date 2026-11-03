@@ -1813,11 +1813,16 @@ def manifest(
     drawn: Drawn,
     versions: Mapping[str, Any],
     earlier: frozenset[str] | None = None,
+    left_out: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """
     What a set's committed copy holds: opaque case IDs, hashes, and counts, never a customer or a record's value.
-    With earlier, the customers an earlier held-out set used, it counts the cases that reuse one.
+    With earlier, the customers an earlier held-out set used, it counts the cases that reuse one; with left_out, it
+    names the situations a comparison on the set leaves out, fixed at the draw (ADR-0011, Studies).
     """
+    unknown = sorted(set(left_out or ()) - {c["situation"] for c in drawn.cases})
+    if unknown:
+        raise GeneratorError(f"the set has no situation named {', '.join(unknown)}")
     by = Counter((c["group"], c["situation"], c["language"]) for c in drawn.cases)
     languages: dict[tuple[str, str], set[str]] = {}
     for c in drawn.cases:
@@ -1872,6 +1877,7 @@ def manifest(
                 ]
             }
         ),
+        **({} if left_out is None else {"left_out": sorted(left_out)}),
         "case_ids": [
             {"case_id": c["case_id"], "sha256": digest(c)} for c in drawn.cases
         ],

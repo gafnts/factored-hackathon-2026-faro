@@ -458,6 +458,15 @@ def test_a_comparison_leaves_out_situations_and_resamples_its_unit(
         report.compare(first, [])
 
 
+def test_a_sets_manifest_fixes_what_its_comparison_leaves_out() -> None:
+    named = {"set": "held_out_2", "left_out": ["status.frustration"]}
+
+    assert report.left_out(named, []) == ["status.frustration"]
+    assert report.left_out({"set": "selection"}, {"person.asked"}) == ["person.asked"]
+    with pytest.raises(report.ReportError, match="fixed at its draw"):
+        report.left_out(named, ["person.asked"])
+
+
 def test_the_page_holds_every_section_and_no_case_or_customer(
     tmp_path: Path, sets: tuple[Path, list[dict[str, Any]]]
 ) -> None:

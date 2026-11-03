@@ -12,7 +12,7 @@ from typing import Any
 import duckdb
 import pytest
 
-from faro.evaluation import bronze, cases, families, generator, oracle
+from faro.evaluation import bronze, cases, families, generator, heldout, oracle
 from faro.evaluation.facts import contract_words
 
 from . import outside
@@ -130,6 +130,23 @@ def test_a_block_among_several_active_cards_asks_which_then_why(
         assert first["facts"]["{card_list}"].count("\n") >= 1
         assert "{cards}" not in first["facts"]
         assert case["expected"]["blocked"] == [case["script"]["means"]["product_id"]]
+
+
+def test_a_manifest_names_the_situations_left_out_only_when_given(
+    regression: generator.Drawn,
+) -> None:
+    situation = regression.cases[0]["situation"]
+
+    named = generator.manifest("regression", 7, regression, {}, left_out=[situation])
+
+    assert named["left_out"] == [situation]
+    assert "left_out" not in generator.manifest("regression", 7, regression, {})
+    with pytest.raises(generator.GeneratorError, match="no situation named"):
+        generator.manifest("regression", 7, regression, {}, left_out=["none.such"])
+
+
+def test_the_held_out_studys_left_out_situations_are_its_own() -> None:
+    assert set(heldout.LEFT_OUT) <= set(generator.held_out(600))
 
 
 def test_a_manifest_names_no_customer_or_record(regression: generator.Drawn) -> None:

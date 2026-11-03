@@ -25,6 +25,21 @@ NAME = "held_out_2"
 PROTOCOL = Path("docs/evaluation/studies/held-out-2.md")
 # The set whose customers this study's draw takes last (held-out-2.md, The set).
 EARLIER = "held_out"
+# The situations the comparison leaves out (held-out-2.md, Analysis): those the policy's version 7 added. The rest
+# are expected alike under versions 6 and 7, read on development cases before the draw was committed (the Record).
+LEFT_OUT = (
+    "block.person_joined",
+    "charge.another_card",
+    "charge.asides_ended",
+    "charge.card_corrected",
+    "charge.complaint_at_confirmation",
+    "charge.complaint_at_question",
+    "charge.reported_again",
+    "charge.reported_twice",
+    "status.asides_ended",
+    "status.frustration",
+    "status.last_reply",
+)
 RECORD = "\n## Record\n"
 OPEN = "**Open**"
 REPORTED = Path("docs/evaluation/runs")
