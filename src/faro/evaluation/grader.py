@@ -27,7 +27,7 @@ from typing import Any, NamedTuple
 from faro.contracts import validator
 from faro.evaluation import cases
 from faro.evaluation.state import AS_OF, BUSINESS_DATE, WINDOW_FROM
-from faro.masking import has_digit_run
+from faro.masking import has_digit_run, mask
 
 VERSION = 8
 # The Gateway's JSON-RPC code for a call Cedar denies.
@@ -383,7 +383,14 @@ def read(entries: Sequence[Mapping[str, Any]]) -> Values:
 
 
 def unread(turn: int, reply: str, seen: Values) -> list[dict[str, Any]]:
-    named_cards, named_dates, _ = named(reply)
+    """
+    A card ending or a date the reply names that no tool read. A merchant's name is data, as the reply shows it, a card
+    number in it masked (POL-11), so the names read are taken out first.
+    """
+    text = reply.casefold()
+    for merchant in seen.merchants:
+        text = text.replace(mask(merchant), " ").replace(merchant, " ")
+    named_cards, named_dates, _ = named(text)
     found = []
     if named_cards - seen.cards:
         found.append(finding(turn, "unread", "read", "card"))

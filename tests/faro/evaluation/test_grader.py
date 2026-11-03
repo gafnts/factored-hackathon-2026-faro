@@ -172,6 +172,14 @@ def test_a_card_or_a_date_a_reply_names_that_no_tool_read_fails_its_turn(
     assert [(f["turn"], f["observed"]) for f in unread] == [(1, "card"), (1, "date")]
 
 
+def test_a_merchants_name_isnt_read_for_a_card_ending_even_masked() -> None:
+    seen = grader.Values({"4417"}, set(), set(), {"pago 4111 1111 1111 9876 ejemplo"})
+    listed = "Su tarjeta terminada en 4417:\n\n- Pago ****9876 Ejemplo, 35.00 USD"
+
+    assert grader.unread(1, listed, seen) == []
+    assert checks(grader.unread(1, "La tarjeta terminada en 9876.", seen)) == ["unread"]
+
+
 def test_a_summary_names_what_its_handoff_verified_or_else_what_was_read() -> None:
     read = {
         "cards": [{"last_four": "4821"}, {"last_four": "2054"}],
