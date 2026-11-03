@@ -28,6 +28,7 @@ The families' checks in `faro.evaluation.families.problems`, as ours pass them: 
 
 ## Limits
 
-- **The guide is still ours.** What a label means, the shapes, and the slots come from us, so the cases measure wording we didn't write, on requests we defined.
+- **Our intents, in another model's words.** What a label means, the shapes, and the slots come from us, and so does each request's sentence: we wrote each from the intent of one of our families, and a few are close to translations of our seeds. The check against our messages compares character trigrams, so it can't catch a translation. The cases measure wording we didn't write for the requests we defined, not requests we didn't think of.
+- **Leaning away from our wording.** Only messages under the 0.6 bar against ours were kept, as ADR-0005 requires, and a retry asked for "less common ways to say it", so the set leans away from phrasing customers might share with ours. Both agents face the same cases, so the paired comparison is fair to each, but the rates on their own may read lower than on customers' wording.
 - **A model's messages.** They are the model's idea of how customers write, not customers' (EVL-13).
 - **One family per shape** for most shapes: a situation's cases all come from one family's six phrasings in each language.
