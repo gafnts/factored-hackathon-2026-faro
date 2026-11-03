@@ -19,10 +19,27 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from faro.evaluation import generator
+from faro.evaluation import cases, generator
 
 NAME = "held_out_2"
 PROTOCOL = Path("docs/evaluation/studies/held-out-2.md")
+# The set whose customers this study's draw takes last (held-out-2.md, The set).
+EARLIER = "held_out"
+# The situations the comparison leaves out (held-out-2.md, Analysis): those the policy's version 7 added. The rest
+# are expected alike under versions 6 and 7, read on development cases before the draw was committed (the Record).
+LEFT_OUT = (
+    "block.person_joined",
+    "charge.another_card",
+    "charge.asides_ended",
+    "charge.card_corrected",
+    "charge.complaint_at_confirmation",
+    "charge.complaint_at_question",
+    "charge.reported_again",
+    "charge.reported_twice",
+    "status.asides_ended",
+    "status.frustration",
+    "status.last_reply",
+)
 RECORD = "\n## Record\n"
 OPEN = "**Open**"
 REPORTED = Path("docs/evaluation/runs")
@@ -86,6 +103,24 @@ def registered(path: Path = PROTOCOL) -> str:
             f"{path} isn't committed; a held-out set is drawn only under its registered protocol (ADR-0011, Studies)"
         )
     return protocol_hash(path.read_text(encoding="utf-8"))
+
+
+def earlier_customers(set_path: Path, manifest_path: Path) -> frozenset[str]:
+    """
+    The customers of the earlier held-out set, read from its cases, refused unless they're the ones its committed
+    manifest describes.
+    """
+    if not set_path.is_file():
+        raise HeldOutError(
+            f"no {EARLIER} cases at {set_path}; this study's draw takes their customers last (held-out-2.md)"
+        )
+    found = list(cases.read(set_path))
+    verify(
+        found,
+        json.loads(manifest_path.read_text(encoding="utf-8")),
+        committed(manifest_path),
+    )
+    return frozenset(c["customer_id"] for c in found)
 
 
 def committed(path: Path) -> bool:

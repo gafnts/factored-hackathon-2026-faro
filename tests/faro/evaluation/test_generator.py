@@ -12,7 +12,7 @@ from typing import Any
 import duckdb
 import pytest
 
-from faro.evaluation import bronze, cases, families, generator, oracle
+from faro.evaluation import bronze, cases, families, generator, heldout, oracle
 from faro.evaluation.facts import contract_words
 
 from . import outside
@@ -132,6 +132,23 @@ def test_a_block_among_several_active_cards_asks_which_then_why(
         assert case["expected"]["blocked"] == [case["script"]["means"]["product_id"]]
 
 
+def test_a_manifest_names_the_situations_left_out_only_when_given(
+    regression: generator.Drawn,
+) -> None:
+    situation = regression.cases[0]["situation"]
+
+    named = generator.manifest("regression", 7, regression, {}, left_out=[situation])
+
+    assert named["left_out"] == [situation]
+    assert "left_out" not in generator.manifest("regression", 7, regression, {})
+    with pytest.raises(generator.GeneratorError, match="no situation named"):
+        generator.manifest("regression", 7, regression, {}, left_out=["none.such"])
+
+
+def test_the_held_out_studys_left_out_situations_are_its_own() -> None:
+    assert set(heldout.LEFT_OUT) <= set(generator.held_out(600))
+
+
 def test_a_manifest_names_no_customer_or_record(regression: generator.Drawn) -> None:
     written = generator.manifest("regression", 7, regression, {"snapshot": "bank"})
     text = json.dumps(written)
@@ -244,6 +261,31 @@ def test_a_situation_with_customers_to_spare_shares_none(
     assert drawn.short == []
     assert len({c["customer_id"] for c in drawn.cases}) == 2
     assert generator.manifest("spare", 7, drawn, {})["shared"] == []
+
+
+def test_an_earlier_held_out_sets_customers_are_taken_last_and_counted(
+    con: duckdb.DuckDBPyConnection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    situation = generator.BY_NAME["status.one_card"]
+    monkeypatch.setitem(generator.COMPOSITIONS, "spare", {situation.name: 1})
+
+    def drawing(earlier: frozenset[str] = frozenset()) -> generator.Generator:
+        return generator.Generator(
+            con, "development", LOADED, ANSWERS, HELD, contract_words(), earlier=earlier
+        )
+
+    first = drawing().draw("spare", 7)
+    earlier = frozenset(c["customer_id"] for c in first.cases)
+    again = drawing(earlier).draw("spare", 7)
+
+    assert len(again.cases) == len(first.cases) == 2
+    assert not {c["customer_id"] for c in again.cases} & earlier
+    assert generator.manifest("spare", 7, again, {}, earlier)["reused"] == []
+    assert generator.manifest("spare", 7, first, {}, earlier)["reused"] == [
+        {"situation": situation.name, "language": "es", "cases": 1},
+        {"situation": situation.name, "language": "pt", "cases": 1},
+    ]
+    assert "reused" not in generator.manifest("spare", 7, again, {})
 
 
 def test_a_held_out_set_borrows_no_wording(bank: Bank) -> None:

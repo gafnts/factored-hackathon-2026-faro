@@ -9,7 +9,7 @@ What we decided about Faro, why, and the evidence behind it. Every document cite
 | [adr/](adr/README.md) | The architecture decision records and their index |
 | [analysis/](analysis/) | The profiling, traffic, workflow selection, and card support reports, with their JSON and figures, from `make analysis` |
 | [architecture.md](architecture.md) | The system on one page |
-| [evaluation/](evaluation/) | The [report](evaluation/report.md), the [results](evaluation/results.md), the [limitations](evaluation/limitations.md), the request [families](evaluation/families.md), the [disagreement log](evaluation/disagreements.md), the [run index](evaluation/runs.md), and the manifests of the sets and the reported runs |
+| [evaluation/](evaluation/) | The [report](evaluation/report.md), the [results](evaluation/results.md), the [limitations](evaluation/limitations.md), the request [families](evaluation/families.md) and the [outside source](evaluation/outside.md), the [disagreement log](evaluation/disagreements.md), the [run index](evaluation/runs.md), and the manifests of the sets and the reported runs |
 | [glossary.md](glossary.md) | The repository's own terms, in plain words |
 | [images/](images/) | The README's banner, screenshots, and diagrams |
 | [pipeline/](pipeline/) | The manifest of each gold export, from `make export` ([the pipeline](../pipeline/README.md)) |

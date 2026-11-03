@@ -15,6 +15,7 @@ IDs carry its name, and each of its families and answers names the author that w
 the files break these rules; the tests require it to find none.
 """
 
+import functools
 import hashlib
 import json
 import re
@@ -344,6 +345,8 @@ def _named(source: str) -> str:
     return "" if source == OURS else re.escape(f"{source}.")
 
 
+# The checks compare every message with every other, and a source's writer runs them once per group it writes.
+@functools.cache
 def normalized(text: str) -> str:
     folded = unicodedata.normalize("NFKD", text.lower())
     plain = "".join(c for c in folded if not unicodedata.combining(c))
@@ -351,6 +354,7 @@ def normalized(text: str) -> str:
     return " ".join(re.sub(r"[^a-z0-9§ ]", " ", plain).split())
 
 
+@functools.cache
 def trigrams(text: str) -> frozenset[str]:
     padded = f"  {normalized(text)}  "
     return frozenset(padded[i : i + 3] for i in range(len(padded) - 2))
@@ -483,7 +487,11 @@ def _too_close(
     grams = {k: trigrams(t) for k, t in [*held, *development]}
     for (h, _), (d, _) in product(list(held), list(development)):
         x, y = grams[h], grams[d]
-        if len(x & y) / len(x | y) >= TOO_CLOSE:
+        # No pair whose sizes differ by more than the bar can reach it, and the union's size follows from the shared.
+        if min(len(x), len(y)) / max(len(x), len(y)) < TOO_CLOSE:
+            continue
+        shared = len(x & y)
+        if shared / (len(x) + len(y) - shared) >= TOO_CLOSE:
             yield f"held-out {h} is too close to development {d}"
 
 
@@ -532,6 +540,36 @@ def problems(
         count = sum(a.kind == kind and a.source == OURS for a in answers)
         if count != PER_ANSWER_KIND:
             found.append(f"{kind} has {count} answers of ours, not {PER_ANSWER_KIND}")
+    found += _own_problems(families, answers)
+    held = held_out_ids(families, answers)
+    found += _too_close(
+        texts(families, answers, held),
+        texts(families, answers, set(ids) - held),
+    )
+    return found
+
+
+def problems_beside(
+    families: Sequence[Family],
+    answers: Sequence[Answer],
+    development: Sequence[tuple[str, str]],
+) -> list[str]:
+    """
+    What problems() finds in a held-out source's families and answers against development texts it doesn't check
+    again, so the source's writer checks each group it writes without checking ours each time.
+    """
+    held = held_out_ids(families, answers)
+    return [
+        *_own_problems(families, answers),
+        *_too_close(texts(families, answers, held), development),
+    ]
+
+
+def _own_problems(families: Sequence[Family], answers: Sequence[Answer]) -> list[str]:
+    """
+    Each family's and answer's rules, and phrasings that differ within a family and within a kind of answer.
+    """
+    found: list[str] = []
     for family in families:
         found += _family_problems(family)
     for answer in answers:
@@ -545,9 +583,4 @@ def problems(
             found += _alike(
                 [(f"{a.answer_id}/{language}", a.texts[language]) for a in alike]
             )
-    held = held_out_ids(families, answers)
-    found += _too_close(
-        texts(families, answers, held),
-        texts(families, answers, set(ids) - held),
-    )
     return found

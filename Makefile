@@ -228,8 +228,15 @@ regression: ## Play and grade the regression set in process, as CI does
 language-check: ## Read the paraphrases with the real prompts (paid; FAMILIES=)
 	uv run python -m faro.evaluation language --env-file $(or $(ENV_FILE),.env) $(if $(PARALLEL),--parallel $(PARALLEL)) $(foreach f,$(FAMILIES),--only $(f))
 
-# The router comparison calls models outside the system under test; ESTIMATE=1 prices a call and makes none.
-.PHONY: relabel-sample relabel-agreement router-compare
+# The outside source's writing and the router comparison call models outside the system under test; ESTIMATE=1 prices
+# the calls and makes none.
+.PHONY: outside-write outside-keep relabel-sample relabel-agreement router-compare
+
+outside-write: ## Have OpenAI's model write the outside source from the guide (paid; ESTIMATE=1 prices it)
+	uv run python -m faro.evaluation outside-write $(if $(ESTIMATE),--estimate)
+
+outside-keep: _check-profile ## Copy the outside source into the account's data bucket, under its hash
+	uv run python -m faro.evaluation outside-keep
 
 relabel-sample: ## Draw the hand-relabel sample and sheet from a source (SOURCE=outside, ROWS=, SEED=)
 	uv run python -m faro.evaluation relabel-sample $(if $(SOURCE),--source $(SOURCE)) $(if $(ROWS),--rows $(ROWS)) $(if $(SEED),--seed $(SEED))

@@ -16,6 +16,7 @@ import asyncio
 import json
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -100,11 +101,15 @@ def generate(
             raise LockError(f"the outside source breaks the families' rules: {found}")
 
     def keep(
-        set_name: str, drawn: generator.Drawn, more: dict[str, Any] | None = None
+        set_name: str,
+        drawn: generator.Drawn,
+        more: dict[str, Any] | None = None,
+        earlier: frozenset[str] | None = None,
+        left_out: Sequence[str] | None = None,
     ) -> None:
         cases.write(data_dir / "evaluation" / "sets" / f"{set_name}.jsonl", drawn.cases)
         written = generator.manifest(
-            set_name, seed, drawn, {**versions, **(more or {})}
+            set_name, seed, drawn, {**versions, **(more or {})}, earlier, left_out
         )
         docs.mkdir(parents=True, exist_ok=True)
         (docs / f"{set_name}.json").write_text(
@@ -134,6 +139,10 @@ def generate(
             keep(set_name, drawing.draw(set_name, seed))
     if held_out is None:
         return
+    earlier = heldout.earlier_customers(
+        data_dir / "evaluation" / "sets" / f"{heldout.EARLIER}.jsonl",
+        docs / f"{heldout.EARLIER}.json",
+    )
     with bronze.connect(database, "held_out") as con:
         drawing = generator.Generator(
             con,
@@ -142,6 +151,7 @@ def generate(
             every_answer,
             families.held_out_ids(every, every_answer),
             contract_words(),
+            earlier=earlier,
         )
         drawn = drawing.draw(heldout.NAME, seed, generator.held_out(held_out))
     if not played:
@@ -150,7 +160,13 @@ def generate(
             name: families.source_hash(name)
             for name in (families.OURS, families.OUTSIDE)
         }
-        keep(heldout.NAME, drawn, {"protocol": registration, "sources": sources})
+        keep(
+            heldout.NAME,
+            drawn,
+            {"protocol": registration, "sources": sources},
+            earlier,
+            heldout.LEFT_OUT,
+        )
         return
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     heldout.reproduce(played, drawn.cases, manifest, heldout.committed(manifest_path))
@@ -294,7 +310,10 @@ def compare_runs(args: argparse.Namespace) -> None:
     sets = args.data_dir / "evaluation" / "sets"
     first = [report.load_run(path, sets) for path in args.first]
     second = [report.load_run(path, sets) for path in args.second]
-    found = report.compare(first, second, args.left_out, args.unit)
+    named = SET_DOCS / f"{first[0].set_name}.json"
+    manifest = json.loads(named.read_text(encoding="utf-8")) if named.is_file() else {}
+    left_out = report.left_out(manifest, args.left_out)
+    found = report.compare(first, second, left_out, args.unit)
     args.out.mkdir(parents=True, exist_ok=True)
     out = args.out / f"{first[0].run_id}--{second[0].run_id}.json"
     out.write_text(json.dumps(found, indent=2) + "\n", encoding="utf-8")

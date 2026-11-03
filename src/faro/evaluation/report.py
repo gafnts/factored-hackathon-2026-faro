@@ -355,6 +355,21 @@ def paired(system: Run, baseline: Run) -> dict[str, Any]:
     }
 
 
+def left_out(manifest: Mapping[str, Any], given: Collection[str]) -> list[str]:
+    """
+    The situations a comparison leaves out: those its set's manifest names, fixed at the draw, or else those given. A set
+    that names them takes no others, so what's left out can't be chosen once results exist (ADR-0011, Studies).
+    """
+    named = manifest.get("left_out")
+    if named is None:
+        return sorted(given)
+    if given:
+        raise ReportError(
+            f"the {manifest['set']} set's manifest names the situations its comparison leaves out, fixed at its draw"
+        )
+    return list(named)
+
+
 def compare(
     first: Sequence[Run],
     second: Sequence[Run],

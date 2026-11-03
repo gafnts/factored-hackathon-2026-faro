@@ -442,6 +442,8 @@ The model's limit is set in Anthropic's console, since no API sets it for an ind
 
 Once a limit is reached, the API refuses the model's calls until the next month or until the limit is raised, and the chat answers every message with its fixed text for when it can't help. Visitors and the evaluation draw from the same limit: before a paid run, raise it by the run's estimate, and lower it after.
 
+OpenAI's key is the evaluation's alone: `make outside-write` reads it from `.env`, and no stack holds it. Give it a project of its own in OpenAI's platform with a monthly budget, since only that one command spends from it.
+
 #### The site
 
 The site's `config.json`, which names the user pool, both app clients, and the Runtime, is written by Terraform at every apply, so `make site` uploads only the build and leaves it alone. `make site` is `make web`, then `make upload`, which uploads `web/dist` as it stands; CI builds once, without credentials, and runs only the upload with them. The console API is served under `/api` on the site's own origin, so the page reaches it without a cross-origin call, and `make web-dev` passes `/api` on to the deployed site. `make outputs` writes the site's URL under `site.url` in `build/<env>.outputs.json`, and the console API's under `console.url`.
@@ -481,13 +483,15 @@ make eval-report                # Write docs/evaluation/results.md
 make eval-compare               # Compare two systems' runs of one set, case by case
 make language-check             # Read the paraphrases with the real prompts
 make router-compare             # Compare the keyword router with model routers
+make outside-write              # Have OpenAI's model write the held-out wording
+make outside-keep               # Copy it into the data bucket, under its hash
 make relabel-sample             # Draw 50 messages of a source to relabel blind
 make relabel-agreement          # Score the filled sheet against the labels
 ```
 
 `make eval-run` needs `AWS_PROFILE`, the stack's outputs (`STACK_OUTPUTS`, default `build/<env>.outputs.json`), and the model key stored. It creates one test user per case in the pool's evaluation group and deletes it when the case ends, and keeps each case's evidence under `data/evaluation/runs/` and in the stack's evaluation bucket; `SITUATIONS=`, `LANGUAGES=`, and `LIMIT=` narrow a run, and `PARALLEL=` sets how many cases play at once. To report a run, commit its manifest and summary under `docs/evaluation/runs/` and run `make eval-index`. Where the system and the oracle disagree, add an entry to `docs/evaluation/disagreements.json` and run `make disagreements`: CI's regression job fails on any finding without an open entry.
 
-`make language-check` and `make router-compare` call the model and cost money: they read `ANTHROPIC_API_KEY` from `.env` (`ENV_FILE=` names another file), and `ESTIMATE=1` prices a router run without making it. No model grades the replies (ADR-0011). The relabel and report targets take their inputs as variables, which `make help` names and [Configuration](#configuration) describes; `make eval-report` takes every input at once or the page loses a section. To rerun what the reports rest on, start at [Reproduce the results](#reproduce-the-results).
+`make language-check` and `make router-compare` call the model and cost money: they read `ANTHROPIC_API_KEY` from `.env` (`ENV_FILE=` names another file), and `ESTIMATE=1` prices a router run without making it. `make outside-write` has OpenAI's model write the held-out wording from our guide ([the outside source](docs/evaluation/outside.md)), reading `OPENAI_API_KEY` from `.env`; it costs a few USD, `ESTIMATE=1` prices it, and a second run writes only what the first didn't keep. The source stays out of git until its first set is played, so `make outside-keep` copies it into the data bucket under its hash (`AWS_PROFILE` as for `make snapshot`); to restore it on another machine, copy that prefix back into `data/evaluation/sources/outside/`. No model grades the replies (ADR-0011). The relabel and report targets take their inputs as variables, which `make help` names and [Configuration](#configuration) describes; `make eval-report` takes every input at once or the page loses a section. To rerun what the reports rest on, start at [Reproduce the results](#reproduce-the-results).
 
 ### Promote to prototype
 
@@ -582,6 +586,7 @@ Run `make help` for every target.
 | `AWS_PROFILE` | `banking-agent-local` (from `.envrc`) | Terraform for `local`, `make model-key`, `make integration`, `make snapshot`, and ad hoc AWS CLI calls; the `local` targets refuse to run without it |
 | `AWS_ADMIN_PROFILE` | `default` | `make bootstrap`, the `iam-*` and `dataset-*` targets, `make teardown`, `make doctor` |
 | `ANTHROPIC_API_KEY` | Unset; set it in `.env`, not the shell | `make model-key` |
+| `OPENAI_API_KEY` | Unset; set it in `.env`, not the shell | `make outside-write` |
 | `GITHUB_OIDC_SUBJECT_PREFIX` | Read from GitHub for `origin` | `make bootstrap` |
 | `DATA_DIR` | `data` | The pipeline and evaluation targets, for a worktree whose `data/` is empty |
 | `SLOW` | Unset | Set to `1` to add the tests that wait out a token to `make integration` |

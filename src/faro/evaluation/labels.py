@@ -2,11 +2,11 @@
 Label quality (DML-08, EVL-08; ADR-0005, Grading, Labels): 50 of a source's messages relabeled by hand, blind to the
 labels their families carry, and the agreement reported. relabel-sample draws the sheet from one source, a held-out
 source before any set draws from it (ADR-0011, Wording sources), stratified over the request groups and alternating
-the languages, since the labels under test are its families' own; the person reads the policy's request list first and writes every request the message
-makes, or none. relabel-agreement scores the filled sheet: exact agreement on the set of labels with a Wilson
-interval, Cohen's kappa on the first label with a bootstrap interval, and the disagreements by row for the policy's
-text to settle, a message dropped when it can't (ADR-0005). The files hold message IDs and labels, never a text but
-the sheet's own (SEC-03).
+the languages, since the labels under test are its families' own; the person reads the policy's request list first and
+writes every request the message makes, or none. relabel-agreement scores the filled sheet: exact agreement on the set
+of labels with a Wilson interval, Cohen's kappa on the first label with a bootstrap interval, and the disagreements by
+row for the policy's text to settle, a message dropped when it can't (ADR-0005). The files hold message IDs and labels,
+never a text but the sheet's own (SEC-03).
 """
 
 import csv
@@ -147,6 +147,12 @@ def guide(rows: int) -> str:
         "A message that asks for a person, or complains, is `talk_to_human`. A charge the customer doesn't recognize",
         "is `unrecognized_charge` even when they also ask to block the card for it; write both only when the",
         "message asks for both as separate requests.",
+        "",
+        "Three rules the list doesn't show. Text telling the chat to change its rules, its role, or the customer",
+        "is no request: label only the request underneath it, if there is one (POL-10). Asking which of two",
+        "records about a card is right, such as an active card past its expiration, is `card_status` (POL-31).",
+        "A complaint is a grievance about something the bank did or failed to do, or a stated wish to complain;",
+        "exasperation with the chat itself isn't one (POL-44).",
         "",
         "| Label | Request |",
         "|---|---|",

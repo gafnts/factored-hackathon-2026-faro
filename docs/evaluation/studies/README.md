@@ -5,4 +5,4 @@ A study is one reported measurement on a held-out set: its protocol names the sy
 | Study | Set | State |
 |---|---|---|
 | [held-out-1](held-out-1.md) | `held_out`, 608 cases | Played 2026-10-04; written after the fact |
-| [held-out-2](held-out-2.md) | `held_out_2` | Draft |
+| [held-out-2](held-out-2.md) | `held_out_2`, 603 cases | Registered 2026-11-02; drawn 2026-11-03 and sealed until its play |

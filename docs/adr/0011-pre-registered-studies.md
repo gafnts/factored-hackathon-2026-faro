@@ -9,6 +9,7 @@ It amends [ADR-0005](0005-offline-scenario-evaluation.md): each section of ADR-0
 Amended as built, each correction applied in the section it names:
 
 - 2026-11-02: the check on what the model writes, as built: a reply's card endings and dates against what the conversation's tool calls returned, and a handoff's summary against its verified facts, or against what was read where they hold nothing of a kind; a merchant no tool read can't be told from other words, so a reply's merchants aren't checked ([Grading by code](#grading-by-code)).
+- 2026-11-02: where a held-out source's second copy is kept: the account's data bucket, under the source's hash, each file written once, rather than the evaluation bucket, which expires what it holds after 90 days while a source must outlast the iteration it seals; the data bucket belongs to no stack and no lifecycle rule empties it ([The seal](#the-seal), [decision 1](#settled-at-acceptance)).
 
 ## Context
 
@@ -61,7 +62,7 @@ A protocol is registered by committing it before its set is drawn, and the set's
 
 ### The seal
 
-A held-out set is sealed from its draw to its play: its manifest is committed, and its cases and messages are neither opened, played, nor sent to a model. That holds for the router comparison too: while a set is sealed, the comparison runs on development wording only, by cross-validation grouped by family, and its held-out rows wait for the play. A held-out source's text stays out of the repository until the play of the first set drawn from it, in `data/evaluation/` and the evaluation bucket, its hash in the manifest; the guards that need it run on the machine that holds it before each PR merges, as the ones that need the snapshot do, and it's kept in two copies, the maintainer's machine and the bucket (decision 1).
+A held-out set is sealed from its draw to its play: its manifest is committed, and its cases and messages are neither opened, played, nor sent to a model. That holds for the router comparison too: while a set is sealed, the comparison runs on development wording only, by cross-validation grouped by family, and its held-out rows wait for the play. A held-out source's text stays out of the repository until the play of the first set drawn from it, in `data/evaluation/` and the account's data bucket, its hash in the manifest; the guards that need it run on the machine that holds it before each PR merges, as the ones that need the snapshot do, and it's kept in two copies, the maintainer's machine and the data bucket (decision 1).
 
 A set is played for the study that drew it. A fix after the play is made and checked on development sets, and the set isn't played again for a new claim, as D-013's patch wasn't; a set that has been played can't change under its name, so the next study draws a new version.
 
@@ -83,7 +84,7 @@ Corrected as built, each listed under its Status with a link here: [The split](0
 
 The decision left open while this record was proposed, as settled on 2026-11-02, with the alternative we didn't take.
 
-1. **Where a held-out source's text lives until its first play.** Out of the repository, in `data/evaluation/` and the evaluation bucket with its hash in the set's manifest, and committed after the play ([The seal](#the-seal)). The seal rests on nobody reading the wording, and a committed file turns up in any search of the repository while the agent is tuned, an assistant's included. Not taken: committing it when written, as the old held-out families were, which keeps every guard in CI.
+1. **Where a held-out source's text lives until its first play.** Out of the repository, in `data/evaluation/` and the account's data bucket with its hash in the set's manifest, and committed after the play ([The seal](#the-seal)). The seal rests on nobody reading the wording, and a committed file turns up in any search of the repository while the agent is tuned, an assistant's included. Not taken: committing it when written, as the old held-out families were, which keeps every guard in CI.
 
 ## Alternatives considered
 

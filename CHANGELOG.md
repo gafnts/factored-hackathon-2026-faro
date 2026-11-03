@@ -13,9 +13,12 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - Grader checks on what the model writes: a card ending or a date a reply names must be one the conversation read, a handoff's summary must agree with its verified facts, and word lists catch a ruled-out form of address and a fraud verdict or a promised refund ([#163]).
 - The evaluation plays what customers sent on the prototype: frustration and a question about the last reply at a question, three such messages that end it, a correction of the card, a charge reported again, and a complaint at a question or while the confirm control shows. Eleven situations in the development sets, now 93 and 179 cases, which the current agent fails until it follows the policy's version 7; their findings are open in the disagreement log. ([#164])
 - Grader checks for version 7: one case a turn, a joined case citing POL-44, and no list of what the chat does after an answer that doesn't know, frustration, or a question about the last reply. ([#164])
+- The second held-out set, `held_out_2`: 603 cases worded by OpenAI's GPT-6.1 Sol from a guide we wrote, drawn under its registered protocol and sealed until the iteration ends. A blind reading of 50 of its messages agreed with their labels on 44, and none was wrong once the six were settled by the policy's text ([#165]).
+- `make outside-write`, which has OpenAI's model write the held-out wording from the guide, and `make outside-keep`, which copies it into the account's data bucket under its hash; the wording stays out of git until the set is played ([#165]).
 
 ### Changed
 
+- A held-out draw takes the customers of the earlier held-out set last, and its manifest counts those it reuses; it shares its size among the situations by largest remainder, so it draws the size asked for; and its manifest names the situations a comparison on it leaves out, which `make eval-compare` reads from there. The relabel sheet's guide states the three rules its first sample missed (POL-10, POL-31, and POL-44's complaint) ([#165]).
 - Held-out wording comes from a source another model family writes, kept out of the repository until its first play; every family and answer of ours is development, and the router comparison reads no held-out wording until then. Phrasings within a family or a kind of answer must differ, and three of ours were reworded. Nothing deployed changes ([#163]).
 - The card support policy's version 7, from the triage of two conversations on the prototype and of the freeze's open findings: a message at a question that answers nothing gets the question again, not the list of what the chat does, and the third ends it; a correction of the card moves the request; a charge reported again answers the question, and one charge files one case; a complaint joins the turn's required case, and while the confirm control shows it's handed off at once, leaving the block to confirm; a handoff's reply says what the case is about; and four readings made explicit (a card's expiration, the kind of transaction, a complaint, a loanword). The evaluation's oracle follows it; the agent follows after the held-out set is drawn, and still stamps version 6. ([#164])
 
@@ -196,6 +199,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#160]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/160
 [#163]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/163
 [#164]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/164
+[#165]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/165
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
