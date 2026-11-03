@@ -1,6 +1,6 @@
 # Study: the iteration against the submission, on `held_out_2`
 
-Draft (2026-11-02), for review. A study under [ADR-0011](../../adr/0011-pre-registered-studies.md): registered when committed before `held_out_2` is drawn, and the set's manifest records the hash of the text above [Record](#record). Two decisions are still open, each marked **Open** where it arises and listed under [Open decisions](#open-decisions) with the option we lean towards; we settle them before registering.
+Registered on 2026-11-02, before `held_out_2`'s wording was written. A study under [ADR-0011](../../adr/0011-pre-registered-studies.md): the set's manifest records the hash of the text above [Record](#record), and the two decisions the draft left open are listed under [Settled before registering](#settled-before-registering).
 
 Serves EVL-01 to EVL-14, DML-08 to DML-11, SEC-02, and SEC-03.
 
@@ -30,9 +30,9 @@ Same harness, set, oracle, and grader, each run with its manifest. The grader re
 
 `held_out_2`, drawn once the policy's amendments from the prototype's conversations and the oracle that follows them are accepted, so every expected outcome is the amended policy's, and before the first change to the agent's behavior; on a clean tree, with its manifests committed apart from the code.
 
-- **Wording:** the `outside` source only, written by an OpenAI model from our guide, each message naming the model as the provider returned it.
+- **Wording:** the `outside` source only, written by OpenAI's GPT-6.1 Sol (`gpt-6.1-sol`) from our guide, each message naming the model as the provider returned it.
 - **Families:** at least four per request label and four with no request, as `held_out` had, each a seed and about five paraphrases per language, and at least one fitting each situation the generator draws, so `borrowed` reads zero.
-- **Answers:** every kind the generator uses, the ones the policy's amendments add included (a correction of the card at a question, frustration, a question about the last reply), five phrasings per kind and language (**Open**, decision 1).
+- **Answers:** every kind the generator uses, the ones the policy's amendments add included (a correction of the card at a question, frustration, a question about the last reply), five phrasings per kind and language (decision 1).
 - **Customers:** the held-out fifth, preferring those `held_out` didn't use where a situation has enough; the manifest counts the reused.
 - **Situations and size:** ADR-0005's groups and proportions, about 300 cases per language, with the situations the policy's amendments add.
 
@@ -53,7 +53,7 @@ At the end of the iteration, once its release is on `prototype`:
 ## Analysis
 
 - **What is compared:** the two agents case by case, on the cases both played, except in the situations the policy's amendments added or changed, which the manifest names at the draw. The submission's agent fails those by construction, so they are reported for the iterated agent alone.
-- **The paired difference:** for each case, the share of its three runs that pass, on M-01 and, for the cases the oracle hands off, on M-03; the difference between the agents' means, overall and per language; and a 95% percentile bootstrap interval, 1,000 resamples with the evaluation's fixed seed, resampling the cases' families within each language (**Open**, decision 2).
+- **The paired difference:** for each case, the share of its three runs that pass, on M-01 and, for the cases the oracle hands off, on M-03; the difference between the agents' means, overall and per language; and a 95% percentile bootstrap interval, 1,000 resamples with the evaluation's fixed seed, resampling the cases' families within each language (decision 2).
 - **M-04** in cases, by kind, for each agent, zero given with its rule-of-three bound.
 - **M-05** for each agent, and not compared, since the two Runtimes run in different stacks.
 - **As at the freeze:** the baseline against the iterated agent (EVL-01), the breakdowns by group, rule, segment, and country as drawn, counts under 10 suppressed (SEC-03), and any breakdown chosen after the results labeled post hoc.
@@ -69,24 +69,24 @@ At the end of the iteration, once its release is on `prototype`:
 
 | Step | Estimate |
 |---|---|
-| Writing the outside source | Cents |
+| Writing the outside source | A few USD at `gpt-6.1-sol`'s list prices, priced by its script before it runs |
 | The play, per agent | About 16 USD at the freeze's size and 0.9 cents a case over three runs; more if the iteration keeps a larger model |
 | The baseline | None, since no model runs |
 | The router comparison's held-out rows | About 2 USD |
 | AWS | From billing, as M-05's AWS share |
 
-About 35 USD on Claude Haiku 4.5, each paid step asked for first.
+About 35 USD on Claude Haiku 4.5 and a few on `gpt-6.1-sol`, each paid step asked for first.
 
 ## The report
 
 Rewritten on this study: M-01 to M-05 for each agent with the paired differences, the baseline, the label agreement (EVL-08), the router comparison's held-out rows (DML-11), each look in the Record, the person's read, and why the judge was dropped. The submission's results on `held_out` stay, labeled as the submission's (EVL-13).
 
-## Open decisions
+## Settled before registering
 
-We settle these before registering. Each names the option we lean towards, which the rest of the protocol assumes, and the alternative still in play.
+The decisions the draft left open, as settled on 2026-11-02, each with the alternative we didn't take.
 
-1. **Phrasings per kind of answer.** Lean: five per kind and language, so one misread reaches about a fifth of a kind's cases. Alternative: three, as our source has, so a misread reaches a third.
-2. **The unit the comparison resamples.** Lean: the cases' families, within each language, since a family's wording moves its cases together, as the router comparison resamples families. Alternative: cases, as the report's comparison with the baseline treats them, whose narrower intervals assume the cases independent.
+1. **Phrasings per kind of answer.** Five per kind and language, so one misread reaches about a fifth of a kind's cases. Not taken: three, as our source has, so a misread reaches a third.
+2. **The unit the comparison resamples.** The cases' families, within each language, since a family's wording moves its cases together, as the router comparison resamples families. Not taken: cases, as the report's comparison with the baseline treats them, whose narrower intervals assume the cases independent.
 
 ## Record
 
