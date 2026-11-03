@@ -90,4 +90,7 @@ The decisions the draft left open, as settled on 2026-11-02, each with the alter
 
 ## Record
 
-Looks and deviations after registration, each dated. None yet.
+Looks and deviations after registration, each dated.
+
+- 2026-11-03, the label sample, the study's one look (EVL-08): 50 of the outside source's messages, 25 per language over every group, drawn by `make relabel-sample` and labeled blind by the maintainer against the policy's request list. Exact agreement 0.88 [0.762, 0.944] (44 of 50); kappa on the first label 0.955 [0.885, 1.0]. The six disagreements were settled by the policy's text, each keeping its family's labels and its message: four injections were labeled `unsupported` beside their request, reading the injected demand as a request, which POL-10 rules out (the sheet's guide didn't cite it); a card shown as active past its expiration, asking which is right, is `card_status` (POL-31, POL-04); and a grievance about a problem the bank left unsolved is a complaint (POL-44). No message was dropped, so the source's hash is unchanged. Settled, no label was wrong: 0 of 50, so at most 7.1% of the source's labels are wrong at the 95% Wilson bound. Every disagreement came from the sheet's guide, which summarizes the request list without the rules these needed (POL-10; POL-31; POL-44's definition of a complaint). The maintainer labeled the sheet and settled it, seeing the family labels when settling, and every settlement kept the family's label; each cites the rule that decided it.
+- 2026-11-03, within that look: the maintainer showed the assistant that wrote the source's requests one sampled message, a Portuguese decline question, and asked which label fit. That row's label isn't blind, and the assistant has read that one message.

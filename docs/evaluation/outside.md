@@ -18,9 +18,13 @@ A written family takes every field from its request and only its text from the m
 
 Each family has six phrasings per language, a first message and five more; each kind of answer has five per language ([the study's decision 1](studies/held-out-2.md#settled-before-registering)). Every family and answer names its author, the model as OpenAI's API returned it.
 
+## How it was written
+
+On 2026-11-02 and 2026-11-03, by `make outside-write`: OpenAI's Responses API with the guide as the developer message, a strict JSON schema for the reply, reasoning at `medium`, and nothing stored on OpenAI's side. Four runs made 175 calls for 0.71 USD at list price, and the API named `gpt-6.1-sol` as the model in every reply. Every failed reply broke the same rule, the bar against our wording, mostly in short messages, whose obvious phrasings ours already use. After the first run, which left four families unwritten, the retry was changed from rewriting the whole group to keeping the phrasings that passed and naming the places to write anew; the last three runs wrote the four. The result is 70 families (828 messages: 408 in Spanish, 408 in Portuguese, 6 in English, 6 in French) and 55 answers, which `families.problems` finds nothing wrong with.
+
 ## Checks
 
-The families' checks in `faro.evaluation.families.problems`, as ours pass them: exactly its request's slots, no digit, brace, or identifier outside a slot, the language it's filed under, no repeated message, a character 3-gram similarity under 0.6 to every development message, and under 0.6 between two phrasings of a family or two answers of a kind, 0.7 when either has four words or fewer. Then the label sample: 50 of its messages labeled blind against the policy's request list and scored with `relabel-agreement` (EVL-08), before any set draws from it. The sample is the study's one look, recorded in its Record.
+The families' checks in `faro.evaluation.families.problems`, as ours pass them: exactly its request's slots, no digit, brace, or identifier outside a slot, the language it's filed under, no repeated message, a character 3-gram similarity under 0.6 to every development message, and under 0.6 between two phrasings of a family or two answers of a kind, 0.7 when either has four words or fewer. Then the label sample: 50 of its messages labeled blind against the policy's request list and scored with `relabel-agreement` (EVL-08), before any set draws from it. The sample is the study's one look, recorded in its Record: exact agreement 0.88 (44 of 50) and kappa on the first label 0.955; the six disagreements, settled by the policy's text, were each the guide's gap, not a wrong label, so 0 of 50 labels were wrong (at most 7.1% at the 95% Wilson bound) and no message was dropped ([held-out-2.md](studies/held-out-2.md#record)).
 
 ## Limits
 
