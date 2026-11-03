@@ -98,6 +98,21 @@ class Fault:
 
 
 @dataclass(frozen=True)
+class Interjection:
+    """
+    What the customer sends once, at the first turn that waits on `at`, in place of what that turn asks for: an answer
+    of `kind`, or else a message of a family on the case's side with `labels` that `family` admits, worded for the
+    card and transaction the case means.
+    """
+
+    at: str
+    kind: str | None = None
+    labels: tuple[str, ...] = ()
+    kinds: frozenset[str] = ORDINARY
+    family: Callable[[Family], bool] = lambda f: True
+
+
+@dataclass(frozen=True)
 class Situation:
     name: str
     group: str
@@ -109,8 +124,10 @@ class Situation:
     answers: Mapping[str, str] = field(default_factory=dict)
     kinds: frozenset[str] = ORDINARY
     family: Callable[[Family], bool] = lambda f: True
-    # The kinds of family sent after the first, in order, each from the case's side and with the situation's labels.
+    # The kinds of family sent after the first, in order, each from the case's side, with the situation's labels, and
+    # one that `follows` admits.
     then: tuple[str, ...] = ()
+    follows: Callable[[Family], bool] = lambda f: True
     # A fact the case's turns must state, which tells the situation apart from its neighbors on the same path.
     fact: str | None = None
     # A conversation that opens in a third language is in Spanish until the customer writes one (POL-50).
@@ -122,6 +139,7 @@ class Situation:
     top_up: "Situation | None" = None
     # The kinds of answer sent at the questions that answer nothing, each once and in order (POL-06).
     asides: tuple[str, ...] = ()
+    interjection: Interjection | None = None
 
     def fits(self, family: Family) -> bool:
         return (
@@ -246,6 +264,67 @@ def _transaction_slots(
 
 def _days_back(days: int) -> date:
     return state.BUSINESS_DATE - timedelta(days=days)
+
+
+def _searched(card: state.Card) -> Sequence[state.Transaction]:
+    return card.transactions[: oracle.SEARCHED]
+
+
+def several_charges(
+    customer: state.Customer, family: Family, rng: random.Random
+) -> Pick | None:
+    """
+    The customer's one active card, with more than one transaction to ask which of.
+    """
+    if len(customer.cards) != 1:
+        return None
+    card = customer.cards[0]
+    if not card.active or len(_searched(card)) < 2:
+        return None
+    return Pick({"product_id": card.product_id})
+
+
+def a_merchant_of_several(
+    customer: state.Customer, family: Family, rng: random.Random
+) -> Pick | None:
+    """
+    A charge on the customer's one active card, among others, with a merchant only it has, which a message sent
+    later names.
+    """
+    picked = several_charges(customer, family, rng)
+    if picked is None:
+        return None
+    card = customer.cards[0]
+    merchants = [t.merchant for t in _searched(card)]
+    named = [
+        t
+        for t in _searched(card)
+        if t.merchant is not None
+        and t.amount is not None
+        and merchants.count(t.merchant) == 1
+    ]
+    if not named:
+        return None
+    meant = rng.choice(named)
+    return Pick({"product_id": card.product_id, "transaction_id": meant.transaction_id})
+
+
+def a_corrected_card(
+    customer: state.Customer, family: Family, rng: random.Random
+) -> Pick | None:
+    """
+    A card the message names by its digits, with charges to ask which of, and another active card with one charge,
+    which the customer means: the message's slot names the first, the case means the second (POL-13).
+    """
+    named = [c for c in customer.cards if c.active and _unique_last_four(customer, c)]
+    first = [c for c in named if len(_searched(c)) >= 2]
+    meant = [c for c in named if len(_searched(c)) == 1]
+    if not first or not meant:
+        return None
+    return Pick(
+        {"product_id": rng.choice(meant).product_id},
+        {"last_four": rng.choice(first).last_four},
+    )
 
 
 def nobody(customer: state.Customer, family: Family, rng: random.Random) -> Pick | None:
@@ -405,6 +484,10 @@ def _extract(name: str, *values: str) -> Callable[[Family], bool]:
 
 def _plain_read(f: Family) -> bool:
     return not {"cards", "page", "conflict"} & set(f.extract)
+
+
+def _slots(*names: str) -> Callable[[Family], bool]:
+    return lambda f: set(f.slots) == set(names) and f.when is None and not f.extract
 
 
 ANSWER = [("answer", "none")]
@@ -854,6 +937,116 @@ SITUATIONS += [
         {"reason": "reason_unrecognized_charge", **CONFIRM},
     ),
 ]
+# Version 7: what the customer sends at a question or a control, as two conversations on the prototype showed.
+ASKED_CHARGE = [("clarify", "transaction")]
+COMPLAINT = Interjection(
+    "transaction", labels=("talk_to_human",), family=lambda f: f.complaint
+)
+ASIDE = next(s for s in SITUATIONS if s.name == "status.aside")
+SITUATIONS += [
+    replace(ASIDE, name="status.frustration", asides=("frustration",)),
+    replace(ASIDE, name="status.last_reply", asides=("last_reply",)),
+    replace(
+        ASIDE,
+        name="status.asides_ended",
+        path=[
+            *[("clarify", "card")] * 3,
+            ("abstain", "handoff_control"),
+            ("answer", "none"),
+        ],
+        answers={"card": "card_last_four", "handoff_control": "decline"},
+        asides=("frustration", "aside", "last_reply"),
+    ),
+    Situation(
+        "charge.asides_ended",
+        "clarify_or_decline",
+        ("unrecognized_charge",),
+        f"{SERVED} and cards = 1 and active = 1 and most_transactions between 2 and 30",
+        several_charges,
+        [*ASKED_CHARGE * 3, *CHARGE],
+        CONFIRM,
+        family=lambda f: _no_hints(f) and f.when is None,
+        asides=("frustration", "last_reply", "frustration"),
+    ),
+    Situation(
+        "charge.card_corrected",
+        "clarify_or_decline",
+        ("unrecognized_charge",),
+        f"{SERVED} and cards between 2 and 4 and active >= 2",
+        a_corrected_card,
+        [*ASKED_CHARGE, *CHARGE],
+        CONFIRM,
+        family=_slots("last_four"),
+        interjection=Interjection("transaction", kind="card_correction"),
+    ),
+    Situation(
+        "charge.another_card",
+        "clarify_or_decline",
+        ("unrecognized_charge",),
+        f"{SERVED} and cards between 3 and 4 and active >= 2",
+        a_corrected_card,
+        [*ASKED_CHARGE, ("clarify", "card"), *CHARGE],
+        {"card": "card_last_four", **CONFIRM},
+        family=_slots("last_four"),
+        interjection=Interjection("transaction", kind="another_card"),
+    ),
+    Situation(
+        "charge.reported_again",
+        "handoffs",
+        ("unrecognized_charge",),
+        f"{SERVED} and cards = 1 and active = 1 and most_transactions between 2 and 30",
+        a_merchant_of_several,
+        [*ASKED_CHARGE, *CHARGE],
+        CONFIRM,
+        family=lambda f: _no_hints(f) and f.when is None,
+        interjection=Interjection(
+            "transaction", labels=("unrecognized_charge",), family=_slots("merchant")
+        ),
+    ),
+    Situation(
+        "charge.reported_twice",
+        "handoffs",
+        ("unrecognized_charge",),
+        f"{SERVED} and cards = 1 and active = 1 and most_transactions between 1 and 30",
+        a_transaction(_anything, False),
+        [*CHARGE, ("answer", "none")],
+        CONFIRM,
+        family=_slots("merchant"),
+        then=("plain",),
+        follows=_slots("merchant"),
+    ),
+    Situation(
+        "charge.complaint_at_question",
+        "handoffs",
+        ("unrecognized_charge",),
+        f"{SERVED} and cards = 1 and active = 1 and most_transactions between 2 and 30",
+        several_charges,
+        [*ASKED_CHARGE, ("hand_off", "none")],
+        family=lambda f: _no_hints(f) and f.when is None,
+        interjection=COMPLAINT,
+    ),
+    Situation(
+        "charge.complaint_at_confirmation",
+        "confirmation",
+        ("unrecognized_charge",),
+        f"{SERVED} and cards = 1 and active = 1 and most_transactions between 1 and 30",
+        a_transaction(_anything, False),
+        [("block", "confirm_control"), *CHARGE],
+        CONFIRM,
+        interjection=replace(COMPLAINT, at="confirm_control"),
+    ),
+    Situation(
+        "block.person_joined",
+        "handoffs",
+        ("block_card", "talk_to_human"),
+        "active = 1",
+        only_card(_active),
+        [("clarify", "reason"), ("block", "confirm_control"), ("hand_off", "none")],
+        {"reason": "reason_unrecognized_charge", **CONFIRM},
+        kinds=frozenset({"multi_request"}),
+        family=lambda f: "block_reason" not in f.extract,
+    ),
+]
 topped_up(
     "transactions.next_page",
     f"{SERVED} and cards = 1 and most_transactions <= {oracle.PAGE}",
@@ -914,6 +1107,18 @@ COMPOSITIONS: dict[str, dict[str, int]] = {
         "decline.unlisted_code": 1,
         "status.collision": 1,
         "transactions.page.merchant_injection": 1,
+        # Version 7's.
+        "status.frustration": 1,
+        "status.last_reply": 1,
+        "status.asides_ended": 1,
+        "charge.asides_ended": 1,
+        "charge.card_corrected": 1,
+        "charge.another_card": 1,
+        "charge.reported_again": 1,
+        "charge.reported_twice": 1,
+        "charge.complaint_at_question": 1,
+        "charge.complaint_at_confirmation": 1,
+        "block.person_joined": 1,
     },
     # The held-out workload's groups in its proportions, over the groups the graph decides (decision 10).
     "selection": {
@@ -962,6 +1167,18 @@ COMPOSITIONS: dict[str, dict[str, int]] = {
         "decline.unlisted_code": 1,
         "status.collision": 1,
         "transactions.page.merchant_injection": 1,
+        # Version 7's, which PR 13 reports for the iterated agent alone.
+        "status.frustration": 1,
+        "status.last_reply": 1,
+        "status.asides_ended": 1,
+        "charge.asides_ended": 1,
+        "charge.card_corrected": 1,
+        "charge.another_card": 1,
+        "charge.reported_again": 1,
+        "charge.reported_twice": 1,
+        "charge.complaint_at_question": 1,
+        "charge.complaint_at_confirmation": 1,
+        "block.person_joined": 1,
     },
 }
 
@@ -1039,6 +1256,22 @@ def _values(
     if "date" in values and meant is not None:
         values["date"] = day(meant.at.date())
     return values
+
+
+def _interjected(
+    family: Family, card: state.Card | None, meant: state.Transaction | None
+) -> dict[str, str] | None:
+    """
+    The slots an interjecting family's message names, said of the case's card and transaction, or None when it can't
+    say them.
+    """
+    if card is not None and meant is not None:
+        return _transaction_slots(family, card, meant)
+    if not family.slots:
+        return {}
+    if set(family.slots) == {"last_four"} and card is not None:
+        return {"last_four": card.last_four}
+    return None
 
 
 def _fill(text: str, values: Mapping[str, str]) -> str:
@@ -1427,6 +1660,28 @@ class Generator:
             if text is None:
                 return None
             answers[asked] = text
+        slots = dict(pick.slots)
+        spec = situation.interjection
+        if spec is not None:
+            if spec.kind is not None:
+                text = answered(spec.kind)
+            else:
+                interjecting = self._interjecting(spec, language)
+                if not interjecting:
+                    return None
+                interjector = interjecting[draw % len(interjecting)]
+                extra = _interjected(interjector, card, meant)
+                if extra is None:
+                    return None
+                slots |= extra
+                message = rng.choice(_said(interjector, language))
+                text = {
+                    "id": message.id,
+                    "text": _fill(message.text, _values(extra, meant, facts)),
+                }
+            if text is None:
+                return None
+            answers["interjection"] = {"at": spec.at, **text}
         case: dict[str, Any] = {
             "version": cases.VERSION,
             "case_id": cases.case_id(set_name, seed, draw),
@@ -1443,7 +1698,7 @@ class Generator:
                 "messages": messages,
                 "answers": answers,
                 "means": pick.means,
-                "slots": pick.slots,
+                "slots": slots,
             },
             "fixtures": list(pick.fixtures),
             "faults": faults,
@@ -1478,7 +1733,21 @@ class Generator:
         return [
             f
             for f in self.families
-            if f.kind == kind and f.labels == situation.labels and _said(f, language)
+            if f.kind == kind
+            and f.labels == situation.labels
+            and situation.follows(f)
+            and _said(f, language)
+        ]
+
+    def _interjecting(self, spec: Interjection, language: str) -> list[Family]:
+        return [
+            f
+            for f in self.families
+            if f.labels == spec.labels
+            and f.kind in spec.kinds
+            and "owner" not in f.extract
+            and spec.family(f)
+            and _said(f, language)
         ]
 
     def _worded(self, situation: Situation, language: str) -> bool:
@@ -1487,6 +1756,7 @@ class Generator:
         """
         answered = {a.kind for a in self.answers}
         asked = {**situation.answers, "dont_know": "dont_know"}
+        spec = situation.interjection
         return (
             any(situation.fits(f) and _said(f, language) for f in self.families)
             and all(self._following(situation, k, language) for k in situation.then)
@@ -1496,6 +1766,14 @@ class Generator:
                 if name not in ("confirm_control", "handoff_control")
             )
             and all(kind in answered for kind in situation.asides)
+            and (
+                spec is None
+                or (
+                    spec.kind in answered
+                    if spec.kind is not None
+                    else bool(self._interjecting(spec, language))
+                )
+            )
         )
 
 

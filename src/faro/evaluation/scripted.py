@@ -233,8 +233,13 @@ class ScriptedModels:
                     {"fitting": [1], "language": language, "question": None}
                 )
             )
-        # A card's correction names no transaction among those listed.
-        if isinstance(said, str) and (said in UNANSWERED or said == "card_correction"):
+        # A card's correction, or a request about no transaction, names none of those listed.
+        if (
+            isinstance(said, str)
+            and (said in UNANSWERED or said == "card_correction")
+            or isinstance(said, Family)
+            and not {"unrecognized_charge", "decline_reason"} & set(said.labels)
+        ):
             return structured(
                 TransactionChoice.model_validate(
                     {"fitting": [], "language": language, "question": "unanswered"}
