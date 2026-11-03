@@ -72,6 +72,13 @@ def test_reads_the_usual_dotenv_forms(tmp_path: Path, line: str) -> None:
     assert read_key(env_file(tmp_path, f"{line}\n")) == KEY
 
 
+def test_reads_another_providers_key_by_its_variable(tmp_path: Path) -> None:
+    found = env_file(tmp_path, f"ANTHROPIC_API_KEY={KEY}\nOPENAI_API_KEY=other\n")
+
+    assert read_key(found, "OPENAI_API_KEY") == "other"
+    assert read_key(found) == KEY
+
+
 def test_the_example_names_the_variable_and_holds_no_key() -> None:
     with pytest.raises(ModelKeyError, match="missing or empty"):
         read_key(ROOT / ".env.example")

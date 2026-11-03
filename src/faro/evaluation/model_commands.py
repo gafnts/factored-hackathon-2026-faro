@@ -1,5 +1,6 @@
 """
 The commands that call models outside the system under test, and the relabel, which __main__ adds to its own.
+outside-write has OpenAI's model write the outside source from the guide (outside/writer.py), resuming what's kept.
 relabel-sample draws the 50 messages of a source relabeled by hand for label quality and relabel-agreement scores the
 filled sheet (labels.py); neither calls a model. router compares the registered router candidates on one side of the
 split by source, keeping its readings, errors, calls, and report under data/evaluation/router/. With --estimate a command prices its calls and makes none; otherwise it reads the
@@ -22,9 +23,11 @@ from faro.evaluation import (
     router,
     runs,
 )
+from faro.evaluation.outside import writer
 from faro.model_key import ModelKeyError
 
 COMMANDS = (
+    "outside-write",
     "relabel-sample",
     "relabel-agreement",
     "router",
@@ -60,6 +63,16 @@ def add(commands: Any) -> None:
     comparing.add_argument(
         "--estimate", action="store_true", help="Price it without calling a model"
     )
+    writing = commands.add_parser(
+        "outside-write",
+        help="Have OpenAI's model write the outside source from the guide, resuming what's kept",
+    )
+    writing.add_argument("--env-file", type=Path, default=Path(".env"))
+    writing.add_argument("--out", type=Path, default=writer.OUT)
+    writing.add_argument("--parallel", type=int, default=writer.PARALLEL)
+    writing.add_argument(
+        "--estimate", action="store_true", help="Price it without calling a model"
+    )
     relabeling = commands.add_parser(
         "relabel-sample",
         help="Draw the messages relabeled by hand for label quality, and the sheet",
@@ -80,6 +93,37 @@ def add(commands: Any) -> None:
         required=True,
         help="A sample under data/evaluation/labels/",
     )
+
+
+def run_outside_write(args: argparse.Namespace) -> None:
+    todo = writer.pending()
+    if args.estimate:
+        priced = writer.estimate(todo)
+        print(
+            f"{priced['calls']} requests to write, about {priced['cost_usd']:.2f} USD before retries "
+            f"at {writer.MODEL}'s list price of {priced['priced_on']}"
+        )
+        return
+    calls: list[dict[str, Any]] = []
+    try:
+        failed = asyncio.run(
+            writer.write_all(todo, calls, args.env_file, parallel=args.parallel)
+        )
+    finally:
+        kept = writer.write_calls(args.out / runs.run_id(), calls)
+    spent = sum(c["cost_usd"] or 0.0 for c in calls)
+    print(
+        f"{len(todo) - len(failed)} of {len(todo)} requests written in {len(calls)} calls, about "
+        f"{spent:.2f} USD; the calls kept in {kept}"
+    )
+    if failed:
+        print(
+            f"every attempt failed for {', '.join(failed)}; run it again to retry them"
+        )
+    found = writer.source_problems()
+    print(f"the source as kept: {len(found)} problems")
+    for problem in found[:20]:
+        print(f"  {problem}")
 
 
 def run_relabel_sample(args: argparse.Namespace) -> None:
@@ -143,7 +187,9 @@ def run_router(args: argparse.Namespace, code: dict[str, Any]) -> None:
 
 def main(args: argparse.Namespace, code: dict[str, Any]) -> int:
     try:
-        if args.command == "relabel-sample":
+        if args.command == "outside-write":
+            run_outside_write(args)
+        elif args.command == "relabel-sample":
             run_relabel_sample(args)
         elif args.command == "relabel-agreement":
             run_relabel_agreement(args)
@@ -151,6 +197,7 @@ def main(args: argparse.Namespace, code: dict[str, Any]) -> int:
             run_router(args, code)
     except (
         ModelKeyError,
+        writer.OutsideError,
         labels.LabelsError,
         router.RouterError,
     ) as error:
