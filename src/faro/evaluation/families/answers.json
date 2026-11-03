@@ -44,6 +44,18 @@
     {"answer_id": "aside-03", "kind": "aside", "es": "Hola, ¿sigue ahí?", "pt": "Oi, ainda está aí?"},
     {"answer_id": "typed_yes-01", "kind": "typed_yes", "es": "Sí, bloquéela.", "pt": "Sim, pode bloquear."},
     {"answer_id": "typed_yes-02", "kind": "typed_yes", "es": "Sí.", "pt": "Sim."},
-    {"answer_id": "typed_yes-03", "kind": "typed_yes", "es": "Confirmo, adelante.", "pt": "Confirmo, pode seguir."}
+    {"answer_id": "typed_yes-03", "kind": "typed_yes", "es": "Confirmo, adelante.", "pt": "Confirmo, pode seguir."},
+    {"answer_id": "frustration-01", "kind": "frustration", "es": "Ya le dije, no sé por qué me pregunta otra vez.", "pt": "Já falei, não sei por que pergunta de novo."},
+    {"answer_id": "frustration-02", "kind": "frustration", "es": "Esto es muy complicado.", "pt": "Isso está complicado demais."},
+    {"answer_id": "frustration-03", "kind": "frustration", "es": "No me está entendiendo.", "pt": "Você não está me entendendo."},
+    {"answer_id": "last_reply-01", "kind": "last_reply", "es": "¿Y eso qué significa?", "pt": "E isso significa o quê?"},
+    {"answer_id": "last_reply-02", "kind": "last_reply", "es": "¿Por qué dice eso?", "pt": "Por que você diz isso?"},
+    {"answer_id": "last_reply-03", "kind": "last_reply", "es": "¿Me lo puede explicar mejor?", "pt": "Pode me explicar melhor?"},
+    {"answer_id": "card_correction-01", "kind": "card_correction", "es": "Me equivoqué, es la tarjeta que termina en {last_four}.", "pt": "Me enganei, é o cartão com final {last_four}."},
+    {"answer_id": "card_correction-02", "kind": "card_correction", "es": "No, me refería a la {last_four}.", "pt": "Não, eu quis dizer o {last_four}."},
+    {"answer_id": "card_correction-03", "kind": "card_correction", "es": "Perdón, hablaba de la {last_four}.", "pt": "Desculpe, eu falava do {last_four}."},
+    {"answer_id": "another_card-01", "kind": "another_card", "es": "No es esa tarjeta, es otra.", "pt": "Não é esse cartão, é outro."},
+    {"answer_id": "another_card-02", "kind": "another_card", "es": "Me confundí de tarjeta.", "pt": "Confundi o cartão."},
+    {"answer_id": "another_card-03", "kind": "another_card", "es": "Es en mi otra tarjeta.", "pt": "É no meu outro cartão."}
   ]
 }

@@ -53,6 +53,8 @@ UNDER = (
     "{transaction}\n{transaction.meaning}",
 )
 LISTED = re.compile(r"^(\d+)\. ")
+# Answers that settle nothing a model reads: an aside, and another card, which no field of the reading names yet.
+UNANSWERED = frozenset({"aside", "frustration", "last_reply", "another_card"})
 HANDOFF_TEXT = {
     "summary": "El cliente pidió ayuda con su tarjeta por el chat.",
     "customer_statements": ["El cliente escribió al chat sobre su tarjeta."],
@@ -208,12 +210,12 @@ class ScriptedModels:
             details |= said.extract
             if "last_four" in said.slots:
                 details["last_four"] = self.slots["last_four"]
-        elif said == "aside":
+        elif said in UNANSWERED:
             details["question"] = "unanswered"
         elif said in REASONS:
             details["block_reason"] = REASONS[said]
         elif said.startswith("card_") and self.card is not None:
-            if said != "card_last_four":
+            if said not in ("card_last_four", "card_correction"):
                 credit = "Crédito" in self.card["product_type"]
                 details["card_type"] = "credit" if credit else "debit"
             if said != "card_type":
@@ -231,7 +233,8 @@ class ScriptedModels:
                     {"fitting": [1], "language": language, "question": None}
                 )
             )
-        if said == "aside":
+        # A card's correction names no transaction among those listed.
+        if isinstance(said, str) and (said in UNANSWERED or said == "card_correction"):
             return structured(
                 TransactionChoice.model_validate(
                     {"fitting": [], "language": language, "question": "unanswered"}

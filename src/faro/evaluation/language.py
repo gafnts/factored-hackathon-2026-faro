@@ -60,7 +60,7 @@ LISTING = (
     "The customer is answering which of these transactions they mean."
 )
 # Which call reads each kind of answer in the graph: a typed yes goes through the router, a card or a reason through
-# the extraction, a transaction through the choice.
+# the extraction, a transaction through the choice; a correction of the card comes at a question about a transaction.
 CALLS = {
     "card_last_four": ("extract", CARDS),
     "card_type": ("extract", CARDS),
@@ -77,6 +77,10 @@ CALLS = {
     "dont_know": ("extract", CARDS),
     "aside": ("extract", CARDS),
     "typed_yes": ("route", None),
+    "frustration": ("extract", CARDS),
+    "last_reply": ("extract", CARDS),
+    "card_correction": ("choose", LISTING),
+    "another_card": ("choose", LISTING),
 }
 
 
