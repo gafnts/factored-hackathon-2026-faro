@@ -4,7 +4,7 @@
   "versions": {
     "snapshot": "b3b8b248f604ef9a",
     "pipeline_version": "4a1bc9e15462b739",
-    "generator": "e3368194619e9313f1073cdfae6c27acef7bded9",
+    "generator": "672881b34c564e642142369849036aa4aa872a9a",
     "sources": {
       "ours": "c736935062f88b0d381bf5b400b513dbaf6542b4097eb4680b7e5086ed98246b",
       "outside": "0b6df44449b77430a398b38ddffa99ef13b52c9bc6d23abecf660d33617222e9"
@@ -767,6 +767,19 @@
       "language": "pt",
       "cases": 7
     }
+  ],
+  "left_out": [
+    "block.person_joined",
+    "charge.another_card",
+    "charge.asides_ended",
+    "charge.card_corrected",
+    "charge.complaint_at_confirmation",
+    "charge.complaint_at_question",
+    "charge.reported_again",
+    "charge.reported_twice",
+    "status.asides_ended",
+    "status.frustration",
+    "status.last_reply"
   ],
   "case_ids": [
     {
