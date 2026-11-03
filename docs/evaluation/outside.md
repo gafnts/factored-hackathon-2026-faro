@@ -5,7 +5,7 @@
 
 The outside source is the held-out side's wording: the requests and answers the scripted customer sends in a held-out set, written by another model family than ours or the agent's, from a guide to the policy rather than from our messages ([ADR-0011](../adr/0011-pre-registered-studies.md#wording-sources)). The first set drawn from it is `held_out_2` ([its study](studies/held-out-2.md)). Our own wording, all development, is [families.md](families.md).
 
-Its text stays out of the repository until that set is played, so nobody reads it while the agent is tuned ([the seal](../adr/0011-pre-registered-studies.md#the-seal)). It's kept in `data/evaluation/sources/outside/` on the maintainer's machine and in `prototype`'s evaluation bucket, and the set's manifest records its hash. This page and the code that asks for it are committed.
+Its text stays out of the repository until that set is played, so nobody reads it while the agent is tuned ([the seal](../adr/0011-pre-registered-studies.md#the-seal)). It's kept in `data/evaluation/sources/outside/` on the maintainer's machine and in the account's data bucket under `sources/outside/<hash>/`, which `make outside-keep` writes once, and the set's manifest records its hash. This page and the code that asks for it are committed.
 
 ## What we asked for
 
