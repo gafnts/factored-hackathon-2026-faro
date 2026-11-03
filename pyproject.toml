@@ -94,7 +94,7 @@ strict = true
 overrides = [
   { module = "tests.*", disallow_untyped_defs = false },
   { module = "sklearn.*", ignore_missing_imports = true },
-  { module = [ "ag_ui_langgraph.*", "langgraph_checkpoint_aws.*" ], ignore_missing_imports = true },
+  { module = [ "ag_ui_langgraph.*", "amazon.opentelemetry.*", "langgraph_checkpoint_aws.*" ], ignore_missing_imports = true },
   { module = [
     "faro.analysis.cards_figures",
     "faro.analysis.figures",

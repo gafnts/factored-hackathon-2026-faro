@@ -40,7 +40,7 @@ from botocore.config import Config
 from langgraph.graph.state import CompiledStateGraph
 from langgraph_checkpoint_aws import DynamoDBSaver
 
-from faro.agent import metrics
+from faro.agent import metrics, tracing
 from faro.agent.claims import Claims, ClaimsRefusedError, read_claims, token_of
 from faro.agent.confirmations import Confirmations, DynamoConfirmations
 from faro.agent.events import SUCCESS, checked, rebuild, run_error
@@ -519,5 +519,6 @@ def main(app_version: str = "0" * 40) -> None:
     # The SDK's AG-UI app configures no logging; a turn's ID ties its log lines to its record (OPS-01).
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
     metrics.configure()
+    tracing.configure()
     os.environ["APP_VERSION"] = app_version
     app.run()
