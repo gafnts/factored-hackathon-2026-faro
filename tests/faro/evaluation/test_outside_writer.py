@@ -140,7 +140,7 @@ def test_every_request_is_written_and_kept_as_load_source_reads_it(
     assert writer.pending(tmp_path) == []
 
 
-def test_a_reply_that_breaks_a_rule_is_asked_again_in_fixed_words(
+def test_a_reply_that_breaks_a_rule_is_asked_again_keeping_what_passed(
     tmp_path: Path,
 ) -> None:
     request = writer.pending(tmp_path)[0]
@@ -156,8 +156,38 @@ def test_a_reply_that_breaks_a_rule_is_asked_again_in_fixed_words(
     assert failed == []
     assert [c["outcome"] for c in calls] == ["broke_rules", "ok"]
     retry = fake.sent[1]["input"][1]["content"]
+    kept = json.loads(retry[retry.index("{", retry.index("null marks")) :])
     assert "Some messages held a digit outside a slot." in retry
     assert "tengo" not in retry
+    assert kept["es"][2] is None
+    assert kept["es"][:2] == list(WRITTEN["es"][:2])
+    assert None not in kept["pt"]
+
+
+@pytest.mark.parametrize(
+    ("found", "marked"),
+    [
+        (
+            ["held-out outside.none-01/es/3 is too close to development none-01/es/0"],
+            {"es": {3}},
+        ),
+        (
+            [
+                "outside.none-01/pt/1 and outside.none-01/pt/4 are too alike to count as two phrasings"
+            ],
+            {"pt": {4}},
+        ),
+        (
+            ["held-out outside.aside-02/es is too close to development aside-01/es"],
+            {"es": {1}},
+        ),
+        (["outside.none-01 has 5 es messages"], None),
+    ],
+)
+def test_a_retry_writes_anew_only_the_places_a_finding_names(
+    found: list[str], marked: dict[str, set[int]] | None
+) -> None:
+    assert writer.failing(found) == marked
 
 
 def test_a_request_that_fails_every_attempt_is_left_out(tmp_path: Path) -> None:
