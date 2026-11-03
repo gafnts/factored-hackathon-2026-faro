@@ -100,11 +100,14 @@ def generate(
             raise LockError(f"the outside source breaks the families' rules: {found}")
 
     def keep(
-        set_name: str, drawn: generator.Drawn, more: dict[str, Any] | None = None
+        set_name: str,
+        drawn: generator.Drawn,
+        more: dict[str, Any] | None = None,
+        earlier: frozenset[str] | None = None,
     ) -> None:
         cases.write(data_dir / "evaluation" / "sets" / f"{set_name}.jsonl", drawn.cases)
         written = generator.manifest(
-            set_name, seed, drawn, {**versions, **(more or {})}
+            set_name, seed, drawn, {**versions, **(more or {})}, earlier
         )
         docs.mkdir(parents=True, exist_ok=True)
         (docs / f"{set_name}.json").write_text(
@@ -134,6 +137,10 @@ def generate(
             keep(set_name, drawing.draw(set_name, seed))
     if held_out is None:
         return
+    earlier = heldout.earlier_customers(
+        data_dir / "evaluation" / "sets" / f"{heldout.EARLIER}.jsonl",
+        docs / f"{heldout.EARLIER}.json",
+    )
     with bronze.connect(database, "held_out") as con:
         drawing = generator.Generator(
             con,
@@ -142,6 +149,7 @@ def generate(
             every_answer,
             families.held_out_ids(every, every_answer),
             contract_words(),
+            earlier=earlier,
         )
         drawn = drawing.draw(heldout.NAME, seed, generator.held_out(held_out))
     if not played:
@@ -150,7 +158,12 @@ def generate(
             name: families.source_hash(name)
             for name in (families.OURS, families.OUTSIDE)
         }
-        keep(heldout.NAME, drawn, {"protocol": registration, "sources": sources})
+        keep(
+            heldout.NAME,
+            drawn,
+            {"protocol": registration, "sources": sources},
+            earlier,
+        )
         return
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     heldout.reproduce(played, drawn.cases, manifest, heldout.committed(manifest_path))

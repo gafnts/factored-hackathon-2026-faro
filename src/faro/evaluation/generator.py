@@ -1290,7 +1290,12 @@ class Generator:
         held: frozenset[str],
         words: Mapping[str, Any],
         reuse: bool = False,
+        earlier: frozenset[str] = frozenset(),
     ) -> None:
+        """
+        earlier is the customers an earlier held-out set used, whom the draw takes last among each situation's
+        candidates, so they're reused only where too few others fit.
+        """
         wanted = side == "held_out"
         self.con = con
         self.side = side
@@ -1299,6 +1304,7 @@ class Generator:
         self.held = held
         self.words = words
         self.reuse = reuse
+        self.earlier = earlier
         self.used: set[str] = set()
         self.served: dict[tuple[str, str], set[str]] = {}
         summarize(con)
@@ -1346,6 +1352,9 @@ class Generator:
             drawn += self._expired(set_name, seed, len(drawn))
         return Drawn(drawn, short)
 
+    def _preferred(self, ids: Sequence[str]) -> list[str]:
+        return sorted(ids, key=lambda i: i in self.earlier)
+
     def _access(self, set_name: str, seed: int, offset: int) -> list[dict[str, Any]]:
         made: list[dict[str, Any]] = []
         for name, rules in ACCESS.items():
@@ -1356,7 +1365,7 @@ class Generator:
                     "order by md5(customer_id || $salt) limit $n",
                     {"salt": salt, "n": CANDIDATES},
                 ).fetchall()
-                ids = [row[0] for row in rows]
+                ids = self._preferred([row[0] for row in rows])
                 chosen = next(
                     (i for i in ids if i not in self.used or self.reuse), None
                 )
@@ -1432,7 +1441,12 @@ class Generator:
                     {"salt": salt, "n": CANDIDATES},
                 ).fetchall()
                 chosen = next(
-                    (r[0] for r in rows if r[0] not in self.used or self.reuse), None
+                    (
+                        i
+                        for i in self._preferred([r[0] for r in rows])
+                        if i not in self.used or self.reuse
+                    ),
+                    None,
                 )
                 if message is None or chosen is None:
                     continue
@@ -1524,8 +1538,8 @@ class Generator:
         if not fitting:
             return []
         made: list[dict[str, Any]] = []
-        for customer_id in candidates(
-            self.con, situation, f"{seed}/{situation.name}/{language}"
+        for customer_id in self._preferred(
+            candidates(self.con, situation, f"{seed}/{situation.name}/{language}")
         ):
             if len(made) == wanted:
                 break
@@ -1788,9 +1802,11 @@ def manifest(
     seed: int,
     drawn: Drawn,
     versions: Mapping[str, Any],
+    earlier: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     """
     What a set's committed copy holds: opaque case IDs, hashes, and counts, never a customer or a record's value.
+    With earlier, the customers an earlier held-out set used, it counts the cases that reuse one.
     """
     by = Counter((c["group"], c["situation"], c["language"]) for c in drawn.cases)
     languages: dict[tuple[str, str], set[str]] = {}
@@ -1830,6 +1846,22 @@ def manifest(
             {"situation": s, "language": lang, "cases": n}
             for (s, lang), n in sorted(shared.items())
         ],
+        **(
+            {}
+            if earlier is None
+            else {
+                "reused": [
+                    {"situation": s, "language": lang, "cases": n}
+                    for (s, lang), n in sorted(
+                        Counter(
+                            (c["situation"], c["language"])
+                            for c in drawn.cases
+                            if c["customer_id"] in earlier
+                        ).items()
+                    )
+                ]
+            }
+        ),
         "case_ids": [
             {"case_id": c["case_id"], "sha256": digest(c)} for c in drawn.cases
         ],

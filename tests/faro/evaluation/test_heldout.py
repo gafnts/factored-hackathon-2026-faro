@@ -113,6 +113,23 @@ def test_a_held_out_set_plays_only_as_its_committed_manifest_describes_it(
         heldout.verify(edited, manifest, True)
 
 
+def test_an_earlier_set_is_read_only_as_its_committed_manifest_describes_it(
+    tmp_path: Path, drawn: generator.Drawn, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    set_path, manifest = kept(tmp_path, drawn)
+    manifest_path = tmp_path / "held_out.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(heldout.HeldOutError, match="no held_out cases"):
+        heldout.earlier_customers(tmp_path / "absent.jsonl", manifest_path)
+    with pytest.raises(heldout.HeldOutError, match="isn't committed"):
+        heldout.earlier_customers(set_path, manifest_path)
+    monkeypatch.setattr(heldout, "committed", lambda path: True)
+    assert heldout.earlier_customers(set_path, manifest_path) == {
+        c["customer_id"] for c in drawn.cases
+    }
+
+
 def test_git_says_whether_a_manifest_is_committed(tmp_path: Path) -> None:
     loose = tmp_path / "held_out.json"
     loose.write_text("{}", encoding="utf-8")

@@ -246,6 +246,31 @@ def test_a_situation_with_customers_to_spare_shares_none(
     assert generator.manifest("spare", 7, drawn, {})["shared"] == []
 
 
+def test_an_earlier_held_out_sets_customers_are_taken_last_and_counted(
+    con: duckdb.DuckDBPyConnection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    situation = generator.BY_NAME["status.one_card"]
+    monkeypatch.setitem(generator.COMPOSITIONS, "spare", {situation.name: 1})
+
+    def drawing(earlier: frozenset[str] = frozenset()) -> generator.Generator:
+        return generator.Generator(
+            con, "development", LOADED, ANSWERS, HELD, contract_words(), earlier=earlier
+        )
+
+    first = drawing().draw("spare", 7)
+    earlier = frozenset(c["customer_id"] for c in first.cases)
+    again = drawing(earlier).draw("spare", 7)
+
+    assert len(again.cases) == len(first.cases) == 2
+    assert not {c["customer_id"] for c in again.cases} & earlier
+    assert generator.manifest("spare", 7, again, {}, earlier)["reused"] == []
+    assert generator.manifest("spare", 7, first, {}, earlier)["reused"] == [
+        {"situation": situation.name, "language": "es", "cases": 1},
+        {"situation": situation.name, "language": "pt", "cases": 1},
+    ]
+    assert "reused" not in generator.manifest("spare", 7, again, {})
+
+
 def test_a_held_out_set_borrows_no_wording(bank: Bank) -> None:
     every = (*LOADED, *outside.FAMILIES)
     every_answer = (*ANSWERS, *outside.ANSWERS)
