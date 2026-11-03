@@ -1,6 +1,6 @@
 """
 Writes the outside source (ADR-0011, Wording sources): each request sent to OpenAI's Responses API with the guide as
-the developer message, its reply held to a JSON schema, and what it wrote checked by families.problems beside ours
+the developer message, its reply held to a JSON schema, and what it wrote checked by families.problems_beside against ours
 before it's kept. A reply that fails is asked again, up to ATTEMPTS times, with the rules it broke in fixed words and
 its own phrasings that passed, to keep, beside the places to write anew; a retry sends nothing but the guide, the
 request, those words, and the model's own text (SEC-03), never a message of ours. Each kept family and answer names the
@@ -11,6 +11,7 @@ estimate needs none.
 """
 
 import asyncio
+import functools
 import json
 import re
 import time
@@ -223,20 +224,26 @@ def failing(found: Sequence[str]) -> dict[str, set[int]] | None:
     return marked
 
 
+@functools.cache
+def development() -> tuple[tuple[str, str], ...]:
+    ours, answers = families.load(), families.load_answers()
+    every = {f.family_id for f in ours} | {a.answer_id for a in answers}
+    return tuple(families.texts(ours, answers, every))
+
+
 def checked(
     request: Request, texts: Mapping[str, Sequence[str]], author: str
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """
-    The written family or answers, and what families.problems finds in them beside ours, which find nothing.
+    The written family or answers, and what families.problems_beside finds in them against our wording.
     """
-    ours, our_answers = families.load(), families.load_answers()
     if isinstance(request, AnswerRequest):
         bodies = answer_bodies(request, texts, author)
         written = [families._answer(b, families.OUTSIDE) for b in bodies]
-        return bodies, families.problems(ours, [*our_answers, *written])
+        return bodies, families.problems_beside([], written, development())
     body = family_body(request, texts, author)
     family = families._family(request.group, body, families.OUTSIDE)
-    return [body], families.problems([*ours, family], our_answers)
+    return [body], families.problems_beside([family], [], development())
 
 
 def reply_texts(reply: Mapping[str, Any]) -> dict[str, list[str]] | None:
