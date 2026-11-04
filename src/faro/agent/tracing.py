@@ -11,6 +11,13 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Any
 
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import (
+    BaseCheckpointSaver,
+    ChannelVersions,
+    Checkpoint,
+    CheckpointMetadata,
+)
 from opentelemetry import trace
 from opentelemetry.context import Context
 from opentelemetry.propagators.aws import AwsXRayPropagator
@@ -179,6 +186,36 @@ def attempt(entry: Mapping[str, Any], ended: int) -> None:
         made.set_status(StatusCode.ERROR)
         made.set_attribute("error.type", error)
     made.end(end_time=ended)
+
+
+class TracedWrites(BaseCheckpointSaver[str]):
+    """
+    Each of a checkpointer's writes is a span: they fall between the nodes' spans, and in S6 took about a quarter of a
+    turn. Mixed in before the saver it traces.
+    """
+
+    async def aput(
+        self,
+        config: RunnableConfig,
+        checkpoint: Checkpoint,
+        metadata: CheckpointMetadata,
+        new_versions: ChannelVersions,
+    ) -> RunnableConfig:
+        step = metadata.get("step")
+        with span(
+            "checkpoint put", {} if step is None else {"faro.checkpoint.step": step}
+        ):
+            return await super().aput(config, checkpoint, metadata, new_versions)
+
+    async def aput_writes(
+        self,
+        config: RunnableConfig,
+        writes: Sequence[tuple[str, Any]],
+        task_id: str,
+        task_path: str = "",
+    ) -> None:
+        with span("checkpoint put_writes", {"faro.checkpoint.writes": len(writes)}):
+            await super().aput_writes(config, writes, task_id, task_path)
 
 
 def annotate(attributes: Mapping[str, AttributeValue]) -> None:

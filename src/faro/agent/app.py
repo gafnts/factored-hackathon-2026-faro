@@ -142,11 +142,17 @@ async def fetch_model_key(token: str | None) -> str:
     return key
 
 
+# langgraph_checkpoint_aws ships no types, so mypy reads DynamoDBSaver as Any.
+class TracedSaver(tracing.TracedWrites, DynamoDBSaver):  # type: ignore[misc]
+    def __init__(self, **options: Any) -> None:
+        super().__init__(**options)
+
+
 @cache
 def services() -> Services:
     region = os.environ.get("AWS_REGION", "us-east-1")
     settings = Settings.from_env()
-    saver = DynamoDBSaver(
+    saver = TracedSaver(
         table_name=os.environ["CHECKPOINTS_TABLE"],
         region_name=region,
         ttl_seconds=int(CHECKPOINTS_KEPT.total_seconds()),

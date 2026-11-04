@@ -3,15 +3,19 @@ The Runtime's spans hold no text: the exporter passes only the listed attributes
 status description; every trace is kept whatever the request's sampling flag, and the Runtime exports to X-Ray in its
 own Region. Each request's span joins the trace AgentCore's request arrived under, and the record's first entry names
 the trace; each node the turn runs is a span under it, and a control's interrupt is no error; each attempt at a model
-or tool call is a span under its node, as the record keeps it (ADR-0004, Operations, Tracing; OPS-01, SEC-03).
+or tool call is a span under its node, as the record keeps it; and each of the checkpointer's writes is a span in the
+request's trace (ADR-0004, Operations, Tracing; OPS-01, SEC-03).
 """
 
+import dataclasses
 import logging
 from collections.abc import Callable
 from typing import Any
 
 import pytest
 from amazon.opentelemetry.distro.exporter.otlp.aws.traces import otlp_aws_span_exporter
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph_checkpoint_aws import DynamoDBSaver
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -23,7 +27,8 @@ from opentelemetry.trace import (
     set_span_in_context,
 )
 
-from faro.agent import tracing
+from faro.agent import app, tracing
+from faro.agent.graph import build
 
 from .conftest import Harness, customer, run_body, session_id
 from .test_block import Chat, control_shown
@@ -275,3 +280,33 @@ def test_each_attempt_at_a_read_is_a_span_and_a_failed_one_names_its_code(
         (2, StatusCode.UNSET),
     ]
     assert dict(reads[0].attributes or {})["error.type"] == "lambda_error"
+
+
+class TracedMemory(tracing.TracedWrites, InMemorySaver):
+    pass
+
+
+def test_each_checkpoint_write_is_a_span_in_the_requests_trace(
+    harness: Harness, spans: Callable[[], list[ReadableSpan]]
+) -> None:
+    harness.services = dataclasses.replace(
+        harness.services, graph=build(TracedMemory())
+    )
+    harness.post(run_body(), customer().token(), session_id())
+
+    finished = spans()
+    request = request_span(finished)
+    puts = [s for s in finished if s.name == "checkpoint put"]
+    writes = [s for s in finished if s.name == "checkpoint put_writes"]
+    assert puts and writes
+    assert all(s.context.trace_id == request.context.trace_id for s in puts + writes)
+    steps = [(s.attributes or {})["faro.checkpoint.step"] for s in puts]
+    counts = [(s.attributes or {})["faro.checkpoint.writes"] for s in writes]
+    assert all(isinstance(step, int) for step in steps)
+    assert all(isinstance(count, int) and count > 0 for count in counts)
+
+
+def test_the_runtimes_saver_traces_its_writes_before_dynamodb_makes_them() -> None:
+    assert app.TracedSaver.aput is tracing.TracedWrites.aput
+    assert app.TracedSaver.aput_writes is tracing.TracedWrites.aput_writes
+    assert issubclass(app.TracedSaver, DynamoDBSaver)
