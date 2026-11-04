@@ -222,6 +222,7 @@ def main(args: argparse.Namespace, code: dict[str, Any]) -> int:
         bucket.BucketError,
         labels.LabelsError,
         router.RouterError,
+        runs.StoppedError,
     ) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

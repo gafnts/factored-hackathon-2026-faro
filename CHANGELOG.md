@@ -6,6 +6,16 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Added
+
+- An alarm, `model-failing`, for a model call that fails for a cause that fails every turn until someone acts: a spend limit reached, a rejected key, a model ID the API doesn't know, or a request it refuses. It counts every source, since visitors and the evaluation share the model's workspace ([#174]).
+
+### Changed
+
+- A model call that fails for a reason no retry fixes is named in the execution record by what a person has to do (`spend_limit`, `key_rejected`, `model_not_found`, `invalid_request`), where every 4xx but a 429 was `error`, and a model's refusal is `refused`, read before its output. Neither the usage tier's spend cap, a 429 sent with no wait, nor a refusal is tried again ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-03, [#174]).
+- An evaluation run stops at the first model call that fails for a reason no retry fixes, and is kept as void with the cause and what to do before playing again; `make eval-report` and `make eval-compare` refuse it. The language check and the router comparison stop at the same failures and keep nothing ([#174]).
+- The Anthropic SDK is held below 2 until no call sends a temperature, since its 2.x sends an API version that refuses one on every model ([#174]).
+
 ## [1.10.0] - 2026-11-03 (Promotion 16)
 
 ### Added
@@ -208,6 +218,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#164]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/164
 [#165]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/165
 [#168]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/168
+[#174]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/174
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q

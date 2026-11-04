@@ -48,6 +48,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: scikit-learn
         update-types: ["version-update:semver-major"]
+      # Its 2.x sends an API version that refuses the temperature every call
+      # sends, and no CI job calls the model; #173 lifts this with the bound.
+      - dependency-name: anthropic
+        update-types: ["version-update:semver-major"]
     groups:
       python-runtime:
         patterns:

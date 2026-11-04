@@ -4,7 +4,8 @@ parallel by the harness, each graded from its stored evidence, and kept once as 
 what it played. Results go under data/evaluation/runs/<run>/, never committed, since they hold the cases' values
 (SEC-03), and to the evaluation bucket under runs/<run>/ when the stack has one, by writes the bucket refuses without
 If-None-Match, so nothing a grader read is ever rewritten. The run's manifest says what ran, against what, and how;
-the summary holds counts, so it can be printed.
+the summary holds counts, so it can be printed. Once a case's record holds a model call that stops the run (runs.py),
+the cases not yet started are skipped, those in flight finish, and the run is kept as void.
 """
 
 import hashlib
@@ -122,7 +123,11 @@ def play_all(
     keeper: Keeper,
     parallel: int,
 ) -> list[Played]:
-    def one(n: int, case: dict[str, Any]) -> Played:
+    halted = threading.Event()
+
+    def one(n: int, case: dict[str, Any]) -> Played | None:
+        if halted.is_set():
+            return None
         name = users.username(run, n)
         try:
             evidence = play(case, name)
@@ -139,10 +144,13 @@ def play_all(
             }
         graded = grader.grade(case, evidence)
         keeper.keep(f"cases/{n:04d}.json", {"evidence": evidence, "grade": graded})
+        if runs.stopped(evidence["record"]) is not None:
+            halted.set()
         return case, evidence, graded
 
     with ThreadPoolExecutor(max_workers=parallel) as pool:
-        return list(pool.map(one, range(1, len(chosen) + 1), chosen))
+        found = pool.map(one, range(1, len(chosen) + 1), chosen)
+        return [p for p in found if p is not None]
 
 
 def latency(played: Sequence[Played]) -> dict[str, Any]:
@@ -187,6 +195,7 @@ def summarize(played: Sequence[Played], parallel: int) -> dict[str, Any]:
     workload = {"turns": counted["turns"], "repeats": 1, "parallelism": parallel}
     return {
         **runs.summarize(graded, disagreements.load()),
+        "void": runs.void(played),
         "not_stopped": sum(e.get("session") == "not_stopped" for _, e, _ in played),
         "resent": sum(t.get("resent", 0) for _, e, _ in played for t in e["turns"]),
         "latency_ms": timed,
@@ -313,6 +322,7 @@ def manifest(
         "repeats": 1,
         "pace": {"rate": client.RATE, "window_s": client.WINDOW},
         "totals": totals(played),
+        "void": runs.void(played),
         "results": dict(sorted(results.items())),
     }
 

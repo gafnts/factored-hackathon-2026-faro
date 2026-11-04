@@ -22,6 +22,7 @@ import boto3
 import pytest
 
 from faro.agent.metrics import line
+from faro.agent.models import EVERY_TURN, RETRIED
 
 from .conftest import SignIn, User, claims, handoffs
 from .test_block import LOST, Conversation, active_card, asked, interrupt
@@ -427,6 +428,14 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
             planned=False,
             last=True,
         ),
+        "ModelCallsFailing": line(
+            "model_call",
+            "demo",
+            turn_id,
+            node="route",
+            attempt=1,
+            outcome="spend_limit",
+        ),
     }
     quiet = {
         "RuntimeErrors": line(
@@ -468,22 +477,32 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
         assert not logs.test_metric_filter(
             filterPattern=filters[metric]["filterPattern"], logEventMessages=[sample]
         )["matches"], metric
+    for outcome in ("ok", *RETRIED, *EVERY_TURN, "refused", "error"):
+        sample = line(
+            "model_call",
+            "evaluation",
+            turn_id,
+            node="route",
+            attempt=1,
+            outcome=outcome,
+        )
+        matched = logs.test_metric_filter(
+            filterPattern=filters["ModelCallsFailing"]["filterPattern"],
+            logEventMessages=[sample],
+        )["matches"]
+        assert bool(matched) == (outcome in EVERY_TURN), outcome
     alarms = cloudwatch.describe_alarms(AlarmNamePrefix=f"{outputs['prefix']}-")[
         "MetricAlarms"
     ]
     named = {a["AlarmName"].removeprefix(f"{outputs['prefix']}-"): a for a in alarms}
-    assert {
+    expected = (
         "runtime-errors",
+        "model-failing",
         "action-not-verified",
         "reply-fallback-share",
         "tool-errors",
-    } <= set(named)
+    )
+    assert set(expected) <= set(named)
     assert all(
-        named[n]["AlarmActions"] == [outputs["alarms"]["topic_arn"]]
-        for n in (
-            "runtime-errors",
-            "action-not-verified",
-            "reply-fallback-share",
-            "tool-errors",
-        )
+        named[n]["AlarmActions"] == [outputs["alarms"]["topic_arn"]] for n in expected
     )

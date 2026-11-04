@@ -321,6 +321,23 @@ def test_a_run_is_read_in_either_mode_and_only_against_the_set_it_played(
         report.load_run(live, sets_dir)
 
 
+def test_a_void_run_is_neither_reported_nor_compared(
+    tmp_path: Path, sets: tuple[Path, list[dict[str, Any]]]
+) -> None:
+    sets_dir, found = sets
+    path = write_run(
+        tmp_path, "20261104T150000Z-cccc", found, [grade(c) for c in found]
+    )
+    summary = json.loads((path / "summary.json").read_text(encoding="utf-8"))
+    summary["void"] = {"outcome": "spend_limit", "case_id": found[3]["case_id"]}
+    (path / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+
+    with pytest.raises(
+        report.ReportError, match="is void: a model call ended spend_limit"
+    ):
+        report.load_run(path, sets_dir)
+
+
 def test_the_slices_carry_intervals_and_spreads_and_suppress_small_cells(
     tmp_path: Path, sets: tuple[Path, list[dict[str, Any]]]
 ) -> None:

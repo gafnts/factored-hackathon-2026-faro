@@ -31,6 +31,7 @@ from faro.agent.models import (
     prompt_version,
 )
 from faro.agent.nodes.resolve import ASKS, EARLIER
+from faro.evaluation import runs
 from faro.evaluation.families import Answer, Family
 
 PAGE = Path("docs/evaluation/language.md")
@@ -209,7 +210,9 @@ async def ask(models: Models, item: Item) -> Result:
         else:
             assert item.context is not None
             said = (await models.choose(item.text, item.context)).language
-    except ModelFailedError:
+    except ModelFailedError as error:
+        if error.outcome in runs.STOPPING:
+            raise runs.StoppedError(error.outcome) from error
         said = reason = card = "failed"
     return Result(
         item,

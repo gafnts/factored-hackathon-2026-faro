@@ -25,7 +25,7 @@ flowchart LR
   DB[("DynamoDB: tools' data, sandbox overlay, confirmations, session bindings, checkpoints, execution records, handoff cases, usage counters")]
   LLM["Claude Haiku 4.5 (Anthropic API, key in Secrets Manager)"]
   PIPE["Pipeline: dbt-duckdb, stamped gold export"]
-  ALM["CloudWatch: metric filters, four alarms, SNS"]
+  ALM["CloudWatch: metric filters, five alarms, SNS"]
   COG -.->|"tokens"| Browser
   CHAT -->|"AG-UI, customer token"| RT
   AGT -->|"polls, staff token"| API

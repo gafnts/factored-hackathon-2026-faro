@@ -218,14 +218,24 @@ def test_output_that_didnt_parse_is_tried_again_without_waiting() -> None:
     assert entries[1]["waited_for"] == "none"
 
 
-@pytest.mark.parametrize("status", [400, 401, 403])
-def test_a_request_the_provider_refuses_isnt_repeated(status: int) -> None:
+@pytest.mark.parametrize(
+    ("status", "outcome"),
+    [
+        (400, "invalid_request"),
+        (401, "key_rejected"),
+        (403, "key_rejected"),
+        (404, "model_not_found"),
+    ],
+)
+def test_a_request_the_provider_refuses_isnt_repeated(
+    status: int, outcome: str
+) -> None:
     refused = status_error(anthropic.APIStatusError, status)
     made, entries, waits = scripted([refused], fixed())
 
     with pytest.raises(ModelFailedError):
         replied(made)
-    assert [(e["attempt"], e["outcome"]) for e in entries] == [(1, "error")]
+    assert [(e["attempt"], e["outcome"]) for e in entries] == [(1, outcome)]
     assert waits == []
 
 

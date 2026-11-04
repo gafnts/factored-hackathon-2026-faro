@@ -10,6 +10,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import anthropic
+import httpx2
+import pytest
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
@@ -23,7 +26,8 @@ from faro.agent.models import (
     TransactionChoice,
 )
 from faro.agent.nodes.resolve import ASKS
-from faro.evaluation import families, language
+from faro.evaluation import __main__ as cli
+from faro.evaluation import families, language, runs
 
 LOADED, ANSWERS = families.load(), families.load_answers()
 HELD = families.held_out_ids(LOADED, ANSWERS)
@@ -313,3 +317,70 @@ def test_the_check_counts_what_the_model_said_against_the_label(tmp_path: Path) 
     rendered = (tmp_path / "language.md").read_text(encoding="utf-8")
     assert "Latest live check: 2026-10-02T18:05:00Z" in rendered
     assert "## Block reasons" not in rendered
+
+
+def answering(respond: Any) -> Models:
+    """
+    Models whose every call answers with respond, or raises it.
+    """
+
+    def make(_: str) -> RunnableLambda[Any, Any]:
+        async def invoke(_: Any) -> Any:
+            if isinstance(respond, Exception):
+                raise respond
+            return respond
+
+        return RunnableLambda(invoke)
+
+    async def record(kind: str, **fields: Any) -> None:
+        pass
+
+    return Models(Declared(make, PROVIDER, MODEL), record)
+
+
+ITEMS = [
+    language.Item("card_status-01/es/0", "es", "¿Mi tarjeta?", "route"),
+    language.Item("card_status-01/pt/0", "pt", "Meu cartão?", "route"),
+]
+
+
+def test_the_check_stops_and_keeps_nothing_once_the_key_is_rejected() -> None:
+    rejected = anthropic.AuthenticationError(
+        "rejected",
+        response=httpx2.Response(
+            401, request=httpx2.Request("POST", "https://api.anthropic.example")
+        ),
+        body=None,
+    )
+
+    with pytest.raises(runs.StoppedError, match="key_rejected") as stopped:
+        asyncio.run(language.check(answering(rejected), ITEMS))
+
+    assert "replace the model's key" in str(stopped.value)
+
+
+def test_a_refusal_counts_as_failed_and_the_check_goes_on() -> None:
+    refusal = AIMessage(content="", response_metadata={"stop_reason": "refusal"})
+
+    results = asyncio.run(
+        language.check(
+            answering(
+                {"raw": refusal, "parsed": None, "parsing_error": ValueError("empty")}
+            ),
+            ITEMS,
+        )
+    )
+
+    assert [r.said for r in results] == ["failed", "failed"]
+
+
+def test_a_stopped_check_says_what_to_do_and_exits_in_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def stopped(*_: Any) -> None:
+        raise runs.StoppedError("spend_limit")
+
+    monkeypatch.setattr(cli, "check_language", stopped)
+
+    assert cli.main(["language"]) == 1
+    assert "raise the provider's spend limit" in capsys.readouterr().err
