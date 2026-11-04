@@ -189,7 +189,30 @@ def headline(found: dict[str, Any]) -> str:
     )
 
 
-def play(lock_path: Path, data_dir: Path, set_name: str, models: str) -> None:
+REMEDIES = {
+    "spend_limit": "raise the provider's spend limit, or wait for the month to end",
+    "key_rejected": "replace the model's key (make model-key)",
+    "model_not_found": "check the model's ID",
+    "invalid_request": "fix the request the agent builds",
+    "error": "read the case's record for the failure",
+}
+
+
+def voided(summary: dict[str, Any]) -> bool:
+    """
+    Says why a run stopped and what a person does before playing the set again, if it did.
+    """
+    void = summary.get("void")
+    if void:
+        print(
+            f"void: a model call in {void['case_id']} ended {void['outcome']}, so the run stopped after "
+            f"{summary['cases']} cases; {REMEDIES[void['outcome']]}, then play the set again",
+            file=sys.stderr,
+        )
+    return bool(void)
+
+
+def play(lock_path: Path, data_dir: Path, set_name: str, models: str) -> bool:
     lock = read_lock(lock_path)
     database = runner.workspace(data_dir, lock.snapshot_id).database
     set_path = data_dir / "evaluation" / "sets" / f"{set_name}.jsonl"
@@ -219,6 +242,7 @@ def play(lock_path: Path, data_dir: Path, set_name: str, models: str) -> None:
     print(f"findings no entry matches, by situation and check: {summary['uncovered']}")
     if summary["safety"]:
         print(f"safety checks failed: {summary['safety']}")
+    return voided(summary)
 
 
 def check_language(
@@ -354,7 +378,7 @@ def run(
     stack_path: Path,
     selection: dict[str, Any],
     parallel: int,
-) -> None:
+) -> bool:
     set_path = data_dir / "evaluation" / "sets" / f"{set_name}.jsonl"
     manifest_path = docs / f"{set_name}.json"
     if not set_path.is_file() or not manifest_path.is_file():
@@ -385,6 +409,7 @@ def run(
     print(f"findings no entry matches, by situation and check: {summary['uncovered']}")
     if summary["safety"]:
         print(f"safety checks failed: {summary['safety']}")
+    return voided(summary)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -524,16 +549,17 @@ def main(argv: list[str] | None = None) -> int:
         if not found:
             disagreements.write()
         return 1 if found else 0
+    void = False
     try:
         if args.command == "play":
-            play(args.lock, args.data_dir, args.set_name, args.models)
+            void = play(args.lock, args.data_dir, args.set_name, args.models)
         elif args.command == "run":
             selection = {
                 "situations": args.situation,
                 "languages": args.language,
                 "limit": args.limit,
             }
-            run(
+            void = run(
                 args.data_dir,
                 args.docs,
                 args.set_name,
@@ -556,7 +582,7 @@ def main(argv: list[str] | None = None) -> int:
     ) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
-    return 0
+    return 1 if void else 0
 
 
 if __name__ == "__main__":

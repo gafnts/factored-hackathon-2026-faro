@@ -24,6 +24,7 @@ from faro.evaluation import (
     grader,
     harness,
     player,
+    runs,
     users,
 )
 from faro.evaluation.client import Client
@@ -146,6 +147,38 @@ def test_fault_cases_stay_out_of_the_turn_and_case_latency() -> None:
     assert found["later"] == {"turns": 1, "p50": 300}
     assert (found["cases"]["cases"], found["cases"]["p50"]) == (2, 1150)
     assert found["fault_cases_left_out"] == 1
+
+
+def test_a_run_skips_the_cases_not_started_once_a_model_call_stops_it(
+    tmp_path: Path, drawn: tuple[generator.Drawn, dict[str, Any]]
+) -> None:
+    found, _ = drawn
+    chosen = found.cases[:4]
+    stopping = chosen[1]["case_id"]
+    started: list[str] = []
+
+    def play(case: dict[str, Any], name: str) -> dict[str, Any]:
+        started.append(case["case_id"])
+        outcome = "spend_limit" if case["case_id"] == stopping else "ok"
+        # A stand-in for the stack, which the grader reads as the harness's own error.
+        return {
+            "case_id": case["case_id"],
+            "customer_id": case["customer_id"],
+            "mode": "end_to_end",
+            "user": name,
+            "turns": [],
+            "record": [{"kind": "model_call", "node": "route", "outcome": outcome}],
+            "error": "harness: stand-in",
+        }
+
+    keeper = endtoend.Keeper(tmp_path / "run", "run", None, None)
+
+    played = endtoend.play_all(chosen, "run", play, keeper, 1)
+
+    assert started == [c["case_id"] for c in chosen[:2]]
+    kept = sorted(p.name for p in (tmp_path / "run" / "cases").iterdir())
+    assert kept == ["0001.json", "0002.json"]
+    assert runs.void(played) == {"outcome": "spend_limit", "case_id": stopping}
 
 
 def test_a_set_plays_in_parallel_and_each_case_is_kept_as_it_finishes(
