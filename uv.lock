@@ -845,6 +845,7 @@ dependencies = [
 agent = [
     { name = "ag-ui-langgraph" },
     { name = "ag-ui-protocol" },
+    { name = "anthropic" },
     { name = "aws-opentelemetry-distro" },
     { name = "bedrock-agentcore" },
     { name = "fastapi" },
@@ -906,6 +907,7 @@ requires-dist = [
 agent = [
     { name = "ag-ui-langgraph", specifier = ">=0.0.45" },
     { name = "ag-ui-protocol", specifier = ">=1" },
+    { name = "anthropic", specifier = ">=1.9,<2" },
     { name = "aws-opentelemetry-distro", specifier = ">=0.22" },
     { name = "bedrock-agentcore", specifier = ">=1.25" },
     { name = "fastapi", specifier = ">=0.162" },
