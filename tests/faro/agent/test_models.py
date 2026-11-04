@@ -12,7 +12,8 @@ from typing import Any
 import anthropic
 import httpx2
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
 from faro.agent import models
@@ -250,65 +251,86 @@ SPEND_CAP = said(
 )
 
 
-@pytest.mark.parametrize(
-    ("error", "outcome"),
-    [
-        (status_error(anthropic.RateLimitError, 429), "rate_limited"),
-        (status_error(anthropic.RateLimitError, 429, SPEND_CAP), "spend_limit"),
-        (status_error(anthropic.InternalServerError, 529), "server_error"),
-        (
-            status_error(
-                anthropic.BadRequestError,
-                400,
-                said(
-                    "invalid_request_error",
-                    "You have reached your specified workspace API usage limits. You will regain access on 2026-12-01.",
-                ),
+FAILURES = [
+    (status_error(anthropic.RateLimitError, 429), "rate_limited"),
+    (status_error(anthropic.RateLimitError, 429, SPEND_CAP), "spend_limit"),
+    (status_error(anthropic.InternalServerError, 529), "server_error"),
+    (
+        status_error(
+            anthropic.BadRequestError,
+            400,
+            said(
+                "invalid_request_error",
+                "You have reached your specified workspace API usage limits. You will regain access on 2026-12-01.",
             ),
-            "spend_limit",
         ),
-        (
-            status_error(
-                anthropic.BadRequestError,
-                400,
-                said(
-                    "invalid_request_error",
-                    "You have reached your specified API usage limits. You will regain access on 2026-12-01.",
-                ),
+        "spend_limit",
+    ),
+    (
+        status_error(
+            anthropic.BadRequestError,
+            400,
+            said(
+                "invalid_request_error",
+                "You have reached your specified API usage limits. You will regain access on 2026-12-01.",
             ),
-            "spend_limit",
         ),
-        (
-            status_error(
-                anthropic.BadRequestError,
-                400,
-                said(
-                    "invalid_request_error",
-                    "temperature: Extra inputs are not permitted",
-                ),
+        "spend_limit",
+    ),
+    (
+        status_error(
+            anthropic.BadRequestError,
+            400,
+            said(
+                "invalid_request_error",
+                "temperature: Extra inputs are not permitted",
             ),
-            "invalid_request",
         ),
-        (status_error(anthropic.BadRequestError, 400), "invalid_request"),
-        (
-            status_error(
-                anthropic.APIStatusError, 402, said("billing_error", "Check billing.")
-            ),
-            "spend_limit",
+        "invalid_request",
+    ),
+    (status_error(anthropic.BadRequestError, 400), "invalid_request"),
+    (
+        status_error(
+            anthropic.APIStatusError, 402, said("billing_error", "Check billing.")
         ),
-        (status_error(anthropic.AuthenticationError, 401), "key_rejected"),
-        (status_error(anthropic.PermissionDeniedError, 403), "key_rejected"),
-        (status_error(anthropic.NotFoundError, 404), "model_not_found"),
-        (status_error(anthropic.RequestTooLargeError, 413), "error"),
-        (anthropic.APITimeoutError(REQUEST), "timeout"),
-        (anthropic.APIConnectionError(request=REQUEST), "connection_error"),
-        (RuntimeError("x"), "error"),
-    ],
-)
+        "spend_limit",
+    ),
+    (status_error(anthropic.AuthenticationError, 401), "key_rejected"),
+    (status_error(anthropic.PermissionDeniedError, 403), "key_rejected"),
+    (status_error(anthropic.NotFoundError, 404), "model_not_found"),
+    (status_error(anthropic.RequestTooLargeError, 413), "error"),
+    (anthropic.APITimeoutError(REQUEST), "timeout"),
+    (anthropic.APIConnectionError(request=REQUEST), "connection_error"),
+    (RuntimeError("x"), "error"),
+]
+
+
+@pytest.mark.parametrize(("error", "outcome"), FAILURES)
 def test_a_failure_is_named_by_what_a_person_has_to_do(
     error: Exception, outcome: str
 ) -> None:
     assert failure(error) == outcome
+
+
+# langchain-anthropic re-raises the SDK's errors as its own classes; failure() reads them only while they subclass the
+# SDK's.
+@pytest.mark.parametrize(
+    ("error", "outcome"),
+    [(e, o) for e, o in FAILURES if isinstance(e, anthropic.APIError)],
+)
+def test_an_error_the_chat_model_re_raises_keeps_its_name(
+    monkeypatch: pytest.MonkeyPatch, error: Exception, outcome: str
+) -> None:
+    async def refused(*_: Any) -> None:
+        raise error
+
+    monkeypatch.setattr(ChatAnthropic, "_acreate", refused)
+    chat = anthropic_factory("sk-test")("route")
+
+    with pytest.raises(anthropic.APIError) as raised:
+        asyncio.run(chat.ainvoke([HumanMessage("hola")]))
+
+    assert failure(raised.value) == outcome
 
 
 def test_the_tier_caps_429_ends_the_call_at_once() -> None:
