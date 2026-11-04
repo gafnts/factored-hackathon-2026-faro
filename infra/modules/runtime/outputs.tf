@@ -11,6 +11,11 @@ output "model_key_secret" {
   value       = data.aws_secretsmanager_secret.model_key.name
 }
 
+output "service_name" {
+  description = "The service name the Runtime's spans carry"
+  value       = local.runtime_name
+}
+
 output "runtime_log_group" {
   value = aws_cloudwatch_log_group.runtime.name
 }
