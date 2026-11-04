@@ -300,6 +300,22 @@ def failure(error: Exception) -> str:
     return STATUSES.get(status, "error")
 
 
+def answered(answer: Any, structured: bool) -> tuple[AIMessage, Any, str]:
+    """
+    The message, its structured output, and the outcome. A refusal is read first, since it can end a reply part way,
+    and it isn't tried again, since the same request would likely meet it again.
+    """
+    raw: AIMessage = answer["raw"] if structured else answer
+    parsed = answer["parsed"] if structured else None
+    if raw.response_metadata.get("stop_reason") == "refusal":
+        return raw, None, "refused"
+    if structured:
+        broken = answer.get("parsing_error") is not None or parsed is None
+    else:
+        broken = not raw.text
+    return raw, parsed, "invalid_output" if broken else "ok"
+
+
 def provider_wait(error: Exception) -> float | None:
     """
     The retry-after a 429 or a 5xx carries.
@@ -414,14 +430,7 @@ class Models:
         typed = output or purpose
         try:
             answer = await self.factory(typed).ainvoke(list(messages))
-            if typed in OUTPUTS:
-                raw, parsed = answer["raw"], answer["parsed"]
-                if answer.get("parsing_error") is not None or parsed is None:
-                    outcome = "invalid_output"
-            else:
-                raw = answer
-                if not answer.text:
-                    outcome = "invalid_output"
+            raw, parsed, outcome = answered(answer, typed in OUTPUTS)
         except Exception as error:
             outcome = failure(error)
             provider = provider_wait(error)

@@ -357,7 +357,7 @@
         "wait_ms": { "$ref": "#/$defs/wait_ms" },
         "waited_for": { "$ref": "#/$defs/waited_for" },
         "outcome": {
-          "description": "connection_error: the request never reached the provider. rate_limited, server_error, timeout, connection_error, and invalid_output are tried again, up to three attempts within the turn's deadline (decision 18, as amended on 2026-10-01). The rest end the call, named by what a person has to do (ADR-0004's amendment of 2026-11-03): spend_limit, a spend limit reached; key_rejected, the key refused (401, 403); model_not_found, the model's ID unknown (404); invalid_request, any other 400, a defect in the request we built; error, anything else.",
+          "description": "connection_error: the request never reached the provider. rate_limited, server_error, timeout, connection_error, and invalid_output are tried again, up to three attempts within the turn's deadline (decision 18, as amended on 2026-10-01). The rest end the call, named by what a person has to do (ADR-0004's amendment of 2026-11-03): spend_limit, a spend limit reached; key_rejected, the key refused (401, 403); model_not_found, the model's ID unknown (404); invalid_request, any other 400, a defect in the request we built; refused, the model declined to answer; error, anything else.",
           "enum": [
             "ok",
             "rate_limited",
@@ -369,6 +369,7 @@
             "key_rejected",
             "model_not_found",
             "invalid_request",
+            "refused",
             "error"
           ]
         },

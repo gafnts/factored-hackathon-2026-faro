@@ -193,6 +193,24 @@ def test_a_refused_request_is_not_repeated(tmp_path: Path) -> None:
     )
 
 
+def test_a_refusal_is_not_repeated(tmp_path: Path) -> None:
+    refusal = AIMessage(
+        content="",
+        response_metadata={"model_name": models.MODEL, "stop_reason": "refusal"},
+    )
+    found, _, calls, slept = made(
+        tmp_path,
+        models.MODEL,
+        [{"raw": refusal, "parsed": None, "parsing_error": ValueError("empty")}],
+    )
+
+    reading = asyncio.run(found.read("hola"))
+
+    assert (
+        reading.failed and [c["outcome"] for c in calls] == ["refused"] and slept == []
+    )
+
+
 def test_no_key_is_read_until_a_call(tmp_path: Path) -> None:
     calls: list[dict[str, Any]] = []
     found = classifier.haiku(tmp_path / "missing.env", calls)

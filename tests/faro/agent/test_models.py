@@ -192,6 +192,40 @@ def test_a_reply_is_read_whole_and_an_empty_one_is_invalid() -> None:
     assert entries[0]["cost_usd"] is None
 
 
+def refusal(content: str) -> AIMessage:
+    return AIMessage(
+        content=content,
+        usage_metadata=USAGE,
+        response_metadata={"model_name": MODEL, "stop_reason": "refusal"},
+    )
+
+
+def test_a_reply_a_refusal_ended_part_way_is_refused_and_not_tried_again() -> None:
+    made, entries = recorded(refusal("Estas son sus"))
+
+    with pytest.raises(ModelFailedError):
+        asyncio.run(made.reply("¿Mis tarjetas?", "{}", "Spanish"))
+
+    (entry,) = entries
+    assert entry["outcome"] == "refused"
+    assert entry["usage"]["output_tokens"] == 100
+    assert entry_fits(entry)
+
+
+def test_a_structured_call_the_model_refused_is_refused_not_invalid() -> None:
+    made, entries = recorded(
+        {"raw": refusal(""), "parsed": None, "parsing_error": ValueError("empty")}
+    )
+
+    with pytest.raises(ModelFailedError):
+        asyncio.run(made.route("hola"))
+
+    (entry,) = entries
+    assert entry["outcome"] == "refused"
+    assert "output" not in entry
+    assert entry_fits(entry)
+
+
 REQUEST = httpx2.Request("POST", "https://api.anthropic.example")
 
 

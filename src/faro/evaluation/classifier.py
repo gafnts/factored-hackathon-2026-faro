@@ -143,9 +143,7 @@ class Classifier:
             outcome, wait = "ok", None
             try:
                 answer = await runnable.ainvoke(messages)
-                raw, parsed = answer["raw"], answer["parsed"]
-                if answer.get("parsing_error") is not None or parsed is None:
-                    outcome = "invalid_output"
+                raw, parsed, outcome = models.answered(answer, structured=True)
             except Exception as error:
                 outcome = models.failure(error)
                 wait = models.provider_wait(error)
