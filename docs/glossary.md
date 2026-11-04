@@ -21,7 +21,7 @@ The words this repository uses in its own way, in plain terms. The policy's rule
 | Router, extraction | The model calls that read a message: which requests it holds, and which card, reason, or transaction it names |
 | Placeholder | A fact in a reply, such as `{card.expiration}`, that the model writes by name and code fills with the value. The model never writes a figure |
 | Reply check | Code that inspects every reply before it is sent; a reply that fails is replaced by a fixed one, and the replacement is counted |
-| Execution record | The append-only log of a conversation: every model call, tool call, and control, and a decision entry per request served with its outcome class (answered, clarified, abstained, declined, blocked, handed off). The trace, the audit log, and the evaluation's evidence in one |
+| Execution record | The append-only log of a conversation: every model call, tool call, and control, and a decision entry per request served with its outcome class (answered, clarified, abstained, declined, blocked, handed off). The audit log and the evaluation's evidence in one; each turn's first entry names its trace |
 | Snapshot, as-of instant | A pinned, verified copy of the dataset, read as of one moment: business date 2026-06-17, as of 2026-06-18 06:00. No tool reads the wall clock |
 | App stamp | The commit of the code the deployed Runtime runs, carried by every execution record |
 

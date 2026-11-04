@@ -15,12 +15,16 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - Grader checks for version 7: one case a turn, a joined case citing POL-44, and no list of what the chat does after an answer that doesn't know, frustration, or a question about the last reply. ([#164])
 - The second held-out set, `held_out_2`: 603 cases worded by OpenAI's GPT-6.1 Sol from a guide we wrote, drawn under its registered protocol and sealed until the iteration ends. A blind reading of 50 of its messages agreed with their labels on 44, and none was wrong once the six were settled by the policy's text ([#165]).
 - `make outside-write`, which has OpenAI's model write the held-out wording from the guide, and `make outside-keep`, which copies it into the account's data bucket under its hash; the wording stays out of git until the set is played ([#165]).
+- A trace of each turn in CloudWatch: the Runtime's own spans for the turn, each node, each attempt at a model call, a tool call, or the handoff's filing, and each checkpoint write, with latency and tokens, under AgentCore's span for the request, in the account's `aws/spans`. A span holds no text and nothing that names the customer: its attributes come from one list, which the exporter enforces. The turn's first record entry names its trace, and three saved Logs Insights queries read a turn's latency, its time by node, and its tokens and cost ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), [#168]).
 
 ### Changed
 
 - A held-out draw takes the customers of the earlier held-out set last, and its manifest counts those it reuses; it shares its size among the situations by largest remainder, so it draws the size asked for; and its manifest names the situations a comparison on it leaves out, which `make eval-compare` reads from there. The relabel sheet's guide states the three rules its first sample missed (POL-10, POL-31, and POL-44's complaint) ([#165]).
 - Held-out wording comes from a source another model family writes, kept out of the repository until its first play; every family and answer of ours is development, and the router comparison reads no held-out wording until then. Phrasings within a family or a kind of answer must differ, and three of ours were reworded. Nothing deployed changes ([#163]).
 - The card support policy's version 7, from the triage of two conversations on the prototype and of the freeze's open findings: a message at a question that answers nothing gets the question again, not the list of what the chat does, and the third ends it; a correction of the card moves the request; a charge reported again answers the question, and one charge files one case; a complaint joins the turn's required case, and while the confirm control shows it's handed off at once, leaving the block to confirm; a handoff's reply says what the case is about; and four readings made explicit (a card's expiration, the kind of transaction, a complaint, a loanword). The evaluation's oracle follows it; the agent follows after the held-out set is drawn, and still stamps version 6. ([#164])
+- `make probe` reads each turn's spans from the trace its record names, and fails if a span holds the typed number, a message, or a reply, if a turn has no trace, or if anything is stored that shouldn't be; before, it read only the share of traces X-Ray indexed and printed what it found ([#168]).
+- Transaction Search, set by hand in the console until now, is in the IAM root, with `aws/spans`' retention of 30 days; an account that turned it on by hand imports `aws/spans` once ([CONTRIBUTING.md](CONTRIBUTING.md#traces), [#168]).
+- The Runtime's zip carries ADOT 0.22.0 and the OpenTelemetry SDK, 43 MB from 34. ADOT alone is let past the week's wait for new releases until 2026-11-06, since 0.21.0 pins an OpenTelemetry with an advisory (GHSA-xcq7-p3pf-p88h) in the parsing of a header the Runtime reads ([#168]).
 
 ### Removed
 
@@ -200,6 +204,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#163]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/163
 [#164]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/164
 [#165]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/165
+[#168]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/168
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q

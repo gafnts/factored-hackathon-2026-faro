@@ -75,7 +75,7 @@ sequenceDiagram
 
 The chat opens the runtime session at sign-in with a warm-up the entrypoint answers without running the graph, so the first message doesn't pay the cold start. Each turn has 60 seconds; a model or tool call that fails is tried up to three times, and one that still fails ends the turn with a fixed reply and a person offered (POL-48).
 
-The execution record is the trace, the audit log, and the evaluation's evidence in one (OPS-01, OPS-02): every model call with its prompt version, tokens, latency, and cost; every tool call with each attempt; every interrupt and resume; and a decision entry per request served, naming the outcome class and what the agent waits for next. It is append-only, and explanations come from it, never from hidden reasoning.
+The execution record is the audit log and the evaluation's evidence in one (OPS-02): every model call with its prompt version, tokens, latency, and cost; every tool call with each attempt; every interrupt and resume; and a decision entry per request served, naming the outcome class and what the agent waits for next. It is append-only, and explanations come from it, never from hidden reasoning. Each turn also leaves a trace in CloudWatch (OPS-01): a span for the turn, each node, each model and tool call, and each checkpoint write, under AgentCore's span for the request, so the trace shows where a turn's time goes. A span holds counts, names, and IDs, never a message or a reply, and the turn's record names its trace.
 
 ## The graph
 

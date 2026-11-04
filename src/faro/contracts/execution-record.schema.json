@@ -175,6 +175,11 @@
     "run_error_code": {
       "enum": ["invalid_request", "session_refused", "no_customer", "rate_limited", "daily_limit", "internal"]
     },
+    "trace_id": {
+      "description": "The request's trace, when the Runtime records spans, so the record leads to its trace (ADR-0004, Operations, Tracing).",
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
     "turn_opened_entry": {
       "description": "A turn's first entry, stamped with everything that shapes it. Only the entrypoint opens turns: the deadline handoffs of ADR-0004's decision 7 are deferred, and building them would add a turn the deadline Lambda opens, with no runtime session or client IDs.",
       "type": "object",
@@ -282,7 +287,8 @@
             "snapshot": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
             "pipeline_version": { "type": "string", "pattern": "^[0-9a-f]{16}$" }
           }
-        }
+        },
+        "trace_id": { "$ref": "#/$defs/trace_id" }
       }
     },
     "request_refused_entry": {
@@ -300,7 +306,8 @@
           "type": "array",
           "maxItems": 20,
           "items": { "$ref": "#/$defs/validation_error" }
-        }
+        },
+        "trace_id": { "$ref": "#/$defs/trace_id" }
       }
     },
     "model_call_entry": {

@@ -103,6 +103,7 @@ module "alarms" {
 
   prefix         = local.prefix
   log_group_name = module.runtime.runtime_log_group
+  service_name   = module.runtime.service_name
 }
 
 module "console" {

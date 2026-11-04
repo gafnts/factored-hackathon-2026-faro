@@ -11,6 +11,8 @@ locals {
   runtime_name = "${replace(var.prefix, "-", "_")}_agent"
   # The Runtime's ID is its name and a suffix, so its workload identity and log group match this before it exists.
   runtime_ids = "${local.runtime_name}-*"
+  # AgentCore names its own span for the endpoint, and CloudWatch's GenAI page counts an agent's spans by that name.
+  service_name = "${local.runtime_name}.DEFAULT"
   workload_identities = [
     "${local.agentcore}:workload-identity-directory/default",
     "${local.agentcore}:workload-identity-directory/default/workload-identity/${local.runtime_ids}",
@@ -232,7 +234,10 @@ data "aws_iam_policy_document" "runtime" {
     resources = ["arn:aws:logs:${local.region}:${local.account_id}:log-group:*"]
   }
   statement {
-    actions   = ["xray:PutTraceSegments", "xray:PutTelemetryRecords", "xray:GetSamplingRules", "xray:GetSamplingTargets"]
+    actions = [
+      "xray:PutTraceSegments", "xray:PutTelemetryRecords", "xray:GetSamplingRules", "xray:GetSamplingTargets",
+      "xray:PutSpans", "xray:PutSpansForIndexing",
+    ]
     resources = ["*"]
   }
   statement {
@@ -383,6 +388,11 @@ resource "aws_bedrockagentcore_agent_runtime" "this" {
     TURNS_PER_DAY           = tostring(var.turns_per_day)
     # The SDK then fails without a workload token instead of making a local workload identity (spike S4).
     DOCKER_CONTAINER = "1"
+    # ADOT's exporter marks its requests as an agent's, as AgentCore's setup does, without moving any attribute into a
+    # log event (ADR-0004, Operations, Tracing).
+    AGENT_OBSERVABILITY_ENABLED          = "true"
+    AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT = "true"
+    OTEL_SERVICE_NAME                    = local.service_name
   }
 
   depends_on = [aws_iam_role_policy.runtime]
@@ -393,4 +403,22 @@ resource "aws_bedrockagentcore_agent_runtime" "this" {
 resource "aws_cloudwatch_log_group" "runtime" {
   name              = "/aws/bedrock-agentcore/runtimes/${aws_bedrockagentcore_agent_runtime.this.agent_runtime_id}-DEFAULT"
   retention_in_days = var.log_retention_days
+}
+
+# AgentCore's own span for each request, which roots the trace. Never APPLICATION_LOGS, which record the request as the
+# customer sent it, before the entrypoint masks it (ADR-0004, Card numbers).
+resource "aws_cloudwatch_log_delivery_source" "traces" {
+  name         = "${var.prefix}-runtime-traces"
+  log_type     = "TRACES"
+  resource_arn = aws_bedrockagentcore_agent_runtime.this.agent_runtime_arn
+}
+
+resource "aws_cloudwatch_log_delivery_destination" "xray" {
+  name                      = "${var.prefix}-runtime-xray"
+  delivery_destination_type = "XRAY"
+}
+
+resource "aws_cloudwatch_log_delivery" "traces" {
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.traces.name
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.xray.arn
 }

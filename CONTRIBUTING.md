@@ -212,7 +212,7 @@ This applies `infra/iam/`, then `infra/dataset/` (Terraform asks you to confirm 
 | `banking-agent-prototype-deploy` | The apply job, only from the `prototype` GitHub Environment | Write, scoped to `prototype` |
 | `banking-agent-prototype-plan` | The plan job on PRs into `main` | Read-only |
 
-`make iam-output` prints their ARNs whenever you need them. The IAM root also creates an empty secret for each environment's model key, `banking-agent-<env>-anthropic-api-key`, which you fill in [step 3.7](#37-verify-and-deploy-local), and the account's monthly budget, whose topic you subscribe to once ([Spend limits](#spend-limits)). The second creates the data bucket, `banking-agent-data-<account-id>-us-east-1-an`, which holds the dataset snapshots and the exports of the tools' data ([step 3.6](#36-copy-the-dataset-snapshot-and-the-tools-data)), and the log group DynamoDB's imports write to. It lives outside the environment stacks, so destroying one never deletes the data.
+`make iam-output` prints their ARNs whenever you need them. The IAM root also creates an empty secret for each environment's model key, `banking-agent-<env>-anthropic-api-key`, which you fill in [step 3.7](#37-verify-and-deploy-local), the account's monthly budget, whose topic you subscribe to once ([Spend limits](#spend-limits)), and CloudWatch Transaction Search, without which the Runtime's spans don't reach X-Ray: every environment's spans go to the account's `aws/spans`, kept 30 days. The second creates the data bucket, `banking-agent-data-<account-id>-us-east-1-an`, which holds the dataset snapshots and the exports of the tools' data ([step 3.6](#36-copy-the-dataset-snapshot-and-the-tools-data)), and the log group DynamoDB's imports write to. It lives outside the environment stacks, so destroying one never deletes the data.
 
 #### 3.4 Configure your local deploy profile
 
@@ -422,6 +422,12 @@ aws sns subscribe --protocol email --notification-endpoint you@example.com \
 
 A subscription outlives applies, and `make destroy` removes it with the topic.
 
+#### Traces
+
+Each turn leaves a trace in CloudWatch: the Runtime's spans for the turn, each node, each model and tool call, and each checkpoint write, under AgentCore's span for the request ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), Tracing). They live in the account's `aws/spans`, both environments' together, for 30 days. In CloudWatch Logs Insights, the saved queries under `banking-agent-<env>/` read a turn's latency, its time by node, and its tokens and cost. CloudWatch's GenAI observability page reads the same spans, but the latency it shows is AgentCore's span's, which ends when the stream starts.
+
+A span holds no text: its attributes come from the list in [`src/faro/agent/tracing.py`](src/faro/agent/tracing.py), and the exporter drops any other, so a new attribute goes on that list. `make probe` fails if a span of its turns holds a message or a reply. Never turn on a Runtime's application logs in the console: they record each request before the entrypoint masks it.
+
 #### Spend limits
 
 The prototype runs up two bills: AWS's, for the stack, and Anthropic's, for the model's calls, which AWS never sees. Each has its own limit ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), capacity).
@@ -545,6 +551,7 @@ Run `make doctor` first; most setup problems show up there.
 | `make apply` says there is no saved plan | Run `make plan` first; `make apply` applies only what it saved. |
 | `make plan` fails reading `gold/<snapshot>/<version>/manifest.json` | The export that `tools_data_export` names isn't in the data bucket. Run `make pipeline` and `make export` ([step 3.6](#36-copy-the-dataset-snapshot-and-the-tools-data)) and check that it printed the same version. |
 | `make export` says gold was built from other code | The code that shapes the export changed since the last `make pipeline`. Run `make pipeline` again. |
+| `make iam-apply` fails creating `aws/spans` with `ResourceAlreadyExistsException` | Transaction Search was turned on before the IAM root held it, in the console or by the AgentCore CLI. Import the group once with `AWS_PROFILE=default terraform -chdir=infra/iam import -var-file=iam.tfvars aws_cloudwatch_log_group.spans aws/spans`, then `make iam-apply` again. |
 | `make plan` can't find the secret `banking-agent-<env>-anthropic-api-key` | The IAM root predates it. Run `make iam-apply`, then `make model-key` ([step 3.7](#37-verify-and-deploy-local)). |
 | `make apply` fails creating the API key credential provider: `can't find the specified secret value for staging label: AWSCURRENT` | The model key isn't stored. Run `make model-key`, then `make plan` and `make apply` again. |
 | The Runtime answers every run with `RUN_ERROR` | The model key was removed from its secret, or is wrong. Run `make model-key` again ([step 3.7](#37-verify-and-deploy-local)); `make doctor` checks that each secret holds a key. |

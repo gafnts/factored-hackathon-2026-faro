@@ -40,6 +40,7 @@ dev = [
 agent = [
   "ag-ui-langgraph>=0.0.45",
   "ag-ui-protocol>=1",
+  "aws-opentelemetry-distro>=0.22",
   "bedrock-agentcore>=1.25",
   "fastapi>=0.162",
   "httpx>=0.28.1",
@@ -48,6 +49,9 @@ agent = [
   "langchain-anthropic>=1.7.4",
   "langgraph>=1.2.17",
   "langgraph-checkpoint-aws>=1.2.3",
+  "opentelemetry-api>=1.45.1",
+  "opentelemetry-propagator-aws-xray>=1.0.2",
+  "opentelemetry-sdk>=1.45.1",
   "rfc3339-validator>=0.1.4",
 ]
 eda = [
@@ -75,6 +79,9 @@ required-version = ">=0.13"
 python-preference = "system"
 default-groups = [ "agent", "dev", "eda", "pipeline", "tools" ]
 exclude-newer = "1 week"
+# ADOT 0.21.0 pins opentelemetry-api 1.44.0 (GHSA-xcq7-p3pf-p88h, in the Runtime's parsing of a tracestate header);
+# 0.22.0 is the first release without it. Remove once it's a week old, on 2026-11-06.
+exclude-newer-package = { aws-opentelemetry-distro = "2026-10-31T00:00:00Z" }
 
 [tool.ruff]
 src = [ "src" ]
@@ -87,7 +94,7 @@ strict = true
 overrides = [
   { module = "tests.*", disallow_untyped_defs = false },
   { module = "sklearn.*", ignore_missing_imports = true },
-  { module = [ "ag_ui_langgraph.*", "langgraph_checkpoint_aws.*" ], ignore_missing_imports = true },
+  { module = [ "ag_ui_langgraph.*", "amazon.opentelemetry.*", "langgraph_checkpoint_aws.*" ], ignore_missing_imports = true },
   { module = [
     "faro.analysis.cards_figures",
     "faro.analysis.figures",

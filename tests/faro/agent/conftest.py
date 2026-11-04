@@ -11,7 +11,7 @@ import base64
 import io
 import json
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from importlib.resources import files
@@ -22,9 +22,13 @@ import pytest
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.runnables import Runnable, RunnableLambda
 from langgraph.checkpoint.memory import InMemorySaver
+from opentelemetry import trace
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from starlette.testclient import TestClient
 
 from faro.agent import app as entrypoint
+from faro.agent import tracing
 from faro.agent.confirmations import MemoryConfirmations
 from faro.agent.filing import Filing
 from faro.agent.gateway import Gateway
@@ -566,8 +570,9 @@ class Harness:
         token: str | None,
         session: str | None = None,
         workload: str | None = "workload-token",
+        traced: Mapping[str, str] | None = None,
     ) -> list[dict[str, Any]]:
-        headers = {"Accept": "text/event-stream"}
+        headers = {"Accept": "text/event-stream", **(traced or {})}
         if token is not None:
             headers["Authorization"] = f"Bearer {token}"
         if session is not None:
@@ -616,3 +621,24 @@ def run_body(
 @pytest.fixture
 def harness(monkeypatch: pytest.MonkeyPatch) -> Iterator[Harness]:
     yield Harness(monkeypatch)
+
+
+SPANS = InMemorySpanExporter()
+TRACED = tracing.provider(SPANS)
+
+
+@pytest.fixture
+def spans() -> Iterator[Callable[[], list[ReadableSpan]]]:
+    """
+    The spans as the Runtime's exporter would send them. The process's provider can be set only once, so the first test
+    that asks sets it, and the rest share it.
+    """
+    if trace.get_tracer_provider() is not TRACED:
+        trace.set_tracer_provider(TRACED)
+    SPANS.clear()
+
+    def finished() -> list[ReadableSpan]:
+        TRACED.force_flush()
+        return list(SPANS.get_finished_spans())
+
+    yield finished

@@ -8,6 +8,11 @@ variable "log_group_name" {
   type        = string
 }
 
+variable "service_name" {
+  description = "The Runtime's service name, which its spans carry and the saved queries filter on"
+  type        = string
+}
+
 variable "fallback_share" {
   description = "The share of the model's replies falling back to fixed text, over an hour, that sets off its alarm"
   type        = number
