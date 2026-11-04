@@ -39,6 +39,8 @@ RETRIED = (
     "invalid_output",
 )
 WAITED = ("rate_limited", "server_error")
+# They fail every turn until a person acts, so an alarm counts them (ADR-0004's amendment of 2026-11-03).
+EVERY_TURN = ("spend_limit", "key_rejected", "model_not_found", "invalid_request")
 # The 400 for a spend limit we set, the organization's or a workspace's, says so at the start of its message.
 SPEND_LIMIT = "You have reached your specified"
 # The 429 for the usage tier's monthly cap, which no wait clears.
