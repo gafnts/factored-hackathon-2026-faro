@@ -35,3 +35,15 @@ variable "monthly_budget_usd" {
   type        = number
   default     = 40
 }
+
+variable "spans_retention_days" {
+  description = "How long aws/spans keeps every environment's spans"
+  type        = number
+  default     = 30
+}
+
+variable "spans_indexed_percentage" {
+  description = "The share of spans Transaction Search indexes for search and the GenAI page; all of them until strangers can sign up"
+  type        = number
+  default     = 100
+}
