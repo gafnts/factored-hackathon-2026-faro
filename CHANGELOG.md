@@ -6,6 +6,8 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+## [1.10.0] - 2026-11-03 (Promotion 16)
+
 ### Added
 
 - Studies: each reported measurement has a protocol, committed before its held-out set is drawn, and the set's manifest holds its hash, so the bar provably came first ([ADR-0011](docs/adr/0011-pre-registered-studies.md)). The second study's protocol is drafted, and the submission's measurement is described as the first, after the fact ([#163]).
@@ -155,6 +157,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judged.
 
+[1.10.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.10.0
 [1.9.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.9.0
 [1.8.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.8.0
 [1.7.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.7.0
