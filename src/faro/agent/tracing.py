@@ -78,9 +78,10 @@ def span(
     name: str,
     attributes: Mapping[str, AttributeValue],
     context: Context | None = None,
+    passing: tuple[type[Exception], ...] = (),
 ) -> Iterator[Span]:
     """
-    A span that ends in an error records the exception's type alone.
+    A span that ends in an error records the exception's type alone; one of passing's is control flow, not an error.
     """
     with tracer.start_as_current_span(
         name,
@@ -91,6 +92,8 @@ def span(
     ) as current:
         try:
             yield current
+        except passing:
+            raise
         except Exception as error:
             current.set_status(StatusCode.ERROR)
             current.set_attribute("error.type", type(error).__qualname__)

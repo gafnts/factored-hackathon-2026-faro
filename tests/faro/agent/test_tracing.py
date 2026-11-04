@@ -2,7 +2,8 @@
 The Runtime's spans hold no text: the exporter passes only the listed attributes, and no event, link attribute, or
 status description; every trace is kept whatever the request's sampling flag, and the Runtime exports to X-Ray in its
 own Region. Each request's span joins the trace AgentCore's request arrived under, and the record's first entry names
-the trace (ADR-0004, Operations, Tracing; OPS-01, SEC-03).
+the trace; each node the turn runs is a span under it, and a control's interrupt is no error (ADR-0004, Operations,
+Tracing; OPS-01, SEC-03).
 """
 
 import logging
@@ -25,11 +26,16 @@ from opentelemetry.trace import (
 from faro.agent import tracing
 
 from .conftest import Harness, customer, run_body, session_id
+from .test_block import Chat, control_shown
 
 TYPED = "4111 1111 1111 1111"
 TRACE = 0x5759E988BD862E3FE1BE46A994272793
 PARENT = 0x53995C3F42CD8AD8
 REQUEST = "invoke_agent card_support"
+NODES = {
+    "begin", "route", "next_request", "list_cards", "unsupported", "resolve_card", "read", "find_transaction", "aside",
+    "ask_reason", "confirm", "await_control", "hold", "block", "verify", "handoff", "conclude", "reply",
+}  # fmt: skip
 
 
 def exported(run: Callable[[trace.Tracer], None]) -> list[Any]:
@@ -170,3 +176,36 @@ def test_a_refused_request_is_traced_and_its_entry_names_the_trace(
     assert request.attributes is not None
     assert request.attributes["faro.refused"] == "session_refused"
     assert request.attributes["faro.turn_id"] == refused["turn_id"]
+
+
+def node_spans(spans: list[ReadableSpan]) -> list[ReadableSpan]:
+    return [span for span in spans if span.name in NODES]
+
+
+def test_each_node_a_turn_runs_is_a_span_under_the_requests(
+    harness: Harness, spans: Callable[[], list[ReadableSpan]]
+) -> None:
+    harness.post(run_body(), customer().token(), session_id())
+
+    finished = spans()
+    request = request_span(finished)
+    nodes = node_spans(finished)
+    assert {"begin", "route", "reply"} <= {span.name for span in nodes}
+    for span in nodes:
+        assert span.parent is not None
+        assert span.parent.span_id == request.context.span_id
+        assert dict(span.attributes or {}) == {"faro.node": span.name}
+        assert span.status.status_code is StatusCode.UNSET
+
+
+def test_a_control_ends_its_nodes_span_without_an_error(
+    harness: Harness, spans: Callable[[], list[ReadableSpan]]
+) -> None:
+    control_shown(Chat(harness))
+
+    finished = spans()
+    attributes = request_span(finished).attributes or {}
+    assert attributes["faro.outcome"] == "interrupted"
+    nodes = node_spans(finished)
+    assert "confirm" in {span.name for span in nodes}
+    assert all(span.status.status_code is StatusCode.UNSET for span in nodes)
