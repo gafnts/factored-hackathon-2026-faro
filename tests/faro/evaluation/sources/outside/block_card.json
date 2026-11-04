@@ -1,0 +1,28 @@
+{
+  "label": "block_card",
+  "families": [
+    {
+      "family_id": "outside.block_card-01",
+      "kind": "plain",
+      "labels": [
+        "block_card"
+      ],
+      "author": "fixture",
+      "extract": {
+        "block_reason": "lost"
+      },
+      "es": [
+        "Se me extravió la tarjeta en el bus, necesito que la bloquee ya.",
+        "No aparece mi tarjeta por ningún lado y quiero dejarla bloqueada.",
+        "Creo que dejé caer la tarjeta en la calle; hay que bloquearla.",
+        "Mi tarjeta se quedó en algún taxi, ¿la puede bloquear?"
+      ],
+      "pt": [
+        "Perdi o meu cartão no ônibus, preciso que bloqueie já.",
+        "O meu cartão não aparece em lugar nenhum e quero deixar bloqueado.",
+        "Acho que deixei cair o cartão na rua; tem que bloquear.",
+        "O meu cartão ficou em algum táxi, pode bloquear?"
+      ]
+    }
+  ]
+}

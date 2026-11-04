@@ -40,7 +40,14 @@ CHECKS = frozenset(
         "handoff.trigger",
         "handoff.queue",
         "handoff.priority",
+        "handoff.cites",
+        "cases_filed",
+        "listed",
         "blocked",
+        "unread",
+        "handoff_summary",
+        "form_of_address",
+        "verdict",
     }
 )
 ENTRY_ID = re.compile(r"^D-[0-9]{3}$")

@@ -193,7 +193,7 @@ contracts: ## Rewrite the bronze contracts from the dictionary
 
 ##@ Evaluation
 
-.PHONY: eval-sets eval-play eval-run eval-cleanup disagreements eval-index eval-report regression language-check
+.PHONY: eval-sets eval-play eval-run eval-cleanup disagreements eval-index eval-report eval-compare regression language-check
 
 eval-sets: ## Draw the development sets (HELD_OUT= adds the held-out set)
 	uv run python -m faro.evaluation --data-dir $(DATA_DIR) generate $(if $(HELD_OUT),--held-out $(HELD_OUT))
@@ -214,10 +214,13 @@ disagreements: ## Regenerate docs/evaluation/disagreements.md
 eval-index: ## Regenerate docs/evaluation/runs.md
 	uv run python -m faro.evaluation index
 
-eval-report: ## Write results.md (RUNS=, BASELINE=, JUDGED=, AGREEMENT=, LABELS=)
+eval-report: ## Write results.md (RUNS=, BASELINE=, LABELS=)
 	uv run python -m faro.evaluation --data-dir $(DATA_DIR) report $(foreach r,$(RUNS),--run $(r)) \
-		$(if $(BASELINE),--baseline $(BASELINE)) $(foreach j,$(JUDGED),--judged $(j)) $(if $(AGREEMENT),--agreement $(AGREEMENT)) \
-		$(if $(LABELS),--labels $(LABELS))
+		$(if $(BASELINE),--baseline $(BASELINE)) $(if $(LABELS),--labels $(LABELS))
+
+eval-compare: ## Compare two systems' runs of one set, case by case (FIRST=, SECOND=, LEFT_OUT=, UNIT=family)
+	uv run python -m faro.evaluation --data-dir $(DATA_DIR) compare $(foreach r,$(FIRST),--first $(r)) \
+		$(foreach r,$(SECOND),--second $(r)) $(foreach s,$(LEFT_OUT),--left-out $(s)) $(if $(UNIT),--unit $(UNIT))
 
 regression: ## Play and grade the regression set in process, as CI does
 	uv run pytest -m regression -v --tb=short
@@ -225,21 +228,18 @@ regression: ## Play and grade the regression set in process, as CI does
 language-check: ## Read the paraphrases with the real prompts (paid; FAMILIES=)
 	uv run python -m faro.evaluation language --env-file $(or $(ENV_FILE),.env) $(if $(PARALLEL),--parallel $(PARALLEL)) $(foreach f,$(FAMILIES),--only $(f))
 
-# The judge and the router comparison call models outside the system under test; ESTIMATE=1 prices a call and makes none.
-.PHONY: judge judge-sample judge-agreement relabel-sample relabel-agreement router-compare
+# The outside source's writing and the router comparison call models outside the system under test; ESTIMATE=1 prices
+# the calls and makes none.
+.PHONY: outside-write outside-keep relabel-sample relabel-agreement router-compare
 
-judge: ## Judge replies (paid; RUN= or ITEMS=, LIMIT=, ESTIMATE=1)
-	uv run python -m faro.evaluation judge $(if $(ITEMS),--items $(ITEMS),--run $(RUN)) --env-file $(or $(ENV_FILE),.env) \
-		$(if $(LIMIT),--limit $(LIMIT)) $(if $(filter 1,$(ESTIMATE)),--estimate)
+outside-write: ## Have OpenAI's model write the outside source from the guide (paid; ESTIMATE=1 prices it)
+	uv run python -m faro.evaluation outside-write $(if $(ESTIMATE),--estimate)
 
-judge-sample: ## Draw the judge's blind sample and sheet (RUN=, SEEDED=)
-	uv run python -m faro.evaluation judge-sample --run $(RUN) $(if $(SEEDED),--seeded $(SEEDED))
+outside-keep: _check-profile ## Copy the outside source into the account's data bucket, under its hash
+	uv run python -m faro.evaluation outside-keep
 
-judge-agreement: ## Score the judge against a filled sheet (SAMPLE=, JUDGED=)
-	uv run python -m faro.evaluation judge-agreement --sample $(SAMPLE) --judged $(JUDGED)
-
-relabel-sample: ## Draw the hand-relabel sample and sheet (ROWS=, SEED=)
-	uv run python -m faro.evaluation relabel-sample $(if $(ROWS),--rows $(ROWS)) $(if $(SEED),--seed $(SEED))
+relabel-sample: ## Draw the hand-relabel sample and sheet from a source (SOURCE=outside, ROWS=, SEED=)
+	uv run python -m faro.evaluation relabel-sample $(if $(SOURCE),--source $(SOURCE)) $(if $(ROWS),--rows $(ROWS)) $(if $(SEED),--seed $(SEED))
 
 relabel-agreement: ## Score the relabel sheet against the labels (SAMPLE=)
 	uv run python -m faro.evaluation relabel-agreement --sample $(SAMPLE)

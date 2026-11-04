@@ -24,18 +24,21 @@ def secret_id(env: str) -> str:
     return f"banking-agent-{env}-anthropic-api-key"
 
 
-def read_key(env_file: Path) -> str:
+def read_key(env_file: Path, variable: str = VARIABLE) -> str:
+    """
+    variable names another provider's key for the commands that call one; only the Anthropic key is ever stored.
+    """
     if not env_file.is_file():
         raise ModelKeyError(
-            f"{env_file} not found; copy .env.example to .env and set {VARIABLE}"
+            f"{env_file} not found; copy .env.example to .env and set {variable}"
         )
     for line in env_file.read_text(encoding="utf-8").splitlines():
         name, _, value = line.strip().removeprefix("export ").partition("=")
-        if name.strip() == VARIABLE:
+        if name.strip() == variable:
             key = value.split("#", 1)[0].strip().strip("\"'")
             if key:
                 return key
-    raise ModelKeyError(f"{VARIABLE} is missing or empty in {env_file}")
+    raise ModelKeyError(f"{variable} is missing or empty in {env_file}")
 
 
 def main(argv: list[str] | None = None) -> int:

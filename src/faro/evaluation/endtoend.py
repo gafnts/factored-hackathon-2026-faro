@@ -306,7 +306,6 @@ def manifest(
         "oracle": {"policy": oracle.POLICY_VERSION},
         "grader": grader.VERSION,
         "system": "deployed",
-        "judge": None,
         "models": models(played),
         "fixtures": digest([c["fixtures"] for c in chosen]),
         "faults": digest([c["faults"] for c in chosen]),

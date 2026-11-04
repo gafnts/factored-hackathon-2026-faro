@@ -186,6 +186,60 @@ def test_the_scripted_models_say_the_language_a_reader_would(
     assert (marked.clear, said["parsed"].language) == (False, "unclear")
 
 
+def test_the_scripted_models_read_every_aside_and_an_interjections_family(
+    bank: Bank, drawn: list[dict[str, Any]]
+) -> None:
+    case = copy.deepcopy(situation(drawn, "status.aside"))
+    answers = case["script"]["answers"]
+    second = next(a for a in BY_ANSWER.values() if a.kind == "aside")
+    answers["aside"] = [
+        *answers["aside"],
+        {"id": f"{second.answer_id}/es", "text": second.texts["es"]},
+    ]
+    complaint = next(f for f in BY_FAMILY.values() if f.complaint and not f.slots)
+    message = complaint.in_language("es")[0]
+    answers["interjection"] = {"at": "card", "id": message.id, "text": message.text}
+    models = ScriptedModels(case, BY_FAMILY, BY_ANSWER, items(bank, case))
+
+    routed = asyncio.run(models.route([HumanMessage(message.text)]))
+    extracted = asyncio.run(models.extract([HumanMessage(second.texts["es"])]))
+
+    assert routed["parsed"].requests == ["talk_to_human"] and routed["parsed"].complaint
+    assert extracted["parsed"].question == "unanswered"
+
+
+def test_the_scripted_models_read_version_7s_answers_as_a_model_would(
+    bank: Bank, drawn: list[dict[str, Any]]
+) -> None:
+    case = copy.deepcopy(situation(drawn, "decline.aside"))
+    held = items(bank, case)
+    card = next(
+        i for i in held if i["sk"] == f"CARD#{case['script']['means']['product_id']}"
+    )
+
+    def text(kind: str) -> dict[str, str]:
+        answer = next(a for a in BY_ANSWER.values() if a.kind == kind)
+        filled = answer.texts["es"].replace("{last_four}", card["last_four"])
+        return {"id": f"{answer.answer_id}/es", "text": filled}
+
+    asides = [text("frustration"), text("last_reply"), text("another_card")]
+    correction = text("card_correction")
+    case["script"]["answers"]["aside"] = asides
+    case["script"]["answers"]["interjection"] = {"at": "transaction", **correction}
+    models = ScriptedModels(case, BY_FAMILY, BY_ANSWER, held)
+
+    for sent in [*asides, correction]:
+        chosen = asyncio.run(
+            models.choose([HumanMessage("-"), HumanMessage(sent["text"])])
+        )
+        assert chosen["parsed"].question == "unanswered", sent["id"]
+    read = asyncio.run(models.extract([HumanMessage(correction["text"])]))
+    assert (read["parsed"].card_type, read["parsed"].last_four) == (
+        None,
+        card["last_four"],
+    )
+
+
 @pytest.mark.parametrize("answer", sorted(SHAPES))
 def test_the_scripted_reply_lays_its_placeholders_out_as_the_prompt_asks(
     answer: str,

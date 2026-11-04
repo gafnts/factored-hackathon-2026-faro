@@ -22,6 +22,7 @@ from faro.evaluation import (
 )
 from faro.evaluation.facts import contract_words
 
+from . import outside
 from .bank import Bank
 
 pytestmark = pytest.mark.xdist_group("evaluation_bank")
@@ -31,13 +32,15 @@ SITUATIONS = ("status.one_card", "block.reason_given", "person.asked")
 
 @pytest.fixture(scope="module")
 def drawn(bank: Bank) -> generator.Drawn:
-    loaded, answers = families.load(), families.load_answers()
-    held = families.held_out_ids(loaded, answers)
+    every = (*families.load(), *outside.FAMILIES)
+    every_answer = (*families.load_answers(), *outside.ANSWERS)
+    held = families.held_out_ids(every, every_answer)
+    workload = generator.held_out(240)
     with bronze.connect(bank.database, "held_out") as con:
         drawing = generator.Generator(
-            con, "held_out", loaded, answers, held, contract_words(), reuse=True
+            con, "held_out", every, every_answer, held, contract_words(), reuse=True
         )
-        found = drawing.draw(heldout.NAME, 7, generator.held_out(240))
+        found = drawing.draw(heldout.NAME, 7, {s: workload[s] for s in SITUATIONS})
     return generator.Drawn([c for c in found.cases if c["situation"] in SITUATIONS], [])
 
 
@@ -110,6 +113,23 @@ def test_a_held_out_set_plays_only_as_its_committed_manifest_describes_it(
         heldout.verify(edited, manifest, True)
 
 
+def test_an_earlier_set_is_read_only_as_its_committed_manifest_describes_it(
+    tmp_path: Path, drawn: generator.Drawn, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    set_path, manifest = kept(tmp_path, drawn)
+    manifest_path = tmp_path / "held_out.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(heldout.HeldOutError, match="no held_out cases"):
+        heldout.earlier_customers(tmp_path / "absent.jsonl", manifest_path)
+    with pytest.raises(heldout.HeldOutError, match="isn't committed"):
+        heldout.earlier_customers(set_path, manifest_path)
+    monkeypatch.setattr(heldout, "committed", lambda path: True)
+    assert heldout.earlier_customers(set_path, manifest_path) == {
+        c["customer_id"] for c in drawn.cases
+    }
+
+
 def test_git_says_whether_a_manifest_is_committed(tmp_path: Path) -> None:
     loose = tmp_path / "held_out.json"
     loose.write_text("{}", encoding="utf-8")
@@ -118,21 +138,56 @@ def test_git_says_whether_a_manifest_is_committed(tmp_path: Path) -> None:
     assert not heldout.committed(loose)
 
 
+PROTOCOL = "# Study\n\nThe bar.\n\n## Record\n\nNone yet.\n"
+
+
+def test_a_protocol_registers_its_text_above_the_record_with_no_decision_open() -> None:
+    registered = heldout.protocol_hash(PROTOCOL)
+
+    assert heldout.protocol_hash(PROTOCOL.replace("None yet.", "A look.")) == registered
+    assert heldout.protocol_hash(PROTOCOL.replace("The bar.", "Another.")) != registered
+    with pytest.raises(heldout.HeldOutError, match="open decision"):
+        heldout.protocol_hash(PROTOCOL.replace("The bar.", "The bar (**Open**)."))
+    with pytest.raises(heldout.HeldOutError, match="no Record"):
+        heldout.protocol_hash("# Study\n\nThe bar.\n")
+
+
+def test_the_held_out_set_is_drawn_only_under_a_committed_protocol(
+    tmp_path: Path,
+) -> None:
+    loose = tmp_path / "protocol.md"
+    loose.write_text(PROTOCOL, encoding="utf-8")
+
+    assert heldout.committed(heldout.PROTOCOL)
+    with pytest.raises(heldout.HeldOutError, match="isn't committed"):
+        heldout.registered(loose)
+
+
 def test_the_held_out_workload_keeps_the_selections_proportions_at_each_size() -> None:
     selection = generator.COMPOSITIONS["selection"]
 
     for size in generator.HELD_OUT_SIZES:
         workload = generator.held_out(size)
+        share = size / 2 / sum(selection.values())
         assert workload.keys() == selection.keys()
-        assert abs(2 * sum(workload.values()) - size) <= size * 0.1
+        assert 2 * sum(workload.values()) == size
         assert min(workload.values()) >= 1
+        assert all(abs(workload[n] - c * share) < 1 for n, c in selection.items())
     assert generator.held_out(600)["status.one_card"] > selection["status.one_card"]
 
 
 def test_the_held_out_side_draws_every_case_on_its_side(drawn: generator.Drawn) -> None:
+    wording = [
+        m["id"]
+        for c in drawn.cases
+        for m in [*c["script"]["messages"], *c["script"]["answers"].values()]
+        if isinstance(m, dict)
+    ]
+
     assert drawn.cases
     assert {c["side"] for c in drawn.cases} == {"held_out"}
     assert {c["set"] for c in drawn.cases} == {heldout.NAME}
+    assert all(w.startswith(f"{families.OUTSIDE}.") for w in wording)
 
 
 def test_the_held_out_side_plays_in_process_with_the_baseline_alone(

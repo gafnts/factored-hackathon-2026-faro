@@ -212,7 +212,7 @@ This applies `infra/iam/`, then `infra/dataset/` (Terraform asks you to confirm 
 | `banking-agent-prototype-deploy` | The apply job, only from the `prototype` GitHub Environment | Write, scoped to `prototype` |
 | `banking-agent-prototype-plan` | The plan job on PRs into `main` | Read-only |
 
-`make iam-output` prints their ARNs whenever you need them. The IAM root also creates an empty secret for each environment's model key, `banking-agent-<env>-anthropic-api-key`, which you fill in [step 3.7](#37-verify-and-deploy-local), and the account's monthly budget, whose topic you subscribe to once ([Spend limits](#spend-limits)). The second creates the data bucket, `banking-agent-data-<account-id>-us-east-1-an`, which holds the dataset snapshots and the exports of the tools' data ([step 3.6](#36-copy-the-dataset-snapshot-and-the-tools-data)), and the log group DynamoDB's imports write to. It lives outside the environment stacks, so destroying one never deletes the data.
+`make iam-output` prints their ARNs whenever you need them. The IAM root also creates an empty secret for each environment's model key, `banking-agent-<env>-anthropic-api-key`, which you fill in [step 3.7](#37-verify-and-deploy-local), the account's monthly budget, whose topic you subscribe to once ([Spend limits](#spend-limits)), and CloudWatch Transaction Search, without which the Runtime's spans don't reach X-Ray: every environment's spans go to the account's `aws/spans`, kept 30 days. The second creates the data bucket, `banking-agent-data-<account-id>-us-east-1-an`, which holds the dataset snapshots and the exports of the tools' data ([step 3.6](#36-copy-the-dataset-snapshot-and-the-tools-data)), and the log group DynamoDB's imports write to. It lives outside the environment stacks, so destroying one never deletes the data.
 
 #### 3.4 Configure your local deploy profile
 
@@ -422,6 +422,12 @@ aws sns subscribe --protocol email --notification-endpoint you@example.com \
 
 A subscription outlives applies, and `make destroy` removes it with the topic.
 
+#### Traces
+
+Each turn leaves a trace in CloudWatch: the Runtime's spans for the turn, each node, each model and tool call, and each checkpoint write, under AgentCore's span for the request ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), Tracing). They live in the account's `aws/spans`, both environments' together, for 30 days. In CloudWatch Logs Insights, the saved queries under `banking-agent-<env>/` read a turn's latency, its time by node, and its tokens and cost. CloudWatch's GenAI observability page reads the same spans, but the latency it shows is AgentCore's span's, which ends when the stream starts.
+
+A span holds no text: its attributes come from the list in [`src/faro/agent/tracing.py`](src/faro/agent/tracing.py), and the exporter drops any other, so a new attribute goes on that list. `make probe` fails if a span of its turns holds a message or a reply. Never turn on a Runtime's application logs in the console: they record each request before the entrypoint masks it.
+
 #### Spend limits
 
 The prototype runs up two bills: AWS's, for the stack, and Anthropic's, for the model's calls, which AWS never sees. Each has its own limit ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), capacity).
@@ -435,12 +441,14 @@ AWS_PROFILE=default aws sns subscribe --protocol email --notification-endpoint y
 
 Budgets reads the account's charges a few times a day, so a notice can arrive hours after the spending that set it off. The budget warns and stops nothing: what bounds the stack's spending is the limit on turns per sign-in and per user (ADR-0004, decision 21).
 
-The model's limit is set in Anthropic's console, since no API sets it for an individual account. Anthropic limits a workspace or the whole organization, never a key, and the Default workspace takes no limit, so every key the project uses comes from a workspace of its own: both environments' secrets, and the `.env` the judge, the router comparison, and the language check read.
+The model's limit is set in Anthropic's console, since no API sets it for an individual account. Anthropic limits a workspace or the whole organization, never a key, and the Default workspace takes no limit, so every key the project uses comes from a workspace of its own: both environments' secrets, and the `.env` the router comparison and the language check read.
 
 1. Under [Workspaces](https://platform.claude.com/settings/workspaces) in the Claude Console, open the project's workspace, and under its **Spend limits** set a monthly limit (ours is 50 USD) and alerts as spending nears it.
 2. On the [Billing](https://platform.claude.com/settings/billing) page, set the organization's limit at or above the workspace's, so it also caps whatever else the organization runs.
 
 Once a limit is reached, the API refuses the model's calls until the next month or until the limit is raised, and the chat answers every message with its fixed text for when it can't help. Visitors and the evaluation draw from the same limit: before a paid run, raise it by the run's estimate, and lower it after.
+
+OpenAI's key is the evaluation's alone: `make outside-write` reads it from `.env`, and no stack holds it. Give it a project of its own in OpenAI's platform with a monthly budget, since only that one command spends from it.
 
 #### The site
 
@@ -478,18 +486,18 @@ make eval-cleanup               # Delete a stopped run's leftover test users
 make eval-index                 # Regenerate docs/evaluation/runs.md
 make disagreements              # Regenerate docs/evaluation/disagreements.md
 make eval-report                # Write docs/evaluation/results.md
+make eval-compare               # Compare two systems' runs of one set, case by case
 make language-check             # Read the paraphrases with the real prompts
 make router-compare             # Compare the keyword router with model routers
-make judge                      # Judge a run's replies through the batch API
-make judge-sample               # Draw the judge's blind sample and its sheet
-make judge-agreement            # Score the judge against the filled sheet
-make relabel-sample             # Draw 50 messages to relabel blind
+make outside-write              # Have OpenAI's model write the held-out wording
+make outside-keep               # Copy it into the data bucket, under its hash
+make relabel-sample             # Draw 50 messages of a source to relabel blind
 make relabel-agreement          # Score the filled sheet against the labels
 ```
 
 `make eval-run` needs `AWS_PROFILE`, the stack's outputs (`STACK_OUTPUTS`, default `build/<env>.outputs.json`), and the model key stored. It creates one test user per case in the pool's evaluation group and deletes it when the case ends, and keeps each case's evidence under `data/evaluation/runs/` and in the stack's evaluation bucket; `SITUATIONS=`, `LANGUAGES=`, and `LIMIT=` narrow a run, and `PARALLEL=` sets how many cases play at once. To report a run, commit its manifest and summary under `docs/evaluation/runs/` and run `make eval-index`. Where the system and the oracle disagree, add an entry to `docs/evaluation/disagreements.json` and run `make disagreements`: CI's regression job fails on any finding without an open entry.
 
-`make language-check`, `make router-compare`, and `make judge` call the model and cost money: they read `ANTHROPIC_API_KEY` from `.env` (`ENV_FILE=` names another file), and `ESTIMATE=1` prices a judge or router run without making it. A judge's verdicts count only on the questions `make judge-agreement` shows met the bar (ADR-0005, Grading). The judge, relabel, and report targets take their inputs as variables, which `make help` names and [Configuration](#configuration) describes; `make eval-report` takes every input at once or the page loses a section. To rerun what the reports rest on, start at [Reproduce the results](#reproduce-the-results).
+`make language-check` and `make router-compare` call the model and cost money: they read `ANTHROPIC_API_KEY` from `.env` (`ENV_FILE=` names another file), and `ESTIMATE=1` prices a router run without making it. `make outside-write` has OpenAI's model write the held-out wording from our guide ([the outside source](docs/evaluation/outside.md)), reading `OPENAI_API_KEY` from `.env`; it costs a few USD, `ESTIMATE=1` prices it, and a second run writes only what the first didn't keep. The source stays out of git until its first set is played, so `make outside-keep` copies it into the data bucket under its hash (`AWS_PROFILE` as for `make snapshot`); to restore it on another machine, copy that prefix back into `data/evaluation/sources/outside/`. No model grades the replies (ADR-0011). The relabel and report targets take their inputs as variables, which `make help` names and [Configuration](#configuration) describes; `make eval-report` takes every input at once or the page loses a section. To rerun what the reports rest on, start at [Reproduce the results](#reproduce-the-results).
 
 ### Promote to prototype
 
@@ -543,6 +551,7 @@ Run `make doctor` first; most setup problems show up there.
 | `make apply` says there is no saved plan | Run `make plan` first; `make apply` applies only what it saved. |
 | `make plan` fails reading `gold/<snapshot>/<version>/manifest.json` | The export that `tools_data_export` names isn't in the data bucket. Run `make pipeline` and `make export` ([step 3.6](#36-copy-the-dataset-snapshot-and-the-tools-data)) and check that it printed the same version. |
 | `make export` says gold was built from other code | The code that shapes the export changed since the last `make pipeline`. Run `make pipeline` again. |
+| `make iam-apply` fails creating `aws/spans` with `ResourceAlreadyExistsException` | Transaction Search was turned on before the IAM root held it, in the console or by the AgentCore CLI. Import the group once with `AWS_PROFILE=default terraform -chdir=infra/iam import -var-file=iam.tfvars aws_cloudwatch_log_group.spans aws/spans`, then `make iam-apply` again. |
 | `make plan` can't find the secret `banking-agent-<env>-anthropic-api-key` | The IAM root predates it. Run `make iam-apply`, then `make model-key` ([step 3.7](#37-verify-and-deploy-local)). |
 | `make apply` fails creating the API key credential provider: `can't find the specified secret value for staging label: AWSCURRENT` | The model key isn't stored. Run `make model-key`, then `make plan` and `make apply` again. |
 | The Runtime answers every run with `RUN_ERROR` | The model key was removed from its secret, or is wrong. Run `make model-key` again ([step 3.7](#37-verify-and-deploy-local)); `make doctor` checks that each secret holds a key. |
@@ -584,6 +593,7 @@ Run `make help` for every target.
 | `AWS_PROFILE` | `banking-agent-local` (from `.envrc`) | Terraform for `local`, `make model-key`, `make integration`, `make snapshot`, and ad hoc AWS CLI calls; the `local` targets refuse to run without it |
 | `AWS_ADMIN_PROFILE` | `default` | `make bootstrap`, the `iam-*` and `dataset-*` targets, `make teardown`, `make doctor` |
 | `ANTHROPIC_API_KEY` | Unset; set it in `.env`, not the shell | `make model-key` |
+| `OPENAI_API_KEY` | Unset; set it in `.env`, not the shell | `make outside-write` |
 | `GITHUB_OIDC_SUBJECT_PREFIX` | Read from GitHub for `origin` | `make bootstrap` |
 | `DATA_DIR` | `data` | The pipeline and evaluation targets, for a worktree whose `data/` is empty |
 | `SLOW` | Unset | Set to `1` to add the tests that wait out a token to `make integration` |
@@ -601,11 +611,12 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 | `SET`, `SITUATIONS`, `LANGUAGES`, `LIMIT`, `PARALLEL` | `regression`, all, all, none, `2` | `make eval-play` (`SET` only) and `make eval-run` |
 | `MODELS` | `scripted` | `make eval-play`: `baseline` plays the deterministic baseline, the only models the held-out set plays in process |
 | `HELD_OUT` | Unset: no held-out draw | `make eval-sets`: the held-out set's size, `600`, `400`, or `240` by the scope rule (ADR-0005); its manifest is committed before its first run, and after one, a draw is kept only when it rebuilds the committed set |
-| `RUN` | Unset: every stopped run | `make eval-cleanup`; `make judge` and `make judge-sample` take a run under `data/evaluation/runs/` |
-| `RUNS`, `BASELINE`, `JUDGED`, `AGREEMENT`, `LABELS` | Unset | `make eval-report`: the runs, the baseline run, the judge runs, the agreement file, and the relabel sample it reads |
-| `ENV_FILE`, `ESTIMATE` | `.env`, unset | `make language-check`, `make judge`, `make router-compare`: the file holding the model key, and `1` to price a run without making it |
+| `RUN` | Unset: every stopped run | `make eval-cleanup` |
+| `RUNS`, `BASELINE`, `LABELS` | Unset | `make eval-report`: the runs, the baseline run, and the relabel sample it reads |
+| `FIRST`, `SECOND`, `LEFT_OUT`, `UNIT` | Unset, unset, none, `family` | `make eval-compare`: each system's runs, the situations its study leaves out, and what the interval resamples within each language (`family` or `case`) |
+| `ENV_FILE`, `ESTIMATE` | `.env`, unset | `make language-check`, `make router-compare`: the file holding the model key, and `1` to price a run without making it |
 | `FAMILIES` | All | `make language-check`: a few families, for cents |
-| `ITEMS`, `SEEDED`, `SAMPLE`, `ROWS`, `SEED` | Unset, the bar's 10, none, `50`, fixed | `make judge` (a sample's items, in place of `RUN`), `make judge-sample` (seeded replies per question, never below the bar's), `make judge-agreement` and `make relabel-agreement` (the filled sample), `make relabel-sample` |
+| `SOURCE`, `SAMPLE`, `ROWS`, `SEED` | `outside`, none, `50`, fixed | `make relabel-sample` (the source it draws from), `make relabel-agreement` (the filled sample) |
 | `ROUTERS`, `SIDE`, `FOLDS` | `keyword haiku sonnet`, `development`, unset: no folds | `make router-compare` |
 
 ### What's pinned

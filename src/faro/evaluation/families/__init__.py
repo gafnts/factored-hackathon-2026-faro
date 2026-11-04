@@ -8,20 +8,24 @@ marks, by position in each language's list, the paraphrases that aren't clearly 
 languages share): the scripted models say so, and the oracle keeps the conversation's language for the turn they open
 (POL-50; ADR-0005's amendment of 2026-10-02).
 
-Each label's families and each kind of answer are split by `split.held_out_families`: a third held out, the rest
-development. `problems()` lists every way the files break these rules; the tests require it to find none.
+Every family and answer names its source, the body of wording it belongs to, and a source serves one side of the split
+(ADR-0011, Wording sources): these files are `ours`, all development. Another source is kept in the same shape under
+data/evaluation/sources/, out of the repository until the first play of a set drawn from it (ADR-0011, The seal); its
+IDs carry its name, and each of its families and answers names the author that wrote it. `problems()` lists every way
+the files break these rules; the tests require it to find none.
 """
 
+import functools
+import hashlib
 import json
 import re
 import unicodedata
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from importlib.resources import files
-from itertools import product
+from itertools import combinations, product
+from pathlib import Path
 from typing import Any
-
-from faro.split import held_out_families
 
 # POL-05's order.
 LABELS = (
@@ -91,14 +95,27 @@ ANSWER_KINDS = {
     "dont_know": set(),
     "aside": set(),
     "typed_yes": set(),
+    # At a question, version 7: exasperation, a question about the last reply, and another card, named or not.
+    "frustration": set(),
+    "last_reply": set(),
+    "card_correction": {"last_four"},
+    "another_card": set(),
 }
 PER_ANSWER_KIND = 3
+OURS = "ours"
+OUTSIDE = "outside"
+SIDES = {OURS: "development", OUTSIDE: "held_out"}
+SOURCES = Path("data/evaluation/sources")
 SEED_AUTHOR = "team"
 PARAPHRASE_AUTHOR = "claude-opus-5-5"
 MAX_LENGTH = 300
 MIN_MESSAGES = 4
 # ADR-0005's bar for a message too close to another to count as unseen.
 TOO_CLOSE = 0.6
+# Within a family or a kind of answer, two phrasings past the bar count as one (ADR-0011, Wording sources), measured on
+# ours on 2026-11-02. A message of a few words shares most of its trigrams with any other by necessity.
+SHORT = 4
+TOO_CLOSE_SHORT = 0.7
 
 SLOT = re.compile(r"\{([a-z_]+)\}")
 IDENTIFIER = re.compile(r"(CLI|PRD|TRX|BRN)-", re.IGNORECASE)
@@ -204,6 +221,7 @@ class Family:
     when: str | None = None
     complaint: bool = False
     unclear: Mapping[str, tuple[int, ...]] = field(default_factory=dict)
+    source: str = OURS
 
     def in_language(self, language: str) -> tuple[Message, ...]:
         return tuple(m for m in self.messages if m.language == language)
@@ -214,13 +232,18 @@ class Answer:
     answer_id: str
     kind: str
     texts: Mapping[str, str]
+    source: str = OURS
+    author: str | None = None
 
 
 def _messages(family_id: str, body: Mapping[str, Any]) -> Iterator[Message]:
     unclear = body.get("unclear", {})
     for language in (*LANGUAGES, *OTHER_LANGUAGES):
         for n, text in enumerate(body.get(language, ())):
-            author = SEED_AUTHOR if n == 0 else PARAPHRASE_AUTHOR
+            # Ours name no author: the seed is ours and the rest Claude's. Another source's family names its own.
+            author = body.get("author") or (
+                SEED_AUTHOR if n == 0 else PARAPHRASE_AUTHOR
+            )
             yield Message(
                 f"{family_id}/{language}/{n}",
                 language,
@@ -230,7 +253,7 @@ def _messages(family_id: str, body: Mapping[str, Any]) -> Iterator[Message]:
             )
 
 
-def _family(group: str, body: Mapping[str, Any]) -> Family:
+def _family(group: str, body: Mapping[str, Any], source: str = OURS) -> Family:
     return Family(
         family_id=body["family_id"],
         group=group,
@@ -242,6 +265,17 @@ def _family(group: str, body: Mapping[str, Any]) -> Family:
         when=body.get("when"),
         complaint=bool(body.get("complaint", False)),
         unclear={k: tuple(v) for k, v in body.get("unclear", {}).items()},
+        source=source,
+    )
+
+
+def _answer(body: Mapping[str, Any], source: str = OURS) -> Answer:
+    return Answer(
+        body["answer_id"],
+        body["kind"],
+        {k: body[k] for k in LANGUAGES},
+        source,
+        body.get("author"),
     )
 
 
@@ -258,26 +292,61 @@ def load() -> tuple[Family, ...]:
 
 
 def load_answers() -> tuple[Answer, ...]:
-    return tuple(
-        Answer(a["answer_id"], a["kind"], {k: a[k] for k in LANGUAGES})
-        for a in _read("answers")["answers"]
+    return tuple(_answer(a) for a in _read("answers")["answers"])
+
+
+def load_source(
+    name: str, root: Path = SOURCES
+) -> tuple[tuple[Family, ...], tuple[Answer, ...]]:
+    """
+    Another source's families and answers, from root/name: a file per group it writes for, and answers.json.
+    """
+    if name == OURS or name not in SIDES:
+        raise ValueError(f"{name!r} isn't another source")
+    directory = root / name
+
+    def read(file: str, key: str) -> list[Any]:
+        path = directory / f"{file}.json"
+        return (
+            json.loads(path.read_text(encoding="utf-8"))[key] if path.is_file() else []
+        )
+
+    return (
+        tuple(
+            _family(group, body, name)
+            for group in GROUPS
+            for body in read(group, "families")
+        ),
+        tuple(_answer(body, name) for body in read("answers", "answers")),
     )
+
+
+def source_hash(name: str, root: Path = SOURCES) -> str:
+    folder = Path(__file__).parent if name == OURS else root / name
+    digest = hashlib.sha256()
+    for path in sorted(folder.glob("*.json")):
+        digest.update(path.name.encode() + b"\0" + path.read_bytes())
+    return digest.hexdigest()
 
 
 def held_out_ids(
     families: Sequence[Family], answers: Sequence[Answer] = ()
 ) -> frozenset[str]:
     """
-    The families and answers on the held-out side, by the shared split over each group.
+    The families and answers on the held-out side: those of the sources that serve it (ADR-0011, Wording sources).
     """
-    chosen: set[str] = set()
-    for group in GROUPS:
-        chosen |= held_out_families(f.family_id for f in families if f.group == group)
-    for kind in ANSWER_KINDS:
-        chosen |= held_out_families(a.answer_id for a in answers if a.kind == kind)
-    return frozenset(chosen)
+    return frozenset(
+        [f.family_id for f in families if SIDES[f.source] == "held_out"]
+        + [a.answer_id for a in answers if SIDES[a.source] == "held_out"]
+    )
 
 
+def _named(source: str) -> str:
+    return "" if source == OURS else re.escape(f"{source}.")
+
+
+# The checks compare every message with every other, and a source's writer runs them once per group it writes.
+@functools.cache
 def normalized(text: str) -> str:
     folded = unicodedata.normalize("NFKD", text.lower())
     plain = "".join(c for c in folded if not unicodedata.combining(c))
@@ -285,6 +354,7 @@ def normalized(text: str) -> str:
     return " ".join(re.sub(r"[^a-z0-9§ ]", " ", plain).split())
 
 
+@functools.cache
 def trigrams(text: str) -> frozenset[str]:
     padded = f"  {normalized(text)}  "
     return frozenset(padded[i : i + 3] for i in range(len(padded) - 2))
@@ -337,8 +407,13 @@ def _message_problems(family: Family, message: Message) -> Iterator[str]:
 
 def _family_problems(family: Family) -> Iterator[str]:
     fid = family.family_id
-    if not re.fullmatch(rf"{family.group}-\d{{2}}", fid):
-        yield f"{fid} isn't named after its group"
+    if not re.fullmatch(rf"{_named(family.source)}{family.group}-\d{{2}}", fid):
+        yield f"{fid} isn't named after its group and its source"
+    if family.source != OURS and {m.author for m in family.messages} & {
+        SEED_AUTHOR,
+        PARAPHRASE_AUTHOR,
+    }:
+        yield f"{fid} names no author of its own"
     if family.kind not in KINDS:
         yield f"{fid} has an unknown kind {family.kind!r}"
     if any(label not in LABELS for label in family.labels):
@@ -392,8 +467,12 @@ def _answer_problems(answer: Answer) -> Iterator[str]:
     if answer.kind not in ANSWER_KINDS:
         yield f"{answer.answer_id} has an unknown kind"
         return
-    if not re.fullmatch(rf"{answer.kind}-\d{{2}}", answer.answer_id):
-        yield f"{answer.answer_id} isn't named after its kind"
+    if not re.fullmatch(
+        rf"{_named(answer.source)}{answer.kind}-\d{{2}}", answer.answer_id
+    ):
+        yield f"{answer.answer_id} isn't named after its kind and its source"
+    if answer.source != OURS and not answer.author:
+        yield f"{answer.answer_id} names no author"
     for language, text in answer.texts.items():
         if set(SLOT.findall(text)) != ANSWER_KINDS[answer.kind]:
             yield f"{answer.answer_id}/{language} doesn't give exactly its kind's slots"
@@ -408,8 +487,19 @@ def _too_close(
     grams = {k: trigrams(t) for k, t in [*held, *development]}
     for (h, _), (d, _) in product(list(held), list(development)):
         x, y = grams[h], grams[d]
-        if len(x & y) / len(x | y) >= TOO_CLOSE:
+        # No pair whose sizes differ by more than the bar can reach it, and the union's size follows from the shared.
+        if min(len(x), len(y)) / max(len(x), len(y)) < TOO_CLOSE:
+            continue
+        shared = len(x & y)
+        if shared / (len(x) + len(y) - shared) >= TOO_CLOSE:
             yield f"held-out {h} is too close to development {d}"
+
+
+def _alike(phrasings: Sequence[tuple[str, str]]) -> Iterator[str]:
+    for (a, x), (b, y) in combinations(phrasings, 2):
+        short = min(len(normalized(x).split()), len(normalized(y).split())) <= SHORT
+        if similarity(x, y) >= (TOO_CLOSE_SHORT if short else TOO_CLOSE):
+            yield f"{a} and {b} are too alike to count as two phrasings"
 
 
 def texts(
@@ -441,21 +531,56 @@ def problems(
     found += [
         f"{i} appears twice" for i in sorted({i for i in ids if ids.count(i) > 1})
     ]
+    # Another source's counts are its study's to set.
     for group in GROUPS:
-        count = sum(f.group == group for f in families)
+        count = sum(f.group == group and f.source == OURS for f in families)
         if count != PER_GROUP:
-            found.append(f"{group} has {count} families, not {PER_GROUP}")
+            found.append(f"{group} has {count} families of ours, not {PER_GROUP}")
     for kind in ANSWER_KINDS:
-        count = sum(a.kind == kind for a in answers)
+        count = sum(a.kind == kind and a.source == OURS for a in answers)
         if count != PER_ANSWER_KIND:
-            found.append(f"{kind} has {count} answers, not {PER_ANSWER_KIND}")
-    for family in families:
-        found += _family_problems(family)
-    for answer in answers:
-        found += _answer_problems(answer)
+            found.append(f"{kind} has {count} answers of ours, not {PER_ANSWER_KIND}")
+    found += _own_problems(families, answers)
     held = held_out_ids(families, answers)
     found += _too_close(
         texts(families, answers, held),
         texts(families, answers, set(ids) - held),
     )
+    return found
+
+
+def problems_beside(
+    families: Sequence[Family],
+    answers: Sequence[Answer],
+    development: Sequence[tuple[str, str]],
+) -> list[str]:
+    """
+    What problems() finds in a held-out source's families and answers against development texts it doesn't check
+    again, so the source's writer checks each group it writes without checking ours each time.
+    """
+    held = held_out_ids(families, answers)
+    return [
+        *_own_problems(families, answers),
+        *_too_close(texts(families, answers, held), development),
+    ]
+
+
+def _own_problems(families: Sequence[Family], answers: Sequence[Answer]) -> list[str]:
+    """
+    Each family's and answer's rules, and phrasings that differ within a family and within a kind of answer.
+    """
+    found: list[str] = []
+    for family in families:
+        found += _family_problems(family)
+    for answer in answers:
+        found += _answer_problems(answer)
+    for family in families:
+        for language in (*LANGUAGES, *OTHER_LANGUAGES):
+            found += _alike([(m.id, m.text) for m in family.in_language(language)])
+    for source, kind in sorted({(a.source, a.kind) for a in answers}):
+        alike = [a for a in answers if (a.source, a.kind) == (source, kind)]
+        for language in LANGUAGES:
+            found += _alike(
+                [(f"{a.answer_id}/{language}", a.texts[language]) for a in alike]
+            )
     return found

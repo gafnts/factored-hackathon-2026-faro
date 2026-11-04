@@ -25,6 +25,7 @@ from faro.agent.models import (
     RouterOutput,
     TransactionChoice,
 )
+from faro.evaluation import cases
 from faro.evaluation.families import Answer, Family
 from faro.masking import mask
 
@@ -52,6 +53,8 @@ UNDER = (
     "{transaction}\n{transaction.meaning}",
 )
 LISTED = re.compile(r"^(\d+)\. ")
+# Answers that settle nothing a model reads: an aside, and another card, which no field of the reading names yet.
+UNANSWERED = frozenset({"aside", "frustration", "last_reply", "another_card"})
 HANDOFF_TEXT = {
     "summary": "El cliente pidió ayuda con su tarjeta por el chat.",
     "customer_statements": ["El cliente escribió al chat sobre su tarjeta."],
@@ -149,13 +152,14 @@ class ScriptedModels:
         )
         # What each text is, and the language a model reading it would say (POL-50, POL-51).
         self.said: dict[str, tuple[Family | str, str]] = {}
-        for message in script["messages"]:
-            family = families[message["id"].split("/")[0]]
-            self.said[mask(message["text"])] = (family, spoken(family, message["id"]))
-        for answer in script["answers"].values():
-            if isinstance(answer, dict):
-                answer_id, language = answer["id"].split("/")
-                self.said[mask(answer["text"])] = (answers[answer_id].kind, language)
+        for text in [*script["messages"], *cases.texts(script["answers"])]:
+            # A family's message is <family_id>/<language>/<n>, an answer <answer_id>/<language>.
+            authored, language, *n = text["id"].split("/")
+            if n:
+                family = families[authored]
+                self.said[mask(text["text"])] = (family, spoken(family, text["id"]))
+            else:
+                self.said[mask(text["text"])] = (answers[authored].kind, language)
         self.unplaced: list[str] = []
 
     def __call__(self, purpose: str) -> Runnable[Any, Any]:
@@ -206,12 +210,12 @@ class ScriptedModels:
             details |= said.extract
             if "last_four" in said.slots:
                 details["last_four"] = self.slots["last_four"]
-        elif said == "aside":
+        elif said in UNANSWERED:
             details["question"] = "unanswered"
         elif said in REASONS:
             details["block_reason"] = REASONS[said]
         elif said.startswith("card_") and self.card is not None:
-            if said != "card_last_four":
+            if said not in ("card_last_four", "card_correction"):
                 credit = "Crédito" in self.card["product_type"]
                 details["card_type"] = "credit" if credit else "debit"
             if said != "card_type":
@@ -229,7 +233,13 @@ class ScriptedModels:
                     {"fitting": [1], "language": language, "question": None}
                 )
             )
-        if said == "aside":
+        # A card's correction, or a request about no transaction, names none of those listed.
+        if (
+            isinstance(said, str)
+            and (said in UNANSWERED or said == "card_correction")
+            or isinstance(said, Family)
+            and not {"unrecognized_charge", "decline_reason"} & set(said.labels)
+        ):
             return structured(
                 TransactionChoice.model_validate(
                     {"fitting": [], "language": language, "question": "unanswered"}

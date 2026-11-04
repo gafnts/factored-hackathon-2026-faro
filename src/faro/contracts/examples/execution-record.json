@@ -44,7 +44,8 @@
       },
       "snapshot": "b3b8b248f604ef9a",
       "pipeline_version": "5e1a9c3b7d2f4a68"
-    }
+    },
+    "trace_id": "e40b1ee4f7f11478e53b045f9daf9105"
   },
   {
     "sign_in": "5f0d6c1e-8a3b-4f27-b9d4-7e2c1a9f3b68",
@@ -398,7 +399,8 @@
       },
       "snapshot": "b3b8b248f604ef9a",
       "pipeline_version": "5e1a9c3b7d2f4a68"
-    }
+    },
+    "trace_id": "ab2fd96500a3ae59db9bd5e594e3f6fa"
   },
   {
     "sign_in": "5f0d6c1e-8a3b-4f27-b9d4-7e2c1a9f3b68",
@@ -731,7 +733,8 @@
       },
       "snapshot": "b3b8b248f604ef9a",
       "pipeline_version": "5e1a9c3b7d2f4a68"
-    }
+    },
+    "trace_id": "38085911e2a8ff63c0fe05918eba772d"
   },
   {
     "sign_in": "5f0d6c1e-8a3b-4f27-b9d4-7e2c1a9f3b68",

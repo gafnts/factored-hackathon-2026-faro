@@ -12,9 +12,10 @@ from typing import Any
 import duckdb
 import pytest
 
-from faro.evaluation import bronze, families, generator, oracle
+from faro.evaluation import bronze, cases, families, generator, heldout, oracle
 from faro.evaluation.facts import contract_words
 
+from . import outside
 from .bank import Bank
 
 pytestmark = pytest.mark.xdist_group("evaluation_bank")
@@ -73,13 +74,11 @@ def test_the_same_seed_draws_the_same_set(
 
 
 def test_every_message_is_filled_and_development_only(
-    regression: generator.Drawn,
+    con: duckdb.DuckDBPyConnection, regression: generator.Drawn
 ) -> None:
-    for case in regression.cases:
+    for case in [*regression.cases, *draw(con, "selection").cases]:
         texts = [m["text"] for m in case["script"]["messages"]]
-        texts += [
-            a["text"] for a in case["script"]["answers"].values() if isinstance(a, dict)
-        ]
+        texts += [a["text"] for a in cases.texts(case["script"]["answers"])]
         assert not any(re.search(r"\{[a-z_]+\}", t) for t in texts), case["situation"]
         assert case["family_id"] not in HELD
         assert case["phrasing"] == "development"
@@ -97,6 +96,28 @@ def test_each_situation_takes_its_path(regression: generator.Drawn) -> None:
         assert path[: len(situation.path)] == situation.path
 
 
+def test_a_situations_asides_are_drawn_in_order_each_a_phrasing_of_its_own(
+    con: duckdb.DuckDBPyConnection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    situation = replace(
+        generator.BY_NAME["status.aside"],
+        asides=("aside", "aside", "aside"),
+        path=[*[("clarify", "card")] * 3, ("abstain", "handoff_control")],
+    )
+    monkeypatch.setitem(generator.BY_NAME, situation.name, situation)
+    drawing = generator.Generator(
+        con, "development", LOADED, ANSWERS, HELD, contract_words(), reuse=True
+    )
+
+    drawn = drawing.draw("asides", 7, {situation.name: 1})
+
+    assert drawn.cases
+    for case in drawn.cases:
+        asides = case["script"]["answers"]["aside"]
+        assert len({a["id"] for a in asides}) == 3
+        assert [t["sends"] for t in case["expected"]["turns"]][1:4] == ["aside"] * 3
+
+
 def test_a_block_among_several_active_cards_asks_which_then_why(
     regression: generator.Drawn,
 ) -> None:
@@ -109,6 +130,23 @@ def test_a_block_among_several_active_cards_asks_which_then_why(
         assert first["facts"]["{card_list}"].count("\n") >= 1
         assert "{cards}" not in first["facts"]
         assert case["expected"]["blocked"] == [case["script"]["means"]["product_id"]]
+
+
+def test_a_manifest_names_the_situations_left_out_only_when_given(
+    regression: generator.Drawn,
+) -> None:
+    situation = regression.cases[0]["situation"]
+
+    named = generator.manifest("regression", 7, regression, {}, left_out=[situation])
+
+    assert named["left_out"] == [situation]
+    assert "left_out" not in generator.manifest("regression", 7, regression, {})
+    with pytest.raises(generator.GeneratorError, match="no situation named"):
+        generator.manifest("regression", 7, regression, {}, left_out=["none.such"])
+
+
+def test_the_held_out_studys_left_out_situations_are_its_own() -> None:
+    assert set(heldout.LEFT_OUT) <= set(generator.held_out(600))
 
 
 def test_a_manifest_names_no_customer_or_record(regression: generator.Drawn) -> None:
@@ -225,36 +263,54 @@ def test_a_situation_with_customers_to_spare_shares_none(
     assert generator.manifest("spare", 7, drawn, {})["shared"] == []
 
 
-def test_a_held_out_situation_no_held_out_family_fits_borrows_development_phrasing(
-    bank: Bank, monkeypatch: pytest.MonkeyPatch
+def test_an_earlier_held_out_sets_customers_are_taken_last_and_counted(
+    con: duckdb.DuckDBPyConnection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     situation = generator.BY_NAME["status.one_card"]
-    # As if the split had put every family of this shape on the development side.
-    held = frozenset(
-        h
-        for h in HELD
-        if not any(f.family_id == h and situation.fits(f) for f in LOADED)
-    )
-    monkeypatch.setitem(generator.COMPOSITIONS, "borrowed", {situation.name: 1})
-    with bronze.connect(bank.database, "held_out") as held_con:
-        drawing = generator.Generator(
-            held_con, "held_out", LOADED, ANSWERS, held, contract_words(), reuse=True
-        )
-        drawn = drawing.draw("borrowed", 7)
-    found = [c for c in drawn.cases if c["situation"] == situation.name]
+    monkeypatch.setitem(generator.COMPOSITIONS, "spare", {situation.name: 1})
 
-    assert [c["language"] for c in found] == ["es", "pt"]
-    assert drawn.short == []
-    for case in found:
-        assert case["side"] == "held_out"
-        assert case["phrasing"] == "development"
-        assert case["family_id"] not in held
-        answers = [a for a in case["script"]["answers"].values() if isinstance(a, dict)]
-        assert all(a["id"].split("/")[0] in held for a in answers)
-    assert generator.manifest("borrowed", 7, drawn, {})["borrowed"] == [
+    def drawing(earlier: frozenset[str] = frozenset()) -> generator.Generator:
+        return generator.Generator(
+            con, "development", LOADED, ANSWERS, HELD, contract_words(), earlier=earlier
+        )
+
+    first = drawing().draw("spare", 7)
+    earlier = frozenset(c["customer_id"] for c in first.cases)
+    again = drawing(earlier).draw("spare", 7)
+
+    assert len(again.cases) == len(first.cases) == 2
+    assert not {c["customer_id"] for c in again.cases} & earlier
+    assert generator.manifest("spare", 7, again, {}, earlier)["reused"] == []
+    assert generator.manifest("spare", 7, first, {}, earlier)["reused"] == [
         {"situation": situation.name, "language": "es", "cases": 1},
         {"situation": situation.name, "language": "pt", "cases": 1},
     ]
+    assert "reused" not in generator.manifest("spare", 7, again, {})
+
+
+def test_a_held_out_set_borrows_no_wording(bank: Bank) -> None:
+    every = (*LOADED, *outside.FAMILIES)
+    every_answer = (*ANSWERS, *outside.ANSWERS)
+    held = families.held_out_ids(every, every_answer)
+    # The outside fixture opens a page of transactions but writes nothing to send after it, and nothing about a decline.
+    unworded = {"transactions.next_page": 1, "decline.listed_code": 1}
+    with bronze.connect(bank.database, "held_out") as held_con:
+        drawing = generator.Generator(
+            held_con,
+            "held_out",
+            every,
+            every_answer,
+            held,
+            contract_words(),
+            reuse=True,
+        )
+        with pytest.raises(generator.GeneratorError) as raised:
+            drawing.draw("unworded", 7, {**unworded, "status.one_card": 1})
+
+    named = str(raised.value)
+    for situation in unworded:
+        assert f"{situation} in es" in named and f"{situation} in pt" in named
+    assert "status.one_card" not in named
 
 
 def listed(case: dict[str, Any]) -> int:

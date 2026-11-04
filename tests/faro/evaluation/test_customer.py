@@ -147,6 +147,70 @@ def test_a_message_that_doesnt_answer_comes_once_before_the_answer() -> None:
     assert answer is not None and answer.sends == "card"
 
 
+def test_asides_come_in_order_and_an_interjection_once_at_what_it_names() -> None:
+    customer = Customer(
+        case(
+            {
+                "aside": [
+                    {"id": "aside-01/es", "text": "¿Y en qué más me puede ayudar?"},
+                    {"id": "aside-02/es", "text": "Gracias por la paciencia."},
+                ],
+                "interjection": {
+                    "at": "transaction",
+                    "id": "talk_to_human-06/es/0",
+                    "text": "Quiero poner una queja.",
+                },
+                "card": {
+                    "id": "card_last_four-01/es",
+                    "text": "La que termina en 4821.",
+                },
+                "transaction": {
+                    "id": "transaction_newest-01/es",
+                    "text": "La más reciente.",
+                },
+            },
+            turns=4,
+        )
+    )
+    customer.first()
+
+    sent = [
+        customer.next(awaiting, None)
+        for awaiting in ("card", "card", "card", "transaction", "transaction")
+    ]
+
+    assert [(s.sends, s.text_id) for s in sent if s is not None] == [
+        ("aside", "aside-01/es"),
+        ("aside", "aside-02/es"),
+        ("card", "card_last_four-01/es"),
+        ("interjection", "talk_to_human-06/es/0"),
+        ("transaction", "transaction_newest-01/es"),
+    ]
+
+
+def test_an_interjection_at_a_control_comes_before_the_press() -> None:
+    customer = Customer(
+        case(
+            {
+                "interjection": {
+                    "at": "confirm_control",
+                    "id": "talk_to_human-06/es/0",
+                    "text": "Quiero poner una queja.",
+                },
+                "confirm_control": "confirm",
+            },
+            turns=3,
+        )
+    )
+    customer.first()
+
+    interjected = customer.next("confirm_control", interrupt("block_confirmation"))
+    pressed = customer.next("confirm_control", interrupt("block_confirmation"))
+
+    assert interjected is not None and interjected.sends == "interjection"
+    assert pressed is not None and pressed.sends == "confirm"
+
+
 def test_an_ignored_control_lapses_by_the_next_message_or_ends_the_conversation() -> (
     None
 ):

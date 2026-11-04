@@ -116,7 +116,7 @@ def test_a_status_asks_which_card_then_answers_it(
 def test_a_message_that_doesnt_answer_which_card_gets_the_question_again(
     con: duckdb.DuckDBPyConnection,
 ) -> None:
-    # POL-06, version 6: it counts toward no limit (POL-17), so the answer after it is still the first.
+    # POL-06: it counts toward none of POL-17's limit, so the answer after it is still the first.
     expected = play(
         con,
         case(
@@ -135,6 +135,312 @@ def test_a_message_that_doesnt_answer_which_card_gets_the_question_again(
     first, again, _ = expected["turns"]
     assert again["facts"] == first["facts"]
     assert "POL-06" in again["decisions"][0]["rules"]
+
+
+def test_each_aside_gets_the_question_again(con: duckdb.DuckDBPyConnection) -> None:
+    played = case(
+        EXAMPLE_CUSTOMER,
+        "card_status-01",
+        answers={"card": "card_last_four-01"},
+        means={"product_id": "PRD-EXAMPLE00008"},
+    )
+    played["script"]["answers"]["aside"] = [
+        {"id": "aside-01/es", "text": "-"},
+        {"id": "aside-02/es", "text": "-"},
+    ]
+
+    assert path(play(con, played)) == [
+        ("message", [("card_status", "clarify")], "card"),
+        ("aside", [("card_status", "clarify")], "card"),
+        ("aside", [("card_status", "clarify")], "card"),
+        ("card", [("card_status", "answer")], "none"),
+    ]
+
+
+def asides(played: dict[str, Any], *kinds: str) -> dict[str, Any]:
+    played["script"]["answers"]["aside"] = [
+        {"id": f"{kind}-0{n}/es", "text": "-"} for n, kind in enumerate(kinds, 1)
+    ]
+    return played
+
+
+def test_the_third_aside_ends_the_question_as_an_unsettled_detail_does(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    played = case(
+        EXAMPLE_CUSTOMER,
+        "card_status-01",
+        answers={"card": "card_last_four-01", "handoff_control": "decline"},
+        means={"product_id": "PRD-EXAMPLE00008"},
+    )
+
+    expected = play(con, asides(played, "aside", "aside", "aside"))
+
+    assert path(expected) == [
+        ("message", [("card_status", "clarify")], "card"),
+        ("aside", [("card_status", "clarify")], "card"),
+        ("aside", [("card_status", "clarify")], "card"),
+        ("aside", [("card_status", "abstain")], "handoff_control"),
+        ("decline", [("card_status", "answer")], "none"),
+    ]
+    assert expected["turns"][3]["decisions"][0]["rules"] == ["POL-06", "POL-17"]
+
+
+def test_a_question_about_the_last_reply_gets_an_abstention_then_the_question(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    played = case(
+        EXAMPLE_CUSTOMER,
+        "card_status-01",
+        answers={"card": "card_last_four-01"},
+        means={"product_id": "PRD-EXAMPLE00008"},
+    )
+
+    expected = play(con, asides(played, "last_reply"))
+
+    assert path(expected)[1] == (
+        "aside",
+        [(None, "abstain"), ("card_status", "clarify")],
+        "card",
+    )
+    abstained = expected["turns"][1]["decisions"][0]
+    assert abstained["rules"] == ["POL-06", "POL-18", "POL-29"]
+
+
+def test_the_third_aside_at_a_charges_question_still_offers_the_block(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    customer = state.read(con, "CLI-EVAL00000015")
+    assert customer is not None
+    played = case(
+        "CLI-EVAL00000015",
+        "unrecognized_charge-01",
+        answers={"confirm_control": "confirm"},
+        means={"product_id": customer.cards[0].product_id},
+    )
+
+    expected = play(con, asides(played, "frustration", "aside", "frustration"))
+
+    assert path(expected)[3:] == [
+        ("aside", [("unrecognized_charge", "block")], "confirm_control"),
+        ("confirm", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    assert {"POL-06", "POL-17"} <= set(expected["turns"][3]["decisions"][0]["rules"])
+
+
+def corrected(kind: str) -> dict[str, Any]:
+    # The message names the credit card ending in 4417, three charges on it; the customer means 7302's one.
+    played = case(
+        "CLI-EVAL00000005",
+        "unrecognized_charge-06",
+        answers={"card": "card_last_four-01", "confirm_control": "confirm"},
+        means={"product_id": "PRD-EVAL00000501"},
+        slots={"last_four": "4417"},
+    )
+    played["script"]["answers"]["interjection"] = {
+        "at": "transaction",
+        "id": f"{kind}-01/es",
+        "text": "-",
+    }
+    return played
+
+
+def test_a_card_named_at_a_charges_question_moves_the_request(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    expected = play(con, corrected("card_correction"))
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "clarify")], "transaction"),
+        ("interjection", [("unrecognized_charge", "block")], "confirm_control"),
+        ("confirm", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    moved = expected["turns"][1]
+    assert moved["facts"]["{card}"] == "tarjeta de crédito terminada en 7302"
+    assert moved["tools_required"] == ["find_transactions"]
+    assert "POL-13" in moved["decisions"][0]["rules"]
+    assert expected["blocked"] == ["PRD-EVAL00000501"]
+
+
+def test_another_card_unnamed_asks_which_of_the_others(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    expected = play(con, corrected("another_card"))
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "clarify")], "transaction"),
+        ("interjection", [("unrecognized_charge", "clarify")], "card"),
+        ("card", [("unrecognized_charge", "block")], "confirm_control"),
+        ("confirm", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    listed = expected["turns"][1]["facts"]["{card_list}"]
+    assert "4417" not in listed and "7302" in listed and "6650" in listed
+    assert expected["blocked"] == ["PRD-EVAL00000501"]
+
+
+def one_of_several_charges(con: duckdb.DuckDBPyConnection) -> tuple[str, str]:
+    """
+    CLI-EVAL00000015's one card and a merchant only one of its charges has.
+    """
+    customer = state.read(con, "CLI-EVAL00000015")
+    assert customer is not None
+    card = customer.cards[0]
+    merchants = [t.merchant for t in card.transactions[: oracle.SEARCHED]]
+    merchant = next(m for m in merchants if m is not None and merchants.count(m) == 1)
+    return card.product_id, merchant
+
+
+def test_a_charge_reported_again_at_its_question_answers_it(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    card_id, merchant = one_of_several_charges(con)
+    played = case(
+        "CLI-EVAL00000015",
+        "unrecognized_charge-01",
+        answers={"confirm_control": "confirm"},
+        means={"product_id": card_id},
+        slots={"merchant": merchant},
+    )
+    played["script"]["answers"]["interjection"] = {
+        "at": "transaction",
+        "id": "unrecognized_charge-02/es/0",
+        "text": "-",
+    }
+
+    expected = play(con, played)
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "clarify")], "transaction"),
+        ("interjection", [("unrecognized_charge", "block")], "confirm_control"),
+        ("confirm", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    assert merchant in expected["turns"][1]["facts"]["{transaction}"]
+
+
+def test_a_charge_reported_again_once_handed_off_gets_its_reference(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    card_id, merchant = one_of_several_charges(con)
+
+    expected = play(
+        con,
+        case(
+            "CLI-EVAL00000015",
+            "unrecognized_charge-02",
+            "unrecognized_charge-02",
+            answers={"confirm_control": "cancel"},
+            means={"product_id": card_id},
+            slots={"merchant": merchant},
+        ),
+    )
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "block")], "confirm_control"),
+        ("cancel", [("unrecognized_charge", "hand_off")], "none"),
+        ("message", [("unrecognized_charge", "answer")], "none"),
+    ]
+    again = expected["turns"][2]
+    assert again["decisions"][0]["rules"] == ["POL-39"]
+    assert again["tools_required"] == ["find_transactions"]
+    assert again["tools_forbidden"] == ["block_card", "file_handoff"]
+
+
+COMPLAINT = next(f for f in FAMILIES if f.complaint and not f.slots)
+DISPUTED = {
+    "reason_code": "unrecognized_charge",
+    "trigger": "required",
+    "queue": "dispute_intake",
+}
+
+
+def test_a_complaint_at_a_charges_question_joins_the_dispute_it_ends_in(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    customer = state.read(con, "CLI-EVAL00000015")
+    assert customer is not None
+    played = case(
+        "CLI-EVAL00000015",
+        "unrecognized_charge-01",
+        means={"product_id": customer.cards[0].product_id},
+    )
+    played["script"]["answers"]["interjection"] = {
+        "at": "transaction",
+        "id": f"{COMPLAINT.family_id}/es/0",
+        "text": "-",
+    }
+
+    expected = play(con, played)
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "clarify")], "transaction"),
+        (
+            "interjection",
+            [("unrecognized_charge", "hand_off"), ("talk_to_human", "hand_off")],
+            "none",
+        ),
+    ]
+    ended = expected["turns"][1]
+    assert ended["decisions"][0]["rules"] == ["POL-06", "POL-39"]
+    assert ended["handoff"] == {**DISPUTED, "priority": "urgent", "cites": ["POL-44"]}
+
+
+def test_a_complaint_while_the_confirm_control_shows_is_handed_off_at_once(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    played = case(
+        "CLI-EVAL00000003",
+        "unrecognized_charge-05",
+        answers={"confirm_control": "confirm"},
+    )
+    played["script"]["answers"]["interjection"] = {
+        "at": "confirm_control",
+        "id": f"{COMPLAINT.family_id}/es/0",
+        "text": "-",
+    }
+
+    expected = play(con, played)
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "block")], "confirm_control"),
+        (
+            "interjection",
+            [("talk_to_human", "hand_off"), ("unrecognized_charge", "block")],
+            "confirm_control",
+        ),
+        ("confirm", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    complained, confirmed = expected["turns"][1:]
+    assert complained["handoff"]["reason_code"] == "complaint"
+    assert complained["tools_forbidden"] == ["block_card"]
+    assert confirmed["handoff"] == {**DISPUTED, "priority": "normal"}
+    assert expected["blocked"]
+
+
+def test_a_person_asked_for_in_a_turn_that_files_a_dispute_joins_it(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    expected = play(
+        con,
+        case(
+            "CLI-EVAL00000003",
+            "block_card-09",
+            answers={
+                "reason": "reason_unrecognized_charge-01",
+                "confirm_control": "confirm",
+            },
+        ),
+    )
+
+    assert path(expected)[-1] == (
+        "confirm",
+        [("block_card", "hand_off"), ("talk_to_human", "hand_off")],
+        "none",
+    )
+    assert expected["turns"][-1]["handoff"] == {
+        **DISPUTED,
+        "priority": "normal",
+        "cites": ["POL-44"],
+    }
 
 
 @pytest.mark.parametrize(
@@ -438,6 +744,36 @@ def test_a_block_among_several_active_cards_asks_which_then_why(
     assert expected["blocked"] == ["PRD-EVAL00000502"]
 
 
+@pytest.mark.parametrize("source", ["", "outside."])
+def test_an_answer_is_read_by_its_kind_whatever_source_wrote_it(
+    con: duckdb.DuckDBPyConnection, source: str
+) -> None:
+    expected = play(
+        con,
+        case(
+            "CLI-EVAL00000005",
+            "block_card-01",
+            answers={
+                "card": f"{source}card_last_four-01",
+                "reason": f"{source}reason_lost-01",
+                "confirm_control": "confirm",
+                "handoff_control": "decline",
+            },
+            means={"product_id": "PRD-EVAL00000502"},
+        ),
+    )
+
+    assert path(expected)[1:3] == [
+        ("card", [("block_card", "clarify")], "reason"),
+        ("reason", [("block_card", "block")], "confirm_control"),
+    ]
+    assert expected["turns"][3]["decisions"][0]["rules"] == [
+        "POL-03",
+        "POL-37",
+        "POL-38",
+    ]
+
+
 def test_a_cancelled_block_leaves_the_card(con: duckdb.DuckDBPyConnection) -> None:
     expected = play(
         con,
@@ -480,6 +816,55 @@ def test_an_unrecognized_charge_from_yesterday_is_found_blocked_and_handed_off(
         "priority": "normal",
     }
     assert last["tools_required"] == ["block_card", "file_handoff"]
+
+
+def test_a_charge_left_unsettled_is_offered_the_block_then_handed_off(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    # POL-39: a detail that can't be settled is recorded in the dispute's handoff, not offered a person on its own.
+    customer = state.read(con, "CLI-EVAL00000015")
+    assert customer is not None and customer.cards[0].active
+
+    expected = play(
+        con,
+        case(
+            "CLI-EVAL00000015",
+            "unrecognized_charge-01",
+            answers={"confirm_control": "cancel"},
+            means={"product_id": customer.cards[0].product_id},
+        ),
+    )
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "clarify")], "transaction"),
+        ("dont_know", [("unrecognized_charge", "clarify")], "transaction"),
+        ("dont_know", [("unrecognized_charge", "block")], "confirm_control"),
+        ("cancel", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    stopped, handed = expected["turns"][2:]
+    assert "POL-17" in stopped["decisions"][0]["rules"]
+    assert "{transaction}" not in stopped["facts"]
+    assert handed["handoff"]["priority"] == "urgent"
+
+
+def test_a_charge_whose_card_cant_be_settled_goes_to_dispute_intake_at_once(
+    con: duckdb.DuckDBPyConnection,
+) -> None:
+    expected = play(con, case("CLI-EVAL00000005", "unrecognized_charge-01"))
+
+    assert path(expected) == [
+        ("message", [("unrecognized_charge", "clarify")], "card"),
+        ("dont_know", [("unrecognized_charge", "clarify")], "card"),
+        ("dont_know", [("unrecognized_charge", "hand_off")], "none"),
+    ]
+    last = expected["turns"][2]
+    assert last["decisions"][0]["rules"] == ["POL-17", "POL-39"]
+    assert last["handoff"] == {
+        "reason_code": "unrecognized_charge",
+        "trigger": "required",
+        "queue": "dispute_intake",
+        "priority": "urgent",
+    }
 
 
 def test_today_is_the_business_date_not_the_as_of_instants_day(

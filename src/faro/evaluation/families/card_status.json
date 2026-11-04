@@ -137,6 +137,7 @@
       "family_id": "card_status-07",
       "kind": "terse",
       "labels": ["card_status"],
+      "unclear": {"pt": [3]},
       "es": [
         "estado tarjeta",
         "estado de mi tarjeta",
