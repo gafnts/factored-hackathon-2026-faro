@@ -11,6 +11,8 @@ locals {
   runtime_name = "${replace(var.prefix, "-", "_")}_agent"
   # The Runtime's ID is its name and a suffix, so its workload identity and log group match this before it exists.
   runtime_ids = "${local.runtime_name}-*"
+  # AgentCore names its own span for the endpoint, and CloudWatch's GenAI page counts an agent's spans by that name.
+  service_name = "${local.runtime_name}.DEFAULT"
   workload_identities = [
     "${local.agentcore}:workload-identity-directory/default",
     "${local.agentcore}:workload-identity-directory/default/workload-identity/${local.runtime_ids}",
@@ -390,7 +392,7 @@ resource "aws_bedrockagentcore_agent_runtime" "this" {
     # log event (ADR-0004, Operations, Tracing).
     AGENT_OBSERVABILITY_ENABLED          = "true"
     AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT = "true"
-    OTEL_SERVICE_NAME                    = local.runtime_name
+    OTEL_SERVICE_NAME                    = local.service_name
   }
 
   depends_on = [aws_iam_role_policy.runtime]

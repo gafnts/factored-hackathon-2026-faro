@@ -13,7 +13,7 @@ output "model_key_secret" {
 
 output "service_name" {
   description = "The service name the Runtime's spans carry"
-  value       = local.runtime_name
+  value       = local.service_name
 }
 
 output "runtime_log_group" {
