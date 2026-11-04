@@ -7,6 +7,7 @@ days (OPS-10).
 
 import asyncio
 import json
+import time
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -15,7 +16,7 @@ from typing import Any, Protocol, TypedDict
 
 from jsonschema import ValidationError
 
-from faro.agent import metrics
+from faro.agent import metrics, tracing
 from faro.contracts import validator
 
 RETENTION = timedelta(days=90)
@@ -121,6 +122,7 @@ class Turn:
         last says, for a tool call, that no attempt follows it; the entry doesn't record it, its metric line does.
         """
         last = bool(fields.pop("last", True))
+        ended = time.time_ns()
         at = self.now()
         entry = {
             "sign_in": self.sign_in,
@@ -136,6 +138,7 @@ class Turn:
         error = next(validator("execution-record").iter_errors(entry), None)
         if error is not None:
             raise RecordError(kind, error)
+        tracing.attempt(entry, ended)
         await asyncio.to_thread(self.store.put, entry)
         self.seq += 1
         self.count(entry)

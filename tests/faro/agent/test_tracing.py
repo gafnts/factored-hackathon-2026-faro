@@ -2,8 +2,8 @@
 The Runtime's spans hold no text: the exporter passes only the listed attributes, and no event, link attribute, or
 status description; every trace is kept whatever the request's sampling flag, and the Runtime exports to X-Ray in its
 own Region. Each request's span joins the trace AgentCore's request arrived under, and the record's first entry names
-the trace; each node the turn runs is a span under it, and a control's interrupt is no error (ADR-0004, Operations,
-Tracing; OPS-01, SEC-03).
+the trace; each node the turn runs is a span under it, and a control's interrupt is no error; each attempt at a model
+or tool call is a span under its node, as the record keeps it (ADR-0004, Operations, Tracing; OPS-01, SEC-03).
 """
 
 import logging
@@ -27,6 +27,7 @@ from faro.agent import tracing
 
 from .conftest import Harness, customer, run_body, session_id
 from .test_block import Chat, control_shown
+from .test_retries import STATUS, failing
 
 TYPED = "4111 1111 1111 1111"
 TRACE = 0x5759E988BD862E3FE1BE46A994272793
@@ -209,3 +210,68 @@ def test_a_control_ends_its_nodes_span_without_an_error(
     nodes = node_spans(finished)
     assert "confirm" in {span.name for span in nodes}
     assert all(span.status.status_code is StatusCode.UNSET for span in nodes)
+
+
+def by_operation(spans: list[ReadableSpan], operation: str) -> list[ReadableSpan]:
+    return sorted(
+        (
+            s
+            for s in spans
+            if (s.attributes or {}).get("gen_ai.operation.name") == operation
+        ),
+        key=lambda s: s.start_time or 0,
+    )
+
+
+def test_each_model_and_tool_call_is_a_span_under_its_node_as_the_record_keeps_it(
+    harness: Harness, spans: Callable[[], list[ReadableSpan]]
+) -> None:
+    who = customer()
+    harness.post(run_body(), who.token(), session_id())
+
+    finished = spans()
+    by_id = {span.context.span_id: span for span in finished}
+    entries = harness.records.of(who.origin_jti)
+    models = [e for e in entries if e["kind"] == "model_call"]
+    chats = by_operation(finished, "chat")
+    assert len(chats) == len(models) > 0
+    for span, entry in zip(chats, models, strict=True):
+        attributes = dict(span.attributes or {})
+        assert span.parent is not None
+        assert by_id[span.parent.span_id].name in NODES
+        assert attributes["faro.prompt"] == entry["node"]
+        assert attributes["gen_ai.usage.input_tokens"] == entry["usage"]["input_tokens"]
+        assert (
+            attributes["gen_ai.usage.output_tokens"] == entry["usage"]["output_tokens"]
+        )
+        assert attributes["faro.cost_usd"] == entry["cost_usd"]
+        assert (span.end_time or 0) - (span.start_time or 0) == entry[
+            "latency_ms"
+        ] * 1_000_000
+    tools = [e for e in entries if e["kind"] == "tool_call"]
+    executed = by_operation(finished, "execute_tool")
+    assert [dict(s.attributes or {})["gen_ai.tool.call.id"] for s in executed] == [
+        e["call_id"] for e in tools
+    ]
+
+
+def test_each_attempt_at_a_read_is_a_span_and_a_failed_one_names_its_code(
+    harness: Harness, spans: Callable[[], list[ReadableSpan]]
+) -> None:
+    failing(harness, "get_card", 1)
+    harness.script.replies = ["{card}: {card.status}, {card.expiration}."]
+
+    Chat(harness).say(STATUS, requests=["card_status"], last_four="1177")
+
+    reads = [
+        span
+        for span in by_operation(spans(), "execute_tool")
+        if (span.attributes or {})["gen_ai.tool.name"] == "get_card"
+    ]
+    assert [
+        (dict(s.attributes or {})["faro.attempt"], s.status.status_code) for s in reads
+    ] == [
+        (1, StatusCode.ERROR),
+        (2, StatusCode.UNSET),
+    ]
+    assert dict(reads[0].attributes or {})["error.type"] == "lambda_error"

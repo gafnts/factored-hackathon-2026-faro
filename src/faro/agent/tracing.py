@@ -7,8 +7,9 @@ may quote a model's output.
 
 import logging
 import os
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from typing import Any
 
 from opentelemetry import trace
 from opentelemetry.context import Context
@@ -25,6 +26,8 @@ from opentelemetry.sdk.trace.sampling import ALWAYS_ON
 from opentelemetry.trace import Link, Span, Status, StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from opentelemetry.util.types import AttributeValue
+
+from faro.tools.provenance import OUTCOMES
 
 # In the GenAI semantic conventions' names where they have one, and in ours otherwise; each value is a count, a model's
 # or a tool's name, an ID we drew, the runtime session's ID (as the logs carry it), or an enumerated value.
@@ -52,6 +55,7 @@ ATTRIBUTES = frozenset(
         "faro.input",
         "faro.node",
         "faro.outcome",
+        "faro.prompt",
         "faro.purpose",
         "faro.refused",
         "faro.source",
@@ -98,6 +102,83 @@ def span(
             current.set_status(StatusCode.ERROR)
             current.set_attribute("error.type", type(error).__qualname__)
             raise
+
+
+type Shaped = tuple[str, dict[str, AttributeValue | None], str | None]
+
+
+def model_call(entry: Mapping[str, Any]) -> Shaped:
+    """
+    The name, the attributes, and the error type, if the attempt failed.
+    """
+    usage = entry["usage"]
+    model = entry["model_requested"]
+    return (
+        f"chat {model}" if model else "chat",
+        {
+            "gen_ai.operation.name": "chat",
+            "gen_ai.provider.name": entry["provider"],
+            "gen_ai.request.model": model,
+            "gen_ai.response.model": entry["model_returned"],
+            "gen_ai.request.max_tokens": entry["settings"]["max_tokens"],
+            "gen_ai.request.temperature": entry["settings"]["temperature"],
+            "gen_ai.usage.input_tokens": usage["input_tokens"],
+            "gen_ai.usage.output_tokens": usage["output_tokens"],
+            "gen_ai.usage.cache_read.input_tokens": usage["cache_read_tokens"],
+            "gen_ai.usage.cache_creation.input_tokens": usage["cache_write_tokens"],
+            "faro.prompt": entry["node"],
+            "faro.purpose": entry["purpose"],
+            "faro.attempt": entry["attempt"],
+            "faro.outcome": entry["outcome"],
+            "faro.cost_usd": entry["cost_usd"],
+        },
+        None if entry["outcome"] == "ok" else entry["outcome"],
+    )
+
+
+def tool_call(entry: Mapping[str, Any]) -> Shaped:
+    """
+    A refusal the tool answered, such as a denial, is an outcome, not an error.
+    """
+    failed = OUTCOMES[entry["outcome"]] == "error"
+    return (
+        f"execute_tool {entry['tool']}",
+        {
+            "gen_ai.operation.name": "execute_tool",
+            "gen_ai.tool.name": entry["tool"],
+            "gen_ai.tool.call.id": entry["call_id"],
+            "faro.via": entry["via"],
+            "faro.attempt": entry["attempt"],
+            "faro.outcome": entry["outcome"],
+        },
+        (entry.get("error") or {}).get("code", entry["outcome"]) if failed else None,
+    )
+
+
+ATTEMPTS: dict[str, Callable[[Mapping[str, Any]], Shaped]] = {
+    "model_call": model_call,
+    "tool_call": tool_call,
+}
+
+
+def attempt(entry: Mapping[str, Any], ended: int) -> None:
+    """
+    An attempt at a model or tool call, from the record's entry for it, as a span that ended, in nanoseconds since the
+    epoch, when its entry was written; other entries make none.
+    """
+    shape = ATTEMPTS.get(entry["kind"])
+    if shape is None:
+        return
+    name, attributes, error = shape(entry)
+    made = tracer.start_span(
+        name,
+        attributes={k: v for k, v in attributes.items() if v is not None},
+        start_time=ended - entry["latency_ms"] * 1_000_000,
+    )
+    if error is not None:
+        made.set_status(StatusCode.ERROR)
+        made.set_attribute("error.type", error)
+    made.end(end_time=ended)
 
 
 def annotate(attributes: Mapping[str, AttributeValue]) -> None:
