@@ -186,7 +186,11 @@ def test_a_refused_request_is_not_repeated(tmp_path: Path) -> None:
 
     reading = asyncio.run(found.read("hola"))
 
-    assert reading.failed and [c["outcome"] for c in calls] == ["error"] and slept == []
+    assert (
+        reading.failed
+        and [c["outcome"] for c in calls] == ["invalid_request"]
+        and slept == []
+    )
 
 
 def test_no_key_is_read_until_a_call(tmp_path: Path) -> None:

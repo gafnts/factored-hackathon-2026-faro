@@ -1,7 +1,8 @@
 """
 Every attempt at a model call is recorded, on Claude Haiku 4.5, with the client's own retries and streaming off and
 emit-messages and emit-tool-calls off, so nothing it writes reaches the chat unchecked; its usage and list-price cost
-are recorded, and a failure is named by kind (ADR-0004, Models and What the chat receives; decision 18; OPS-02, M-05).
+are recorded, and a failure is named by what a person has to do (ADR-0004, Models and What the chat receives; decision
+18 and its amendment of 2026-11-03; OPS-02, M-05).
 """
 
 import asyncio
@@ -191,19 +192,99 @@ def test_a_reply_is_read_whole_and_an_empty_one_is_invalid() -> None:
     assert entries[0]["cost_usd"] is None
 
 
-def status_error(kind: type[anthropic.APIStatusError], status: int) -> Exception:
-    request = httpx2.Request("POST", "https://api.anthropic.example")
-    return kind("failed", response=httpx2.Response(status, request=request), body=None)
+REQUEST = httpx2.Request("POST", "https://api.anthropic.example")
 
 
-def test_a_failure_is_named_by_kind() -> None:
-    request = httpx2.Request("POST", "https://api.anthropic.example")
+def status_error(
+    kind: type[anthropic.APIStatusError], status: int, body: object = None
+) -> Exception:
+    return kind("failed", response=httpx2.Response(status, request=REQUEST), body=body)
 
-    assert failure(status_error(anthropic.RateLimitError, 429)) == "rate_limited"
-    assert failure(status_error(anthropic.InternalServerError, 529)) == "server_error"
-    assert failure(status_error(anthropic.BadRequestError, 400)) == "error"
-    assert failure(anthropic.APITimeoutError(request)) == "timeout"
-    assert failure(RuntimeError("x")) == "error"
+
+def said(kind: str, message: str, **fields: Any) -> dict[str, Any]:
+    """
+    The body the API returns for an error, as its errors page shows it.
+    """
+    return {"type": "error", "error": {"type": kind, "message": message, **fields}}
+
+
+SPEND_CAP = said(
+    "rate_limit_error",
+    "You have reached your API usage limits: your organization has crossed its monthly API usage threshold.",
+    details={"error_code": "enforced_spend_limit_reached"},
+)
+
+
+@pytest.mark.parametrize(
+    ("error", "outcome"),
+    [
+        (status_error(anthropic.RateLimitError, 429), "rate_limited"),
+        (status_error(anthropic.RateLimitError, 429, SPEND_CAP), "spend_limit"),
+        (status_error(anthropic.InternalServerError, 529), "server_error"),
+        (
+            status_error(
+                anthropic.BadRequestError,
+                400,
+                said(
+                    "invalid_request_error",
+                    "You have reached your specified workspace API usage limits. You will regain access on 2026-12-01.",
+                ),
+            ),
+            "spend_limit",
+        ),
+        (
+            status_error(
+                anthropic.BadRequestError,
+                400,
+                said(
+                    "invalid_request_error",
+                    "You have reached your specified API usage limits. You will regain access on 2026-12-01.",
+                ),
+            ),
+            "spend_limit",
+        ),
+        (
+            status_error(
+                anthropic.BadRequestError,
+                400,
+                said(
+                    "invalid_request_error",
+                    "temperature: Extra inputs are not permitted",
+                ),
+            ),
+            "invalid_request",
+        ),
+        (status_error(anthropic.BadRequestError, 400), "invalid_request"),
+        (
+            status_error(
+                anthropic.APIStatusError, 402, said("billing_error", "Check billing.")
+            ),
+            "spend_limit",
+        ),
+        (status_error(anthropic.AuthenticationError, 401), "key_rejected"),
+        (status_error(anthropic.PermissionDeniedError, 403), "key_rejected"),
+        (status_error(anthropic.NotFoundError, 404), "model_not_found"),
+        (status_error(anthropic.RequestTooLargeError, 413), "error"),
+        (anthropic.APITimeoutError(REQUEST), "timeout"),
+        (anthropic.APIConnectionError(request=REQUEST), "connection_error"),
+        (RuntimeError("x"), "error"),
+    ],
+)
+def test_a_failure_is_named_by_what_a_person_has_to_do(
+    error: Exception, outcome: str
+) -> None:
+    assert failure(error) == outcome
+
+
+def test_the_tier_caps_429_ends_the_call_at_once() -> None:
+    made, entries = recorded(status_error(anthropic.RateLimitError, 429, SPEND_CAP))
+
+    with pytest.raises(ModelFailedError):
+        asyncio.run(made.route("hola"))
+
+    (entry,) = entries
+    assert entry["outcome"] == "spend_limit"
+    assert entry_fits(entry)
 
 
 def test_usage_and_cost_are_unknown_without_usage() -> None:

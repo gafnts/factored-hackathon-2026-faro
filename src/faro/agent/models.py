@@ -30,7 +30,7 @@ TIMEOUT_S = 30.0
 # USD per million tokens at list price on 2026-09-29: input, output, cache write, cache read.
 PRICES = {MODEL: (1.00, 5.00, 1.25, 0.10)}
 EMIT_OFF = {"emit-messages": False, "emit-tool-calls": False}
-# A 4xx (error) would only be repeated (decision 18).
+# Any other outcome would only be repeated (decision 18).
 RETRIED = (
     "rate_limited",
     "server_error",
@@ -39,6 +39,16 @@ RETRIED = (
     "invalid_output",
 )
 WAITED = ("rate_limited", "server_error")
+# The 400 for a spend limit we set, the organization's or a workspace's, says so at the start of its message.
+SPEND_LIMIT = "You have reached your specified"
+# The 429 for the usage tier's monthly cap, which no wait clears.
+SPEND_CAP = "enforced_spend_limit_reached"
+STATUSES = {
+    401: "key_rejected",
+    402: "spend_limit",
+    403: "key_rejected",
+    404: "model_not_found",
+}
 
 Label = Literal[
     "card_status",
@@ -264,15 +274,30 @@ def anthropic_factory(key: str) -> Factory:
 
 
 def failure(error: Exception) -> str:
-    if isinstance(error, anthropic.RateLimitError):
-        return "rate_limited"
+    """
+    A failure no retry fixes is named by what a person has to do: raise a spend limit, replace the key, fix the
+    model's ID, or fix the request we built (ADR-0004's amendment of 2026-11-03).
+    """
     if isinstance(error, anthropic.APITimeoutError):
         return "timeout"
     if isinstance(error, anthropic.APIConnectionError):
         return "connection_error"
-    if isinstance(error, anthropic.APIStatusError) and error.status_code >= 500:
+    if not isinstance(error, anthropic.APIStatusError):
+        return "error"
+    body = error.body if isinstance(error.body, dict) else {}
+    said = body.get("error")
+    said = said if isinstance(said, dict) else {}
+    status = error.status_code
+    if status == 429:
+        details = said.get("details")
+        capped = isinstance(details, dict) and details.get("error_code") == SPEND_CAP
+        return "spend_limit" if capped else "rate_limited"
+    if status >= 500:
         return "server_error"
-    return "error"
+    if status == 400:
+        limited = str(said.get("message", "")).startswith(SPEND_LIMIT)
+        return "spend_limit" if limited else "invalid_request"
+    return STATUSES.get(status, "error")
 
 
 def provider_wait(error: Exception) -> float | None:
