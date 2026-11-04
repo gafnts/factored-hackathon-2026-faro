@@ -26,6 +26,7 @@ from langchain_core.runnables import Runnable
 
 from faro.agent import models
 from faro.agent.models import RouterOutput
+from faro.evaluation import runs
 from faro.evaluation.router import Candidate, Reading
 from faro.model_key import read_key
 
@@ -173,6 +174,8 @@ class Classifier:
                 return Reading(
                     tuple(routed.requests), routed.has_request, cost_usd=round(spent, 8)
                 )
+            if outcome in runs.STOPPING:
+                raise runs.StoppedError(outcome)
             if outcome not in models.RETRIED or attempt == ATTEMPTS:
                 break
             # As the agent does, an invalid output is asked again at once.

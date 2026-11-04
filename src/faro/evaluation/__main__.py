@@ -189,15 +189,6 @@ def headline(found: dict[str, Any]) -> str:
     )
 
 
-REMEDIES = {
-    "spend_limit": "raise the provider's spend limit, or wait for the month to end",
-    "key_rejected": "replace the model's key (make model-key)",
-    "model_not_found": "check the model's ID",
-    "invalid_request": "fix the request the agent builds",
-    "error": "read the case's record for the failure",
-}
-
-
 def voided(summary: dict[str, Any]) -> bool:
     """
     Says why a run stopped and what a person does before playing the set again, if it did.
@@ -206,7 +197,7 @@ def voided(summary: dict[str, Any]) -> bool:
     if void:
         print(
             f"void: a model call in {void['case_id']} ended {void['outcome']}, so the run stopped after "
-            f"{summary['cases']} cases; {REMEDIES[void['outcome']]}, then play the set again",
+            f"{summary['cases']} cases; {runs.REMEDIES[void['outcome']]}, then play the set again",
             file=sys.stderr,
         )
     return bool(void)
@@ -521,7 +512,7 @@ def main(argv: list[str] | None = None) -> int:
             check_language(
                 args.env_file, args.reports, args.page, args.parallel, args.only
             )
-        except ModelKeyError as error:
+        except (ModelKeyError, runs.StoppedError) as error:
             print(f"Error: {error}", file=sys.stderr)
             return 1
         return 0

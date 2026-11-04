@@ -280,7 +280,7 @@ def test_a_spent_limit_stops_a_run_in_process_and_the_run_is_kept_void(
 def test_a_void_run_says_why_and_what_to_do_and_exits_in_error(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert set(cli.REMEDIES) == set(runs.STOPPING)
+    assert set(runs.REMEDIES) == set(runs.STOPPING)
     summary = {"cases": 2, "void": {"outcome": "spend_limit", "case_id": "case-2"}}
 
     assert cli.voided(summary)

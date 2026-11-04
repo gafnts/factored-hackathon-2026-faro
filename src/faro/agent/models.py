@@ -239,7 +239,9 @@ OUTPUTS: dict[str, type[BaseModel]] = {
 
 
 class ModelFailedError(RuntimeError):
-    pass
+    def __init__(self, node: str, outcome: str) -> None:
+        super().__init__(f"the {node} call ended {outcome}")
+        self.outcome = outcome
 
 
 def prompt(name: str) -> str:
@@ -411,7 +413,7 @@ class Models:
                 else None
             )
             if wait is None:
-                raise ModelFailedError(f"the {node} call ended {outcome}")
+                raise ModelFailedError(node, outcome)
             await self.retries.sleep(wait.seconds)
             attempt += 1
 

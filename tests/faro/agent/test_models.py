@@ -169,9 +169,10 @@ def test_a_route_call_that_fails_is_recorded_and_raised(
 ) -> None:
     made, entries = recorded(respond)
 
-    with pytest.raises(ModelFailedError):
+    with pytest.raises(ModelFailedError) as failed:
         asyncio.run(made.route("hola"))
 
+    assert failed.value.outcome == entries[-1]["outcome"] == outcome
     assert entries[0]["outcome"] == outcome
     assert "output" not in entries[0]
     assert entry_fits(entries[0])

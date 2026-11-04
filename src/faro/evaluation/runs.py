@@ -39,10 +39,32 @@ MODELS = ("scripted", "baseline")
 # on a run measures the provider's account, not the agent (ADR-0004's amendment of 2026-11-03). 1.10.0's Runtime, which
 # the held-out play runs again, records every such failure as error.
 STOPPING = (*EVERY_TURN, "error")
+# What a person does before playing again.
+REMEDIES = {
+    "spend_limit": "raise the provider's spend limit, or wait for the month to end",
+    "key_rejected": "replace the model's key (make model-key)",
+    "model_not_found": "check the model's ID",
+    "invalid_request": "fix the request the agent builds",
+    "error": "read the case's record for the failure",
+}
 
 
 class PlayError(ValueError):
     pass
+
+
+class StoppedError(RuntimeError):
+    """
+    A check that reads the model, such as the language check or the router comparison, met a call that stops it, so
+    it keeps nothing.
+    """
+
+    def __init__(self, outcome: str) -> None:
+        super().__init__(
+            f"a model call ended {outcome}, so the check stopped and kept nothing; "
+            f"{REMEDIES[outcome]}, then run it again"
+        )
+        self.outcome = outcome
 
 
 INDEX_PAGE = Path("docs/evaluation/runs.md")
