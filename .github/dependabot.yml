@@ -56,6 +56,8 @@ updates:
       python-runtime:
         patterns:
           - ag-ui-*
+          - anthropic
+          - aws-opentelemetry-distro
           - bedrock-agentcore
           - boto3*
           - fastapi
@@ -63,6 +65,7 @@ updates:
           - jsonschema
           - langchain*
           - langgraph*
+          - opentelemetry-*
           - rfc3339-validator
         update-types: [minor, patch]
       python-tooling:

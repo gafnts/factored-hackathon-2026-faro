@@ -645,7 +645,7 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into
 
 | PR | What it moves | How to take it |
 |---|---|---|
-| Python runtime | The `agent` and `tools` groups: LangGraph, LangChain, FastAPI, AgentCore, boto3 | It ships: merge on green checks, and the next promotion deploys it |
+| Python runtime | The `agent` and `tools` groups: LangGraph, LangChain, the Anthropic SDK, FastAPI, AgentCore, OpenTelemetry, boto3 | It ships: merge on green checks, and the next promotion deploys it |
 | Python tooling | Every other Python package | Merge on green checks |
 | Web app | The web app's `dependencies` | It ships: merge on green checks, then try the site after the promotion |
 | Web tooling | Its `devDependencies` | Merge on green checks |
