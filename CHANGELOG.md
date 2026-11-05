@@ -15,10 +15,10 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - A model call that fails for a reason no retry fixes is named in the execution record by what a person has to do (`spend_limit`, `key_rejected`, `model_not_found`, `invalid_request`), where every 4xx but a 429 was `error`, and a model's refusal is `refused`, read before its output. Neither the usage tier's spend cap, a 429 sent with no wait, nor a refusal is tried again ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-03, [#174]).
 - An evaluation run stops at the first model call that fails for a reason no retry fixes, and is kept as void with the cause and what to do before playing again; `make eval-report` and `make eval-compare` refuse it. The language check and the router comparison stop at the same failures and keep nothing ([#174]).
 - The Anthropic SDK is held below 2 until no call sends a temperature, since its 2.x sends an API version that refuses one on every model ([#174]).
-- The Anthropic SDK 1.17.0, from 1.9.0. Since 1.14 it traces its own calls whenever the process has a tracer, with the attributes our own span for each call already carries, so `tokens-by-turn` would count each call and its tokens twice; it also sends the trace's context to the API. The Runtime turns both off. The API version it sends is unchanged.
-- The agent's other Python dependencies: AgentCore 1.25.1, langchain-anthropic 1.7.7, LangGraph 1.2.18 and boto3 1.43.120. The Runtime and the tools Lambda redeploy; the pre-token Lambda doesn't. `boto3[crt]` now requires 1.43.120, the version locked.
-- The test and build tools: pytest 9.2.0, ruff 0.17.3, moto 5.2.5, boto3-stubs 1.43.120 and `uv-build` 0.13.6 or later. The web app's assistant-ui 0.15.32 and its AG-UI adapter 0.1.1 (fixes only), and typescript-eslint 8.72.1 in its tooling; mise-action 5.2.4 in CI.
-- Dependabot groups the Anthropic SDK and OpenTelemetry with the runtime's updates, and gives the four dependencies it reads no version for (`boto3[crt]`, `boto3-stubs`, `moto` and `uv-build`) a group of their own. Each of those came alone before, so this round had five Python PRs open, Dependabot's limit, and the `boto3-stubs` update never opened. A test keeps both groups in step with `pyproject.toml`.
+- The Anthropic SDK 1.17.0, from 1.9.0. Since 1.14 it traces its own calls whenever the process has a tracer, with the attributes our own span for each call already carries, so `tokens-by-turn` would count each call and its tokens twice; it also sends the trace's context to the API. The Runtime turns both off. The API version it sends is unchanged ([#183]).
+- The agent's other Python dependencies: AgentCore 1.25.1, langchain-anthropic 1.7.7, LangGraph 1.2.18 and boto3 1.43.120. The Runtime and the five Lambdas built from `tools.zip` redeploy; the pre-token Lambda doesn't. `boto3[crt]` now requires 1.43.120, the version locked ([#183]).
+- The test and build tools: pytest 9.2.0, ruff 0.17.3, moto 5.2.5, boto3-stubs 1.43.120 and `uv-build` 0.13.6 or later. The web app's assistant-ui 0.15.32 and its AG-UI adapter 0.1.1 (fixes only), and typescript-eslint 8.72.1 in its tooling; mise-action 5.2.4 in CI ([#183]).
+- Dependabot groups the Anthropic SDK and OpenTelemetry with the runtime's updates, and gives the four dependencies it reads no version for (`boto3[crt]`, `boto3-stubs`, `moto` and `uv-build`) a group of their own. Each of those came alone before, so this round had five Python PRs open, Dependabot's limit, and the `boto3-stubs` update never opened. A test keeps both groups in step with `pyproject.toml` ([#183]).
 
 ## [1.10.0] - 2026-11-03 (Promotion 16)
 
@@ -223,6 +223,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#165]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/165
 [#168]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/168
 [#174]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/174
+[#183]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/183
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
