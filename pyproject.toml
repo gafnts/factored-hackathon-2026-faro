@@ -41,7 +41,7 @@ agent = [
   "ag-ui-langgraph>=0.0.45",
   "ag-ui-protocol>=1",
   # 2.x sends API version 2026-10-21, which refuses a temperature on every model, and no CI job calls the model.
-  "anthropic>=1.9,<2",
+  "anthropic>=1.17,<2",
   "aws-opentelemetry-distro>=0.22",
   "bedrock-agentcore>=1.25",
   "fastapi>=0.162",

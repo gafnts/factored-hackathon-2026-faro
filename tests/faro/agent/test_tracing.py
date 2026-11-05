@@ -1,10 +1,11 @@
 """
 The Runtime's spans hold no text: the exporter passes only the listed attributes, and no event, link attribute, or
 status description; every trace is kept whatever the request's sampling flag, and the Runtime exports to X-Ray in its
-own Region. Each request's span joins the trace AgentCore's request arrived under, and the record's first entry names
-the trace; each node the turn runs is a span under it, and a control's interrupt is no error; each attempt at a model
-or tool call is a span under its node, as the record keeps it; and each of the checkpointer's writes is a span in the
-request's trace (ADR-0004, Operations, Tracing; OPS-01, SEC-03).
+own Region, with the Anthropic SDK's own spans and trace headers off. Each request's span joins the trace AgentCore's
+request arrived under, and the record's first entry names the trace; each node the turn runs is a span under it, and a
+control's interrupt is no error; each attempt at a model or tool call is a span under its node, as the record keeps
+it; and each of the checkpointer's writes is a span in the request's trace (ADR-0004, Operations, Tracing; OPS-01,
+SEC-03).
 """
 
 import dataclasses
@@ -12,6 +13,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+import anthropic
 import pytest
 from amazon.opentelemetry.distro.exporter.otlp.aws.traces import otlp_aws_span_exporter
 from langgraph.checkpoint.memory import InMemorySaver
@@ -99,18 +101,28 @@ def test_every_trace_is_kept_whatever_the_requests_sampling_flag() -> None:
     assert span.parent is not None and span.parent.span_id == unsampled.span_id
 
 
+@pytest.fixture
+def configured(monkeypatch: pytest.MonkeyPatch) -> list[TracerProvider]:
+    installed: list[TracerProvider] = []
+    monkeypatch.setattr(trace, "set_tracer_provider", installed.append)
+    # Recorded first, so that what configure() writes is undone after the test.
+    for name in tracing.ANTHROPIC_OFF:
+        monkeypatch.setenv(name, "")
+    return installed
+
+
 def test_the_runtime_exports_to_x_ray_in_its_region_and_logs_only_the_names_it_reads(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    configured: list[TracerProvider],
 ) -> None:
     made: list[dict[str, Any]] = []
-    installed: list[TracerProvider] = []
 
     def exporter(**arguments: Any) -> InMemorySpanExporter:
         made.append(arguments)
         return InMemorySpanExporter()
 
     monkeypatch.setattr(otlp_aws_span_exporter, "OTLPAwsSpanExporter", exporter)
-    monkeypatch.setattr(trace, "set_tracer_provider", installed.append)
     monkeypatch.setenv("AWS_REGION", "eu-west-1")
     monkeypatch.setenv("OTEL_SERVICE_NAME", "runtime-under-test")
     with caplog.at_level(logging.INFO, logger="faro.agent.tracing"):
@@ -122,10 +134,25 @@ def test_the_runtime_exports_to_x_ray_in_its_region_and_logs_only_the_names_it_r
             "endpoint": "https://xray.eu-west-1.amazonaws.com/v1/traces",
         }
     ]
-    [provider] = installed
+    [provider] = configured
     assert provider.resource.attributes["service.name"] == "runtime-under-test"
     assert "OTEL_SERVICE_NAME" in caplog.text
     assert "runtime-under-test" not in caplog.text
+
+
+def test_the_runtimes_anthropic_client_makes_no_span_and_sends_no_trace_context(
+    monkeypatch: pytest.MonkeyPatch, configured: list[TracerProvider]
+) -> None:
+    monkeypatch.setattr(
+        otlp_aws_span_exporter,
+        "OTLPAwsSpanExporter",
+        lambda **_: InMemorySpanExporter(),
+    )
+    tracing.configure()
+
+    options = anthropic.Anthropic(api_key="unused").open_telemetry
+    assert options["traces"]["enabled"] is False
+    assert options["propagation"] is False
 
 
 def request_span(spans: list[ReadableSpan]) -> ReadableSpan:
