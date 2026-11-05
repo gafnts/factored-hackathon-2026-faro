@@ -68,6 +68,14 @@ updates:
           - opentelemetry-*
           - rfc3339-validator
         update-types: [minor, patch]
+      # Dependabot reads no locked version for a name with extras (dependabot-core#16431) or for the build
+      # backend, and a group with update-types turns such a dependency away, so these get one without.
+      python-unversioned:
+        patterns:
+          - "boto3[crt]"
+          - "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,sts]"
+          - "moto[dynamodb,s3]"
+          - uv-build
       python-tooling:
         patterns: ["*"]
         update-types: [minor, patch]

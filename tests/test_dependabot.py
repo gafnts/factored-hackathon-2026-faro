@@ -38,3 +38,11 @@ def test_every_dependency_a_zip_ships_updates_with_the_runtime_group() -> None:
     groups = PYPROJECT["dependency-groups"]
     shipped = set().union(*(names(groups[a.group]) for a in ARTIFACTS if a.group))
     assert {name for name in shipped if not runtime(name)} == set()
+
+
+def test_the_unversioned_group_names_what_dependabot_reads_no_version_for() -> None:
+    declared = names(PYPROJECT["project"]["dependencies"])
+    declared |= set().union(*map(names, PYPROJECT["dependency-groups"].values()))
+    extras = {name for name in declared if "[" in name}
+    backend = names(PYPROJECT["build-system"]["requires"])
+    assert set(GROUPS["python-unversioned"]["patterns"]) == extras | backend

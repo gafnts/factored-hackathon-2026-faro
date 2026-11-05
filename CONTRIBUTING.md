@@ -646,12 +646,13 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into
 | PR | What it moves | How to take it |
 |---|---|---|
 | Python runtime | The `agent` and `tools` groups: LangGraph, LangChain, the Anthropic SDK, FastAPI, AgentCore, OpenTelemetry, boto3 | It ships: merge on green checks, and the next promotion deploys it |
+| Python, unversioned | `boto3[crt]`, `boto3-stubs`, `moto` and the build backend, `uv-build`: Dependabot reads no locked version for a name with extras or for the build backend, so it can't tell their minors from their majors | Merge on green checks; read a major's notes first |
 | Python tooling | Every other Python package | Merge on green checks |
 | Web app | The web app's `dependencies` | It ships: merge on green checks, then try the site after the promotion |
 | Web tooling | Its `devDependencies` | Merge on green checks |
 | CI | GitHub Actions and the hooks, in one PR | Merge on green checks |
 | Terraform | The AWS provider | Read the plan when it's promoted |
-| Python and web majors | Every major version, one PR per ecosystem | Upgrade on purpose from a feature branch, or comment `@dependabot ignore <dependency> major version` |
+| Python and web majors | Every major version but the unversioned group's, one PR per ecosystem | Upgrade on purpose from a feature branch, or comment `@dependabot ignore <dependency> major version` |
 
 DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. The analysis libraries (polars, pyarrow, matplotlib, plotnine, scikit-learn) get no majors: only `src/faro/analysis/` uses them, for the published reports, and a major can change their results. `@types/node` stays on the Node major in `mise.toml`. TypeScript stays on 6: 7 replaces the compiler, and we don't plan to move.
 
