@@ -14,7 +14,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "boto3[crt]>=1.43.120",
+  "boto3[crt]>=1.43.121",
   "duckdb>=1.5.5",
   "jsonschema>=4.26",
   "rfc3339-validator>=0.1.4",
@@ -22,7 +22,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-  "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,sts]>=1.43.120",
+  "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,sts]>=1.43.121",
   "moto[dynamodb,s3]>=5.2.5",
   "mypy>=2.3.1",
   "playwright>=1.63",
