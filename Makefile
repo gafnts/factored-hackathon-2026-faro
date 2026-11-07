@@ -21,7 +21,7 @@ DATASET_BACKEND := -backend-config=backend.tfbackend
 
 .PHONY: help install tflint-init \
 	check advisories lint format type tf-format \
-	test integration browser smoke probe judges smoke-user \
+	test integration browser suites smoke probe judges smoke-user \
 	build web web-dev site upload \
 	bootstrap backend doctor provision teardown \
 	data snapshot personas tiny-export pipeline export contracts analysis \
@@ -93,6 +93,8 @@ integration: _check-profile outputs ## Test ENV's deployed stack (SLOW=1 waits o
 browser: _check-profile outputs ## Play the chat and the console in Chromium against ENV's site
 	uv run playwright install chromium
 	STACK_OUTPUTS=$(OUTPUTS) uv run pytest -m browser -v --tb=short
+
+suites: browser integration ## Run both against ENV, the full check of a promotion that changes the app
 
 # CI sets SMOKE_* from the deploy's outputs and the environment's secret; here they come from ENV's outputs and
 # data/smoke/. One retry, for a fault upstream of us.
@@ -351,6 +353,9 @@ _check-profile:
 	@if [ "$(ENV)" = "local" ] && [ -z "$(AWS_PROFILE)" ]; then \
 		echo "AWS_PROFILE is unset, so this would run as your default profile. Run 'direnv allow',"; \
 		echo "or 'export AWS_PROFILE=banking-agent-local'."; exit 1; fi
+	@if [ "$(ENV)" = "prototype" ] && [ "$(AWS_PROFILE)" = "banking-agent-local" ]; then \
+		echo "banking-agent-local can't reach prototype. Run it with an administrator's profile: AWS_PROFILE=default."; \
+		exit 1; fi
 
 # The backend pointer persists across runs, so `make init ENV=prototype` then `make destroy` would hit
 # prototype's state.

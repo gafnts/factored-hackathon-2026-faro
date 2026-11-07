@@ -373,6 +373,7 @@ make type         # Run mypy and tsc
 make test         # Run pytest and Vitest, each with its coverage floor
 make integration  # Test ENV's deployed stack
 make browser      # Play the chat and the console in Chromium
+make suites       # Both, browser first: a promotion's full check
 make regression   # Play and grade the regression set, as CI does
 make tf-format    # Format the Terraform files
 ```
@@ -397,6 +398,7 @@ make site               # Build the web app, upload it, and clear the cache
 make verify             # Check that the Lambdas and the Runtime run the zips in build/
 make integration        # Test the stack (SLOW=1 waits out a token, 15 min)
 make browser            # Play the chat and the console in Chromium
+make suites             # Both, browser first, as a promotion's full check
 make smoke              # Ask about the smoke user's cards, as the check after a deploy does
 make probe              # Time the Runtime and check what it stores and traces
 make judges             # Manage the judges' users, kept in data/judges/
@@ -506,8 +508,9 @@ A promotion is a release ([ADR-0009](docs/adr/0009-release-checked-deploys.md)):
 1. **Cut the release.** When `develop` is in a state you'd be happy for judges to see, add a line under `Unreleased` for anything merged without one, such as Dependabot's PRs, and run `make cut` on a branch from `develop`. It takes the next minor version, or with `BUMP=patch` the next patch, for a promotion that only fixes the last release; it sets `version` in `pyproject.toml` and `uv.lock` with uv and moves `Unreleased`'s entries under `## [x.y.z] - date (Promotion N)`, leaving `Unreleased` empty. Merge it into `develop` through a PR. `make cut` warns when the last version has no release: its check failed, or `make release` never ran.
 2. **Open the promotion** from `develop` into `main`, titled with the version and naming the base, since new PRs target `develop`: `gh pr create --base main --title v1.6.0`. It's final when it opens. **Restrict merges to main** refuses it unless the release is cut: `Unreleased` empty, the changelog's top version the same as `pyproject.toml`'s, and that version not yet tagged. CI builds the zips and the site without credentials, plans `prototype` from them, and posts a sticky **Terraform Plan · `prototype`** comment for reviewers.
 3. **Merge** with **Create a merge commit**: a squash or rebase puts commits on `main` that `develop` never gets, and the next promotion then carries the whole history again. The deploy run builds again, applies, uploads the site, checks that each Lambda and the Runtime run the build's zips (`make verify`), and then signs the smoke user in and asks about its cards (`make smoke`). The deployment links the site's URL, the one the submission gives (SUB-02). A red run gets no release, and nothing rolls back: the fix ships as a patch release, through `develop` like any change.
-4. **Name the release.** Once the deploy run for `main`'s head has passed, its check included, run `make release` (`DRY=1` previews it). It tags that commit `vx.y.z` and makes the GitHub release, whose notes are the version's section and the build's SHA-256, so anyone can check out the tag, build, and compare. It refuses unless the run passed and the heading, `pyproject.toml`, and the tag agree. No workflow holds a token that can write to the repository, so this step is ours.
-5. **Fast-forward `develop` to `main`.** The merge commit is the only commit `main` has that `develop` lacks, so after this step any commit on `main` and not on `develop` reached `main` some other way:
+4. **Run the suites, for a promotion that changes the app.** Once the deploy run has passed, run both suites against `prototype`: `AWS_PROFILE=default make suites ENV=prototype`, about 16 minutes and a quarter of a dollar in model calls. They're the full check the deploy's smoke test stands in for ([ADR-0009](docs/adr/0009-release-checked-deploys.md)), and they run as the stack's role for them. A failure stops the release like a red run: the fix ships as a patch.
+5. **Name the release.** Once the deploy run for `main`'s head has passed, its check included, run `make release` (`DRY=1` previews it). It tags that commit `vx.y.z` and makes the GitHub release, whose notes are the version's section and the build's SHA-256, so anyone can check out the tag, build, and compare. It refuses unless the run passed and the heading, `pyproject.toml`, and the tag agree. No workflow holds a token that can write to the repository, so this step is ours.
+6. **Fast-forward `develop` to `main`.** The merge commit is the only commit `main` has that `develop` lacks, so after this step any commit on `main` and not on `develop` reached `main` some other way:
 
    ```bash
    git fetch && git switch develop && git merge --ff-only origin/main && git push
