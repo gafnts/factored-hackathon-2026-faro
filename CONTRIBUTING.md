@@ -426,7 +426,7 @@ A subscription outlives applies, and `make destroy` removes it with the topic.
 
 Each turn leaves a trace in CloudWatch: the Runtime's spans for the turn, each node, each model and tool call, and each checkpoint write, under AgentCore's span for the request ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), Tracing). They live in the account's `aws/spans`, both environments' together, for 30 days. In CloudWatch Logs Insights, the saved queries under `banking-agent-<env>/` read a turn's latency, its time by node, and its tokens and cost. CloudWatch's GenAI observability page reads the same spans, but the latency it shows is AgentCore's span's, which ends when the stream starts.
 
-A span holds no text: its attributes come from the list in [`src/faro/agent/tracing.py`](src/faro/agent/tracing.py), and the exporter drops any other, so a new attribute goes on that list. `make probe` fails if a span of its turns holds a message or a reply. Never turn on a Runtime's application logs in the console: they record each request before the entrypoint masks it.
+A span holds no text: its attributes come from the list in [`src/faro/agent/tracing.py`](src/faro/agent/tracing.py), and the exporter drops any other, so a new attribute goes on that list. A stored span also holds five attributes X-Ray adds after the exporter (`aws.local.service`, `aws.local.environment`, `PlatformType`, `aws.genai.span_kind`, and `aws.genai.token_count_total`), names and a count of tokens. `make probe` fails if a span of its turns, these attributes included, holds a message or a reply. Never turn on a Runtime's application logs in the console: they record each request before the entrypoint masks it.
 
 #### Spend limits
 
