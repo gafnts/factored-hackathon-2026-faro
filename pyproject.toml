@@ -81,9 +81,6 @@ required-version = ">=0.13"
 python-preference = "system"
 default-groups = [ "agent", "dev", "eda", "pipeline", "tools" ]
 exclude-newer = "1 week"
-# ADOT 0.21.0 pins opentelemetry-api 1.44.0 (GHSA-xcq7-p3pf-p88h, in the Runtime's parsing of a tracestate header);
-# 0.22.0 is the first release without it. Remove once it's a week old, on 2026-11-06.
-exclude-newer-package = { aws-opentelemetry-distro = "2026-10-31T00:00:00Z" }
 
 [tool.ruff]
 src = [ "src" ]

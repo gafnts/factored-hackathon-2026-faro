@@ -19,6 +19,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - The agent's other Python dependencies: AgentCore 1.25.1, langchain-anthropic 1.7.7, LangGraph 1.2.18 and boto3 1.43.121. The Runtime and the five Lambdas built from `tools.zip` redeploy; the pre-token Lambda doesn't. `boto3[crt]` now requires 1.43.121, the version locked ([#183], [#188]).
 - The test and build tools: pytest 9.2.0, ruff 0.17.3, mypy 2.4.1, moto 5.2.5, boto3-stubs 1.43.121 and `uv-build` 0.13.6 or later. The web app's assistant-ui 0.15.32 and its AG-UI adapter 0.1.1 (fixes only), and typescript-eslint 8.72.1 in its tooling; mise-action 5.2.4 in CI; and Terraform's AWS provider 6.71.0, which plans no change of its own ([#183], [#188]).
 - Dependabot groups the Anthropic SDK and OpenTelemetry with the runtime's updates, and gives the four dependencies it reads no version for (`boto3[crt]`, `boto3-stubs`, `moto` and `uv-build`) a group of their own. Each of those came alone before, so this round had five Python PRs open, Dependabot's limit, and the `boto3-stubs` update never opened. A test keeps both groups in step with `pyproject.toml` ([#183]).
+- ADOT waits a week for a new release like every other dependency, since 0.22.0 is now a week old; its exception ended on 2026-11-06. The version locked and the zips don't change ([#190]).
 
 ## [1.10.0] - 2026-11-03 (Promotion 16)
 
@@ -225,6 +226,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#174]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/174
 [#183]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/183
 [#188]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/188
+[#190]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/190
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
