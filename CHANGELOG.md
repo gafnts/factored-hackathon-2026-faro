@@ -6,6 +6,8 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+## [1.11.0] - 2026-11-07 (Promotion 17)
+
 ### Added
 
 - An alarm, `model-failing`, for a model call that fails for a cause that fails every turn until someone acts: a spend limit reached, a rejected key, a model ID the API doesn't know, or a request it refuses. It counts every source, since visitors and the evaluation share the model's workspace ([#174]).
@@ -172,6 +174,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judged.
 
+[1.11.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.11.0
 [1.10.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.10.0
 [1.9.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.9.0
 [1.8.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.8.0
