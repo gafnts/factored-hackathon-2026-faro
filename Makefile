@@ -1,7 +1,8 @@
 .DEFAULT_GOAL := help
 
 ENV ?= local
-TF      := terraform -chdir=infra
+# A working directory per environment, so a target for one never runs through the other's backend.
+TF      := TF_DATA_DIR=.terraform/$(ENV) terraform -chdir=infra
 VARS    := -var-file=envs/$(ENV).tfvars
 BACKEND := -backend-config=envs/$(ENV).backend.tfbackend
 PLAN    := build/$(ENV).tfplan
@@ -354,12 +355,12 @@ _check-profile:
 # The backend pointer persists across runs, so `make init ENV=prototype` then `make destroy` would hit
 # prototype's state.
 _check-backend:
-	@if [ ! -f infra/.terraform/terraform.tfstate ]; then \
-		echo "Terraform not initialized. Run 'make init ENV=$(ENV)' first."; exit 1; fi
-	@current=$$(grep -o '"key": *"[^"]*"' infra/.terraform/terraform.tfstate | head -1 | sed 's/.*"\([^"]*\)"$$/\1/'); \
+	@if [ ! -f infra/.terraform/$(ENV)/terraform.tfstate ]; then \
+		echo "Terraform not initialized for $(ENV). Run 'make init ENV=$(ENV)' first."; exit 1; fi
+	@current=$$(grep -o '"key": *"[^"]*"' infra/.terraform/$(ENV)/terraform.tfstate | head -1 | sed 's/.*"\([^"]*\)"$$/\1/'); \
 	expected="service/$(ENV)/terraform.tfstate"; \
 	if [ "$$current" != "$$expected" ]; then \
 		echo "Backend mismatch: configured key is '$$current' but ENV=$(ENV) expects '$$expected'."; \
-		echo "Run 'make init ENV=<env>' to reconfigure the backend before continuing."; \
+		echo "Run 'make init ENV=$(ENV)' to reconfigure the backend before continuing."; \
 		exit 1; \
 	fi

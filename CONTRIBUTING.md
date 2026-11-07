@@ -84,7 +84,7 @@ The operations that can hurt are hard to trigger by mistake:
 |---|---|
 | Applying or destroying `prototype`, or deploying its site, from a laptop | `make` refuses without `I_KNOW=1`; CI owns `prototype` |
 | A `local` target running as your admin profile | `make` refuses the targets that deploy or test `local` while `AWS_PROFILE` is unset, instead of falling back to the default profile |
-| `make destroy` hitting the wrong environment | It requires an explicit `ENV`, and refuses when Terraform is initialized for a different one |
+| `make destroy` hitting the wrong environment | It requires an explicit `ENV`, and each environment keeps its own Terraform working directory (`infra/.terraform/<env>`), which it checks against that environment's backend |
 | Unfinished work reaching the prototype | A workflow fails any PR into `main` that doesn't come from `develop`, or whose release isn't cut |
 | A commit that skipped the gates | `develop`'s ruleset requires `Pre-commit (all stages)`, `Regression set (in process)`, and `Known advisories` on every commit it takes, merged or pushed, and blocks force pushes and deletion; no one bypasses it |
 | A dependency with a known advisory reaching the prototype | `Known advisories` checks both lockfiles on every PR, every push, and every week, and `main` and `develop` require it; an advisory we accept is listed in `osv-scanner.toml` with a reason and an end date at most 90 days away ([ADR-0010](docs/adr/0010-gate-merges-on-advisories.md)) |
@@ -239,7 +239,7 @@ The deploy workflow needs a `prototype` environment, two repository variables, a
    ```
 
    Or add them under **Settings → Secrets and variables → Actions → Variables**.
-3. Give the check after each deploy its customer, once `prototype` is deployed. With Terraform initialized for `prototype` (`AWS_PROFILE=default make init ENV=prototype`, and `make init` afterwards to return to `local`), create the smoke user with admin credentials, then store its password as the environment's secret and its username as the environment's variable:
+3. Give the check after each deploy its customer, once `prototype` is deployed. With Terraform initialized for `prototype` (`AWS_PROFILE=default make init ENV=prototype`, once, in a working directory of its own beside `local`'s), create the smoke user with admin credentials, then store its password as the environment's secret and its username as the environment's variable:
 
    ```bash
    AWS_PROFILE=default make smoke-user ENV=prototype
@@ -536,8 +536,8 @@ Run `make doctor` first; most setup problems show up there.
 |---|---|
 | The AWS CLI or Terraform can't find the `banking-agent-local` profile | `.envrc` is active before the profile exists. Finish [step 3.4](#34-configure-your-local-deploy-profile), or run `direnv deny` until then. |
 | `AWS_PROFILE is unset, so this would run as your default profile` | direnv isn't active in this shell. Run `direnv status` and `direnv allow` in the repository, or `export AWS_PROFILE=banking-agent-local`. |
-| `Backend mismatch: configured key is ...` | Terraform is initialized for another environment. Run `make init ENV=<env>`. |
-| `Terraform not initialized` | Run `make init ENV=<env>`. |
+| `Backend mismatch: configured key is ...` | `infra/.terraform/<env>` was initialized against another backend. Run `make init ENV=<env>`. |
+| `Terraform not initialized for <env>` | Run `make init ENV=<env>`. A checkout initialized before each environment had a working directory of its own needs it once, for `local` too. |
 | Expired credentials | Your sign-in session ended. Run `aws login` again. |
 | `make bootstrap` can't read the OIDC subject prefix | The GitHub CLI isn't signed in, or `origin` isn't a repository you can read. Run `gh auth login`; `make doctor` shows which repository `origin` points at. |
 | Deploy workflow jobs show as skipped | The repository variables from [step 3.5](#35-connect-github) aren't set yet. |
@@ -669,7 +669,7 @@ The backend files (`infra/envs/*.backend.tfbackend`, `infra/iam/backend.tfbacken
 
 Gitignored files worth knowing about:
 
-- `.terraform/`: Terraform plugin cache and local state
+- `.terraform/`: Terraform's working directories, one per environment for the stack (`infra/.terraform/<env>`), with the providers, the modules, and the backend's address
 - `build/`: the zips `make build` writes, the plan `make plan` saves, and the outputs `make outputs` writes for every target that reaches a stack
 - `web/node_modules/`, `web/dist/`, `web/coverage/`: the web app's dependencies, its build, and its coverage report
 - `web/public/config.json`: the configuration `make web-dev` copies from the stack's outputs
