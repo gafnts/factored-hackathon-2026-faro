@@ -29,6 +29,11 @@ output "staff_client_id" {
   value = module.identity.staff_client_id
 }
 
+output "staff_allowlist" {
+  description = "Where the pre-token trigger reads the staff allowlist; make judges, make staff and the suites write it"
+  value       = module.identity.staff_allowlist
+}
+
 output "gateway_url" {
   value = module.gateway.gateway_url
 }

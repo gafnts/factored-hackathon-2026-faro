@@ -50,6 +50,13 @@ data "aws_iam_policy_document" "suites" {
     resources = [local.user_pool]
   }
 
+  # The suites' staff users sign in only once on the allowlist; their code adds and removes its own alone.
+  statement {
+    sid       = "StaffAllowlist"
+    actions   = ["ssm:DeleteParameter", "ssm:PutParameter"]
+    resources = ["arn:aws:ssm:${local.region}:${local.account_id}:parameter${var.staff_allowlist}*"]
+  }
+
   statement {
     sid       = "Overlay"
     actions   = ["dynamodb:DeleteItem", "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query"]

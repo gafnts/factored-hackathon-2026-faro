@@ -138,6 +138,7 @@ module "suites" {
   prefix                   = local.prefix
   permissions_boundary_arn = local.permissions_boundary_arn
   user_pool_id             = module.identity.user_pool_id
+  staff_allowlist          = module.identity.staff_allowlist
   overlay_table            = module.sandbox.overlay
   confirmations_table      = module.sandbox.confirmations
   cases_table              = module.handoff.cases_table

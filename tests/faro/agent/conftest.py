@@ -256,7 +256,7 @@ class Customer:
     sub: str
     origin_jti: str
     customer_id: str
-    groups: tuple[str, ...] = ("customer",)
+    groups: tuple[str, ...] = ("customer", "invited")
     client_id: str = CLIENT_ID
 
     def token(self, **overrides: Any) -> str:

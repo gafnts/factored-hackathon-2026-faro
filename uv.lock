@@ -356,6 +356,9 @@ s3 = [
 secretsmanager = [
     { name = "mypy-boto3-secretsmanager" },
 ]
+ssm = [
+    { name = "mypy-boto3-ssm" },
+]
 sts = [
     { name = "mypy-boto3-sts" },
 ]
@@ -831,7 +834,7 @@ wheels = [
 name = "faro"
 version = "1.11.0"
 source = { editable = "." }
-default-groups = ["agent", "dev", "eda", "pipeline", "tools"]
+default-groups = ["agent", "dev", "eda", "identity", "pipeline", "tools"]
 dependencies = [
     { name = "boto3", extra = ["crt"] },
     { name = "duckdb" },
@@ -859,7 +862,7 @@ agent = [
     { name = "rfc3339-validator" },
 ]
 dev = [
-    { name = "boto3-stubs", extra = ["cognito-idp", "dynamodb", "logs", "s3", "secretsmanager", "sts"] },
+    { name = "boto3-stubs", extra = ["cognito-idp", "dynamodb", "logs", "s3", "secretsmanager", "ssm", "sts"] },
     { name = "moto", extra = ["dynamodb", "s3"] },
     { name = "mypy" },
     { name = "playwright" },
@@ -880,6 +883,9 @@ eda = [
     { name = "polars" },
     { name = "pyarrow" },
     { name = "scikit-learn" },
+]
+identity = [
+    { name = "boto3" },
 ]
 pipeline = [
     { name = "dbt-core" },
@@ -921,7 +927,7 @@ agent = [
     { name = "rfc3339-validator", specifier = ">=0.1.4" },
 ]
 dev = [
-    { name = "boto3-stubs", extras = ["cognito-idp", "dynamodb", "logs", "s3", "secretsmanager", "sts"], specifier = ">=1.43.121" },
+    { name = "boto3-stubs", extras = ["cognito-idp", "dynamodb", "logs", "s3", "secretsmanager", "ssm", "sts"], specifier = ">=1.43.121" },
     { name = "moto", extras = ["dynamodb", "s3"], specifier = ">=5.2.5" },
     { name = "mypy", specifier = ">=2.4.1" },
     { name = "playwright", specifier = ">=1.63" },
@@ -943,6 +949,7 @@ eda = [
     { name = "pyarrow", specifier = ">=25.0.1" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
 ]
+identity = [{ name = "boto3", specifier = ">=1.43.121" }]
 pipeline = [
     { name = "dbt-core", specifier = ">=1.12.5" },
     { name = "dbt-duckdb", specifier = ">=1.11" },
@@ -1753,6 +1760,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/c6/e0/3b9f954dcce063407224e6601ed5af2d684185387b0572901c5f984fc8f6/mypy_boto3_secretsmanager-1.43.0.tar.gz", hash = "sha256:265ee2fddf9d3e42ae39685625fb7861a539110d8e324372847c0e1cbd666b20", size = 19967, upload-time = "2026-04-29T23:05:45.139Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4f/93/ae939d61eed240972553395b5e31f780825685b99f0ab4ebe5767430f103/mypy_boto3_secretsmanager-1.43.0-py3-none-any.whl", hash = "sha256:38415cdecb73dd20e485707a7cf456f6dde54ff4b155e7fb255eb001eb47d5bc", size = 27335, upload-time = "2026-04-29T23:05:43.152Z" },
+]
+
+[[package]]
+name = "mypy-boto3-ssm"
+version = "1.43.104"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c8/b4/007e9acec1ccc7b0f9148f3ef2f6fe27ef183c5c7ab08b6b5a7d465d13d5/mypy_boto3_ssm-1.43.104.tar.gz", hash = "sha256:1b1e18762e6b9ceaf735e8165a6dbd789b10d94f56f704ef010d0c8bbef059cc", size = 98088, upload-time = "2026-09-28T20:24:22.046Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/9a/c7d22d1b1450c6b790cad4fcb2e98defd383527d381b4084cd7ee6b2deaa/mypy_boto3_ssm-1.43.104-py3-none-any.whl", hash = "sha256:4434c02de5101a0bc2fbd9bdedbcc98f5836dc432fce38ebfc8c88adb63dbb90", size = 99719, upload-time = "2026-09-28T20:24:19.363Z" },
 ]
 
 [[package]]

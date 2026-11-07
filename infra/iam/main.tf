@@ -134,16 +134,18 @@ data "aws_iam_policy_document" "deny_other_envs" {
     }
   }
 
-  # S3 object actions ignore bucket tags, and CloudFront functions can't be tagged.
+  # S3 object actions ignore bucket tags, CloudFront functions can't be tagged, and the staff allowlist's entries are
+  # written untagged by scripts.
   statement {
     sid     = "DenyOtherEnvsByName"
     effect  = "Deny"
-    actions = ["s3:*", "cloudfront:*"]
+    actions = ["s3:*", "cloudfront:*", "ssm:*"]
     resources = flatten([
       for env in setsubtract(local.envs, [each.key]) : [
         "arn:aws:s3:::${var.project_name}-${env}-*",
         "arn:aws:s3:::${var.project_name}-${env}-*/*",
         "arn:aws:cloudfront::${local.account_id}:function/${var.project_name}-${env}-*",
+        "arn:aws:ssm:*:${local.account_id}:parameter/${var.project_name}-${env}/*",
       ]
     ])
   }

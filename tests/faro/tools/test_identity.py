@@ -31,7 +31,7 @@ def token(**overrides: Any) -> str:
         "sub": SUB,
         "origin_jti": SIGN_IN,
         "customer_id": CUSTOMER,
-        "cognito:groups": ["customer"],
+        "cognito:groups": ["customer", "invited"],
         "token_use": "access",
         "client_id": CLIENT,
         **overrides,
@@ -62,9 +62,25 @@ def verifier(cognito: Cognito) -> CognitoVerifier:
 
 def test_a_live_customer_token_names_its_caller() -> None:
     assert verifier(Cognito()).verify(token()) == Caller(SUB, CUSTOMER, SIGN_IN, "demo")
-    assert caller_of(
-        token(**{"cognito:groups": ["customer", "evaluation"]}), USER, CLIENT
-    ) == Caller(SUB, CUSTOMER, SIGN_IN, "evaluation")
+
+
+@pytest.mark.parametrize(
+    ("groups", "source"),
+    [
+        (["customer", "invited"], "demo"),
+        (["customer", "evaluation"], "evaluation"),
+        (["customer", "invited", "evaluation"], "evaluation"),
+        (["customer", "visitor"], "visitor"),
+        # A label the guest entry failed to add still makes a visitor (ADR-0007, The guest entry).
+        (["customer"], "visitor"),
+    ],
+)
+def test_a_cases_source_follows_the_tokens_labels_and_fails_closed(
+    groups: list[str], source: str
+) -> None:
+    assert caller_of(token(**{"cognito:groups": groups}), USER, CLIENT) == Caller(
+        SUB, CUSTOMER, SIGN_IN, source
+    )
 
 
 @pytest.mark.parametrize(

@@ -506,3 +506,18 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
     assert all(
         named[n]["AlarmActions"] == [outputs["alarms"]["topic_arn"]] for n in expected
     )
+    # The alarms on the agent's own failures read invited users' and visitors' turns (ADR-0004's amendment of
+    # 2026-11-07).
+    live = {
+        "action-not-verified": "BlocksNotVerified",
+        "tool-errors": "ToolCallsFailed",
+        "reply-fallback-share": "ReplyChecks",
+    }
+    for name, metric in live.items():
+        read = {
+            d["Value"]
+            for m in named[name]["Metrics"]
+            if m.get("MetricStat", {}).get("Metric", {}).get("MetricName") == metric
+            for d in m["MetricStat"]["Metric"]["Dimensions"]
+        }
+        assert read == {"demo", "visitor"}, name

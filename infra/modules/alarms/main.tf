@@ -3,7 +3,10 @@
 
 locals {
   namespace = var.prefix
-  sources   = ["demo", "evaluation", "unknown"]
+  sources   = ["demo", "visitor", "evaluation", "unknown"]
+  # Invited users' and visitors' turns, which the alarms on the agent's own failures read (ADR-0004's amendment of
+  # 2026-11-07).
+  live = ["demo", "visitor"]
   filters = {
     RuntimeErrors     = "{ ($.metric = \"turn_closed\" && $.outcome = \"error\") || $.metric = \"request_failed\" }"
     BlocksNotVerified = "{ $.metric = \"block_not_verified\" && $.planned IS FALSE }"
@@ -108,34 +111,68 @@ resource "aws_cloudwatch_metric_alarm" "model_failing" {
 
 resource "aws_cloudwatch_metric_alarm" "action_not_verified" {
   alarm_name          = "${var.prefix}-action-not-verified"
-  alarm_description   = "A block that POL-37's reads didn't show, in demo traffic."
-  namespace           = local.namespace
-  metric_name         = "BlocksNotVerified"
-  dimensions          = { source = "demo" }
-  statistic           = "Sum"
-  period              = 300
+  alarm_description   = "A block that POL-37's reads didn't show, in invited users' or visitors' traffic."
   comparison_operator = "GreaterThanOrEqualToThreshold"
   threshold           = 1
   evaluation_periods  = 1
+  datapoints_to_alarm = 1
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  metric_query {
+    id          = "unverified"
+    expression  = join(" + ", [for source in local.live : "FILL(${source}, 0)"])
+    label       = "Blocks not verified"
+    return_data = true
+  }
+
+  dynamic "metric_query" {
+    for_each = toset(local.live)
+    content {
+      id = metric_query.value
+      metric {
+        metric_name = "BlocksNotVerified"
+        namespace   = local.namespace
+        period      = 300
+        stat        = "Sum"
+        dimensions  = { source = metric_query.value }
+      }
+    }
+  }
 
   depends_on = [aws_cloudwatch_log_metric_filter.this]
 }
 
 resource "aws_cloudwatch_metric_alarm" "tool_errors" {
   alarm_name          = "${var.prefix}-tool-errors"
-  alarm_description   = "A tool call that failed after its last attempt, in demo traffic."
-  namespace           = local.namespace
-  metric_name         = "ToolCallsFailed"
-  dimensions          = { source = "demo" }
-  statistic           = "Sum"
-  period              = 300
+  alarm_description   = "A tool call that failed after its last attempt, in invited users' or visitors' traffic."
   comparison_operator = "GreaterThanOrEqualToThreshold"
   threshold           = 1
   evaluation_periods  = 1
+  datapoints_to_alarm = 1
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  metric_query {
+    id          = "failed"
+    expression  = join(" + ", [for source in local.live : "FILL(${source}, 0)"])
+    label       = "Tool calls failed"
+    return_data = true
+  }
+
+  dynamic "metric_query" {
+    for_each = toset(local.live)
+    content {
+      id = metric_query.value
+      metric {
+        metric_name = "ToolCallsFailed"
+        namespace   = local.namespace
+        period      = 300
+        stat        = "Sum"
+        dimensions  = { source = metric_query.value }
+      }
+    }
+  }
 
   depends_on = [aws_cloudwatch_log_metric_filter.this]
 }
@@ -143,7 +180,7 @@ resource "aws_cloudwatch_metric_alarm" "tool_errors" {
 # A share over an hour that holds too few checks to read says nothing, so it counts as zero.
 resource "aws_cloudwatch_metric_alarm" "fallback_share" {
   alarm_name          = "${var.prefix}-reply-fallback-share"
-  alarm_description   = "The share of the model's replies that fell back to fixed text, in demo traffic (decision 8)."
+  alarm_description   = "The share of the model's replies that fell back to fixed text, in invited users' and visitors' traffic (decision 8)."
   comparison_operator = "GreaterThanOrEqualToThreshold"
   threshold           = var.fallback_share
   evaluation_periods  = 1
@@ -153,30 +190,46 @@ resource "aws_cloudwatch_metric_alarm" "fallback_share" {
 
   metric_query {
     id          = "share"
-    expression  = "IF(FILL(checked, 0) >= ${var.fewest_checks}, FILL(fell, 0) / checked, 0)"
+    expression  = "IF(checked >= ${var.fewest_checks}, fell / checked, 0)"
     label       = "Fallback share"
     return_data = true
   }
 
   metric_query {
-    id = "checked"
-    metric {
-      metric_name = "ReplyChecks"
-      namespace   = local.namespace
-      period      = 3600
-      stat        = "Sum"
-      dimensions  = { source = "demo" }
-    }
+    id         = "checked"
+    expression = join(" + ", [for source in local.live : "FILL(checked_${source}, 0)"])
   }
 
   metric_query {
-    id = "fell"
-    metric {
-      metric_name = "RepliesFellBack"
-      namespace   = local.namespace
-      period      = 3600
-      stat        = "Sum"
-      dimensions  = { source = "demo" }
+    id         = "fell"
+    expression = join(" + ", [for source in local.live : "FILL(fell_${source}, 0)"])
+  }
+
+  dynamic "metric_query" {
+    for_each = toset(local.live)
+    content {
+      id = "checked_${metric_query.value}"
+      metric {
+        metric_name = "ReplyChecks"
+        namespace   = local.namespace
+        period      = 3600
+        stat        = "Sum"
+        dimensions  = { source = metric_query.value }
+      }
+    }
+  }
+
+  dynamic "metric_query" {
+    for_each = toset(local.live)
+    content {
+      id = "fell_${metric_query.value}"
+      metric {
+        metric_name = "RepliesFellBack"
+        namespace   = local.namespace
+        period      = 3600
+        stat        = "Sum"
+        dimensions  = { source = metric_query.value }
+      }
     }
   }
 

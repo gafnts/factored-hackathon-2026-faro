@@ -1,7 +1,8 @@
 """
 The judges' users (ADR-0007, Judges' access): one script creates the personas' and the staff's users in the deployed
 stack's pool, and resets, signs out, disables, or enables one. The personas come from data/personas/ (make personas),
-each signed in by its customer's synthetic name with custom:customer_id and the customer group; each password satisfies
+each signed in by its customer's synthetic name with custom:customer_id, the customer group and the invited label, and
+the staff on the staff allowlist, without which the staff client issues them no token; each password satisfies
 every class the pool requires and goes with the account's briefing to data/judges/<env>.json with owner-only
 permissions as each user is made, from which the private note, data/judges/<env>.md, is rendered whole on every
 change, ready to send.
@@ -22,6 +23,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 from faro import personas
+from faro.allowlist import Allowlist, AllowlistError
 from faro.dataset.lock import read_lock
 
 STAFF = {
@@ -124,28 +126,49 @@ def write_note(path: Path, site: str | None, users: dict[str, Any]) -> None:
     path.chmod(0o600)
 
 
+def place(
+    cognito: Any,
+    pool: str,
+    username: str,
+    groups: Sequence[str],
+    allowlist: Allowlist | None,
+) -> None:
+    """
+    Adding a user to a group it's in already changes nothing, so a kept user made before the labels gets them too.
+    """
+    for group in groups:
+        cognito.admin_add_user_to_group(
+            UserPoolId=pool, Username=username, GroupName=group
+        )
+    if allowlist:
+        allowlist.allow(username)
+
+
 def create(
     cognito: Any,
     pool: str,
     chosen: dict[str, personas.Persona],
     recorded: Collection[str] = (),
     record: Callable[[str, dict[str, str]], None] | None = None,
+    allowlist: Allowlist | None = None,
 ) -> dict[str, dict[str, str]]:
     """
     Returns each username this run made with its password and briefing, handing each to record as soon as it's
     made, so a run that stops partway loses no password and runs again from where it stopped. A user already in the
     pool is kept when recorded holds it, and refuses the run otherwise: its password is lost, so it's deleted and
-    made again, and a rotation goes through reset.
+    made again, and a rotation goes through reset. A kept user gets its groups again and each staff user goes on the
+    allowlist, kept ones included, so users made before the labels and the allowlist get them too.
     """
-    wanted: list[tuple[str, str, str | None, str]] = [
-        (p.username, "customer", p.customer_id, p.briefing)
+    wanted: list[tuple[str, tuple[str, ...], str | None, str]] = [
+        (p.username, ("customer", "invited"), p.customer_id, p.briefing)
         for _, p in sorted(chosen.items())
     ] + [
-        (username, group, None, briefing)
+        (username, (group,), None, briefing)
         for username, (group, briefing) in STAFF.items()
     ]
     created: dict[str, dict[str, str]] = {}
-    for username, group, customer_id, briefing in wanted:
+    for username, groups, customer_id, briefing in wanted:
+        staff = customer_id is None
         attributes = (
             [{"Name": "custom:customer_id", "Value": customer_id}]
             if customer_id
@@ -161,18 +184,17 @@ def create(
         except ClientError as error:
             if error.response["Error"]["Code"] != "UsernameExistsException":
                 raise
-            if username in recorded:
-                continue
-            raise JudgesError(
-                f"{username} is in the pool without saved credentials; delete it, then create again"
-            ) from error
+            if username not in recorded:
+                raise JudgesError(
+                    f"{username} is in the pool without saved credentials; delete it, then create again"
+                ) from error
+            place(cognito, pool, username, groups, allowlist if staff else None)
+            continue
         word = password()
         cognito.admin_set_user_password(
             UserPoolId=pool, Username=username, Password=word, Permanent=True
         )
-        cognito.admin_add_user_to_group(
-            UserPoolId=pool, Username=username, GroupName=group
-        )
+        place(cognito, pool, username, groups, allowlist if staff else None)
         fields = {"password": word, "briefing": briefing}
         if record:
             record(username, fields)
@@ -225,11 +247,16 @@ def refresh_note(args: argparse.Namespace, outputs: dict[str, Any], env: str) ->
     return rendered
 
 
-def run(args: argparse.Namespace, cognito: Any) -> str:
+def run(args: argparse.Namespace, cognito: Any, ssm: Any) -> str:
     outputs = stack_outputs(args.stack)
     pool = outputs["user_pool_id"]
     env = environment(args.stack)
     path = credentials_path(args.data_dir, env)
+    if "staff_allowlist" not in outputs:
+        raise JudgesError(
+            f"{args.stack} has no staff_allowlist; apply, then make outputs"
+        )
+    allowlist = Allowlist(cognito, ssm, pool, outputs["staff_allowlist"])
     if args.command == "create":
         snapshot = read_lock(Path("dataset.lock")).snapshot_id
         chosen = personas.read(personas.path_for(args.data_dir, snapshot), snapshot)
@@ -242,6 +269,7 @@ def run(args: argparse.Namespace, cognito: Any) -> str:
                 lambda username, fields: write_credentials(
                     path, env, {username: fields}
                 ),
+                allowlist,
             )
         finally:
             note = refresh_note(args, outputs, env)
@@ -254,6 +282,7 @@ def run(args: argparse.Namespace, cognito: Any) -> str:
         note = refresh_note(args, outputs, env)
         return f"reset the user; credentials in {path}; note in {note}"
     if args.command == "delete":
+        allowlist.disallow(args.user)
         delete(cognito, pool, args.user)
         drop_credentials(path, args.user)
         refresh_note(args, outputs, env)
@@ -267,8 +296,14 @@ def run(args: argparse.Namespace, cognito: Any) -> str:
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse(argv)
     try:
-        print(run(args, boto3.client("cognito-idp", region_name="us-east-1")))
-    except (JudgesError, personas.PersonaError, ClientError) as error:
+        print(
+            run(
+                args,
+                boto3.client("cognito-idp", region_name="us-east-1"),
+                boto3.client("ssm", region_name="us-east-1"),
+            )
+        )
+    except (JudgesError, AllowlistError, personas.PersonaError, ClientError) as error:
         raise SystemExit(str(error)) from error
 
 

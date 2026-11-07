@@ -58,7 +58,7 @@ RUNTIME = Artifact(
 )
 ARTIFACTS = (
     RUNTIME,
-    Artifact("pre_token", ("identity",)),
+    Artifact("pre_token", ("identity",), group="identity"),
     Artifact("tools", ("console", "contracts", "policy", "tools"), group="tools"),
 )
 # Only the tests read the contracts' examples.

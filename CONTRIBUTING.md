@@ -95,7 +95,7 @@ The operations that can hurt are hard to trigger by mistake:
 | A release tag that moves | Releases are immutable once published, and a ruleset lets only administrators create, move, or delete a `v*` tag |
 | CI changing its own permissions | `infra/iam/` is applied by hand with admin credentials; the deploy roles are denied IAM changes to themselves, and every role they create must carry a permissions boundary that excludes IAM |
 | One environment touching another's state | Each role is denied every other prefix in the state bucket (including the IAM and dataset roots'), and any change to the bucket itself; the roles they create are denied the bucket entirely |
-| One environment writing another's site or zips | Each deploy role, and every role it creates, is denied the other environment's buckets and CloudFront functions by name, since S3 object writes ignore tags and functions can't carry them |
+| One environment writing another's site, zips, or staff allowlist | Each deploy role, and every role it creates, is denied the other environment's buckets, CloudFront functions, and Parameter Store entries by name, since S3 object writes ignore tags, functions can't carry them, and the allowlist's entries are written untagged |
 | Deleting shared state | `iam-destroy` and `dataset-destroy` need `I_KNOW=1`, `dataset-destroy` stops while the data bucket holds anything, and `make teardown` makes you type the bucket name |
 | Secrets in commits | `gitleaks` and `detect-private-key` run on every commit, and `gitleaks-history` rescans the full history on every push and in CI |
 | The model key reaching state, plans, or CI | The IAM root creates each environment's secret empty, `make model-key` stores the key from your `.env`, and the stack only looks the secret up by name ([step 3.7](#37-verify-and-deploy-local)) |
@@ -247,7 +247,7 @@ The deploy workflow needs a `prototype` environment, two repository variables, a
    gh variable set SMOKE_USERNAME --env prototype --body "$(jq -r .username data/smoke/prototype.json)"
    ```
 
-   Without them, the check is skipped with a notice, and `make release` refuses the deploy. To rotate the password, run the three commands again.
+   Without them, the check is skipped with a notice, and `make release` refuses the deploy. To rotate the password, run the three commands again. The smoke user is in the `evaluation` group, so its turns are counted apart from visitors' and the check runs while the chat is paused.
 
 The deploy runs on merges to `main` that touch the stack's code (`infra/`, `src/`, `web/`) or the changelog, which every promotion changes. A build job without credentials makes the zips and the site; the apply job deploys them, uploads the site once Terraform has applied, and checks that AWS runs the build's zips; and the check job asks about the smoke user's cards. The deployment then links the site's URL from the `prototype` environment, on your fork's own CloudFront domain. Store `prototype`'s model key before its first deploy ([step 3.7](#37-verify-and-deploy-local)), or the apply fails. If `main` already has the infrastructure when you set the variables, trigger the first deploy by hand: **Actions → Deploy · Prototype → Run workflow** on `main`, or `gh workflow run deploy-prototype.yml --ref main`.
 
@@ -403,11 +403,15 @@ make smoke              # Ask about the smoke user's cards, as the check after a
 make probe              # Time the Runtime and check what it stores and traces
 make judges             # Manage the judges' users, kept in data/judges/
 make smoke-user         # Create or reset the check's customer, kept in data/smoke/
+make staff WHO=<user>   # Put a staff user on the staff allowlist (WHAT=remove takes one off)
+make label-users        # Once per environment: label the users made before the labels (DRY=1)
 make web-dev            # Serve the web app on localhost:5173
 make destroy ENV=local  # Tear down your local resources
 ```
 
 `ENV` defaults to `local`. Terraform runs with the credentials the AWS CLI resolves for `AWS_PROFILE` (`aws configure export-credentials`), since the pinned AWS provider can't assume the deploy role on top of an `aws login` sign-in.
+
+Every customer carries a label beside the `customer` group, which sets the source its turns and cases are recorded under: `invited` for the customers `make judges` makes, `evaluation` for the harness's test users and the smoke user, and `visitor` for guests. A customer with no label counts as a visitor, whose cases never reach the human agent's queue. Staff sign in only once they're on the staff allowlist, which `make judges` and `make staff` write ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), access controls).
 
 #### The build
 
@@ -552,6 +556,7 @@ Run `make doctor` first; most setup problems show up there.
 | `make data FROM=<folder>` says files weren't copied | Those files in your copy differ from the snapshot, by corruption or from another publication; the rest was copied. Replace them in your copy and run it again. |
 | `make plan` stops at `aws configure export-credentials` | Your sign-in session ended, or `AWS_PROFILE` names a profile that doesn't exist. Run `aws login`, or finish [step 3.4](#34-configure-your-local-deploy-profile). |
 | `make apply` says there is no saved plan | Run `make plan` first; `make apply` applies only what it saved. |
+| A staff user's sign-in fails with `Sign-in refused.` | The user isn't on the staff allowlist, or is in `visitor` too. Run `make staff WHO=<user> ENV=<env>`. Users made before the allowlist existed go on it once with `make label-users ENV=<env>`. |
 | `make plan` fails reading `gold/<snapshot>/<version>/manifest.json` | The export that `tools_data_export` names isn't in the data bucket. Run `make pipeline` and `make export` ([step 3.6](#36-copy-the-dataset-snapshot-and-the-tools-data)) and check that it printed the same version. |
 | `make export` says gold was built from other code | The code that shapes the export changed since the last `make pipeline`. Run `make pipeline` again. |
 | `make iam-apply` fails creating `aws/spans` with `ResourceAlreadyExistsException` | Transaction Search was turned on before the IAM root held it, in the console or by the AgentCore CLI. Import the group once with `AWS_PROFILE=default terraform -chdir=infra/iam import -var-file=iam.tfvars aws_cloudwatch_log_group.spans aws/spans`, then `make iam-apply` again. |
@@ -601,9 +606,10 @@ Run `make help` for every target.
 | `DATA_DIR` | `data` | The pipeline and evaluation targets, for a worktree whose `data/` is empty |
 | `SLOW` | Unset | Set to `1` to add the tests that wait out a token to `make integration` |
 | `WHAT`, `JUDGE` | `create`, every judge | `make judges`: `create`, `reset`, `sign-out`, `disable`, `enable`, or `delete` |
+| `WHO`, `WHAT` | None, `add` | `make staff`: the staff user, and `add` or `remove` |
 | `BUILT` | Unset | Set to `1` to make `make plan` plan the zips already in `build/` instead of building them |
 | `BUMP` | `minor` | `make cut`: `minor` for a promotion, `patch` for one that only fixes the last release |
-| `DRY` | Unset | Set to `1` to make `make release` print what it would tag and the notes, and create nothing |
+| `DRY` | Unset | Set to `1` to make `make release` print what it would tag and the notes, and create nothing; `make label-users` prints what it would change |
 | `SMOKE_*` | Read from `build/<env>.outputs.json` and `data/smoke/<env>.json` | `make smoke`; CI sets them from the deploy's outputs and the environment's secret and variable |
 
 The evaluation targets ([Evaluate](#evaluate)) take their own:
