@@ -6,6 +6,15 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Added
+
+- `make suites`, which runs the browser suite and then the integration suite against an environment: the full check of a promotion that changes the app, now a step of CONTRIBUTING's promotion. With `ENV=prototype`, the Makefile refuses the `local` profile, which can't reach it ([#193]).
+- A role of the suites' own in each environment, which they assume from the stack's outputs with credentials refreshed as they go, and which grants what their tests do and nothing more; before, they ran as whoever started them, `local`'s deploy role or an administrator on `prototype`, and a run on exported keys failed once they expired. The tests that read role policies run as the caller, since the boundary every role of the stack carries excludes IAM ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-07, [#193]).
+
+### Changed
+
+- Each environment keeps its own Terraform working directory, `infra/.terraform/<env>`, so `ENV=prototype` targets that only read, such as `make outputs`, run without re-initializing `local`'s. A checkout initialized before needs `make init` once ([#193]).
+
 ## [1.11.0] - 2026-11-07 (Promotion 17)
 
 ### Added
@@ -230,6 +239,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#183]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/183
 [#188]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/188
 [#190]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/190
+[#193]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/193
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
