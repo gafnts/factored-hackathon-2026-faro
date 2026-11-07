@@ -8,6 +8,8 @@ locals {
   pre_token_name = "${var.prefix}-pre-token"
   # Built rather than referenced: the trigger's environment holds the clients' IDs, and the clients need the pool.
   pre_token_arn = "arn:aws:lambda:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:function:${local.pre_token_name}"
+  # One Parameter Store entry per staff user, named by its sub; scripts write them, so Terraform holds the path alone.
+  staff_allowlist = "/${var.prefix}/staff/"
 
   # The first three are roles; the rest label a customer's source and grant nothing (ADR-0004's amendment of 2026-11-07).
   groups = {
@@ -114,10 +116,16 @@ data "aws_iam_policy_document" "pre_token" {
     actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
     resources = ["${aws_cloudwatch_log_group.pre_token.arn}:*"]
   }
+
+  statement {
+    sid       = "StaffAllowlist"
+    actions   = ["ssm:GetParameter"]
+    resources = ["arn:aws:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter${local.staff_allowlist}*"]
+  }
 }
 
 resource "aws_iam_role_policy" "pre_token" {
-  name   = "logs"
+  name   = "trigger"
   role   = aws_iam_role.pre_token.id
   policy = data.aws_iam_policy_document.pre_token.json
 }
@@ -138,6 +146,7 @@ resource "aws_lambda_function" "pre_token" {
     variables = {
       CUSTOMER_CLIENT_ID = aws_cognito_user_pool_client.this["customers"].id
       STAFF_CLIENT_ID    = aws_cognito_user_pool_client.this["staff"].id
+      STAFF_ALLOWLIST    = local.staff_allowlist
     }
   }
 

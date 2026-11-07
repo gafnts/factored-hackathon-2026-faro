@@ -118,13 +118,16 @@ def test_the_runtime_gets_its_groups_wheels_its_share_and_an_entry_script(
     assert not [name for name in names if name.startswith("faro/contracts/examples/")]
 
 
-def test_a_lambda_without_a_group_carries_its_share_alone(tmp_path: Path) -> None:
+def test_the_trigger_gets_its_groups_sdk_and_its_share_alone(tmp_path: Path) -> None:
+    # It reads the staff allowlist, so it carries the SDK its group locks rather than the runtime's own.
     recorder = Recorder()
     pre_token = next(a for a in build.ARTIFACTS if a.name == "pre_token")
 
     target = build.build_artifact(pre_token, tmp_path, COMMIT, recorder)
 
-    assert recorder.commands == []
+    export, install = recorder.commands
+    assert export[export.index("--only-group") + 1] == "identity"
+    assert install[:3] == ["uv", "pip", "install"]
     with zipfile.ZipFile(target) as archive:
         assert archive.namelist() == [
             "faro/__init__.py",

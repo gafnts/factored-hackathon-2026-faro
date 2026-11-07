@@ -73,7 +73,7 @@ updates:
       python-unversioned:
         patterns:
           - "boto3[crt]"
-          - "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,sts]"
+          - "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,ssm,sts]"
           - "moto[dynamodb,s3]"
           - uv-build
       python-tooling:
