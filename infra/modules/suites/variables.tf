@@ -12,6 +12,11 @@ variable "user_pool_id" {
   type        = string
 }
 
+variable "staff_allowlist" {
+  description = "The staff allowlist's path in Parameter Store, where the suites put their own staff users"
+  type        = string
+}
+
 variable "overlay_table" {
   description = "The sandbox's overlay, where the suites write fixtures and fault plans"
   type = object({

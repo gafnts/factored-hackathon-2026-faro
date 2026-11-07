@@ -144,6 +144,10 @@ def test_a_staff_token_carries_no_customer_id(
         ("ai_team", "customer"),
         ("no_group", "customer"),
         ("no_group", "staff"),
+        ("visitor", "staff"),
+        # The staff client's own rules: the allowlist, and no visitor (ADR-0004's amendment of 2026-11-07).
+        ("unlisted_staff", "staff"),
+        ("visitor_staff", "staff"),
     ],
 )
 def test_a_user_gets_no_token_from_the_other_sides_client(
