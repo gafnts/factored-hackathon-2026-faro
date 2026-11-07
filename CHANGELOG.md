@@ -10,10 +10,13 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 - `make suites`, which runs the browser suite and then the integration suite against an environment: the full check of a promotion that changes the app, now a step of CONTRIBUTING's promotion. With `ENV=prototype`, the Makefile refuses the `local` profile, which can't reach it ([#193]).
 - A role of the suites' own in each environment, which they assume from the stack's outputs with credentials refreshed as they go, and which grants what their tests do and nothing more; before, they ran as whoever started them, `local`'s deploy role or an administrator on `prototype`, and a run on exported keys failed once they expired. The tests that read role policies run as the caller, since the boundary every role of the stack carries excludes IAM ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-07, [#193]).
+- A staff allowlist: the staff client issues a token only to a user with an entry in Parameter Store, named by the user's `sub`, and refuses anyone in `visitor`, so a guest entry gone wrong can't make staff. `make judges` and the suites put the staff they make on it, and `make staff` puts one on or takes one off. The pre-token trigger's zip now carries the SDK its group locks, to read it. Parameter Store joins S3 and CloudFront in the deny by name between environments, an IAM root change ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-07, [#195]).
+- `make label-users`, run once per environment for the users made before the labels: it labels each customer with none `invited`, moves the smoke user to `evaluation`, and puts every staff user on the allowlist. It refuses a pool that holds a visitor ([#195]).
 
 ### Changed
 
 - Each environment keeps its own Terraform working directory, `infra/.terraform/<env>`, so `ENV=prototype` targets that only read, such as `make outputs`, run without re-initializing `local`'s. A checkout initialized before needs `make init` once ([#193]).
+- Customers carry a label that sets their source, and a missing one fails closed: `invited` customers are recorded as `demo`, and any customer with no label as a `visitor`, where it was `demo`, so a visitor's case never reaches the human agent's queue. `make judges` labels its customers `invited`, the smoke user moves to `evaluation`, and the alarms on the agent's own failures read visitors' turns beside invited users' ([ADR-0007](docs/adr/0007-role-gated-web-app.md)'s amendment of 2026-11-07, [#195]).
 - A major release is a new agent, measured on a held-out set no earlier agent was measured on and released with its report, where it was a change in who can use the prototype. A changed agent waits on `develop` until it's measured, and a fix that can't wait is promoted as an exception, with notes that say the agent isn't measured yet ([ADR-0009](docs/adr/0009-release-checked-deploys.md)'s amendment of 2026-11-07, [#194]).
 - The second study opens Faro before its play, on the agent the submission's report measured, and plays the iterated agent on `local` before its release, as its Record says; its registered text and hash are unchanged ([held-out-2.md](docs/evaluation/studies/held-out-2.md), [#194]).
 
@@ -243,6 +246,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#190]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/190
 [#193]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/193
 [#194]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/194
+[#195]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/195
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
