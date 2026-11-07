@@ -377,7 +377,7 @@ make regression   # Play and grade the regression set, as CI does
 make tf-format    # Format the Terraform files
 ```
 
-`make integration` and `make browser` need credentials, the stored model key, and `make personas`, so `make test` leaves their tests out; `make browser` also installs Chromium. `make regression` needs no credentials.
+`make integration` and `make browser` need credentials, the stored model key, and `make personas`, so `make test` leaves their tests out; `make browser` also installs Chromium. They run as the stack's role for the suites, which your credentials assume and refresh as the run goes, so a run outlasts your session's own keys; only the tests that read role policies run as you, since the boundary every role of the stack carries excludes IAM ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), access controls). Against a stack that predates the role, they run as you and say so. `make regression` needs no credentials.
 
 CI's quality gates are `make check`, `make regression`, and `make advisories`, so a green local run of the three predicts a green PR. What each suite checks, and which test stops each attack we expect, is in [tests/README.md](tests/README.md). In an emergency, skip a single hook with `SKIP=<hook-id> git commit`; CI still runs it.
 

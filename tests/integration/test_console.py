@@ -21,7 +21,7 @@ from faro.console.queue import PROJECTED
 from faro.contracts import validator
 from faro.tools.provenance import KEYS
 
-from .conftest import SignIn, User, claims
+from .conftest import SignIn, User, caller_iam, claims
 from .test_block import Conversation
 from .test_handoff import Dispute, dispute, filed_case, forged, reported
 from .test_stack import dynamodb_grants
@@ -290,7 +290,7 @@ def test_each_console_lambda_reads_what_its_route_needs_and_writes_nothing(
         cases: {"dynamodb:GetItem"},
         records: {"dynamodb:Query"},
     }
-    iam: Any = boto3.client("iam")
+    iam: Any = caller_iam()
     for role, resource, named, partitions in (
         ("console-queue", "by_queue", PROJECTED, "demo#*"),
         ("console-case", records, CALL, None),

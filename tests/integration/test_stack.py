@@ -22,7 +22,7 @@ from mypy_boto3_cognito_idp import CognitoIdentityProviderClient
 
 from faro.contracts import validator
 
-from .conftest import SignIn, User, claims
+from .conftest import SignIn, User, caller_iam, claims
 
 pytestmark = pytest.mark.integration
 
@@ -509,7 +509,7 @@ def test_the_tools_data_carries_its_environment_tag(outputs: dict[str, Any]) -> 
 def test_the_read_tools_may_name_every_attribute_but_is_fraud(
     outputs: dict[str, Any],
 ) -> None:
-    iam: Any = boto3.client("iam")
+    iam: Any = caller_iam()
     document = iam.get_role_policy(
         RoleName=f"{outputs['prefix']}-reads", PolicyName="reads"
     )["PolicyDocument"]
@@ -533,7 +533,7 @@ def dynamodb_grants(role: str, policy: str) -> dict[str, set[str]]:
     """
     Each DynamoDB table the role's inline policy names, with the actions it allows there.
     """
-    iam: Any = boto3.client("iam")
+    iam: Any = caller_iam()
     document = iam.get_role_policy(RoleName=role, PolicyName=policy)["PolicyDocument"]
     grants: dict[str, set[str]] = {}
     for statement in document["Statement"]:
@@ -551,7 +551,7 @@ def dynamodb_grants(role: str, policy: str) -> dict[str, set[str]]:
 
 
 def overlay_statements(role: str, policy: str, overlay: str) -> list[dict[str, Any]]:
-    iam: Any = boto3.client("iam")
+    iam: Any = caller_iam()
     document = iam.get_role_policy(RoleName=role, PolicyName=policy)["PolicyDocument"]
     return [
         s
@@ -608,7 +608,7 @@ def test_only_the_block_writes_the_sandbox_and_it_never_reads_is_fraud(
                     condition["StringEquals"]["dynamodb:Select"]
                     == "SPECIFIC_ATTRIBUTES"
                 )
-    iam: Any = boto3.client("iam")
+    iam: Any = caller_iam()
     document = iam.get_role_policy(RoleName=f"{prefix}-block", PolicyName="block")
     statement = next(
         s
@@ -657,7 +657,7 @@ def test_the_suites_role_grants_what_the_tests_do_and_reads_no_row_of_the_tools_
         },
         f"{tools_data}/import/*": {"dynamodb:DescribeImport"},
     }
-    iam: Any = boto3.client("iam")
+    iam: Any = caller_iam()
     document = iam.get_role_policy(RoleName=role, PolicyName="suites")["PolicyDocument"]
     reading = {
         s["Sid"]: s
