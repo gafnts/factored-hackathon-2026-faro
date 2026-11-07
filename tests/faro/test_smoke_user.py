@@ -21,20 +21,25 @@ class Cognito(FakeCognito):
         self.calls.append(("attributes", kwargs))
 
 
-def test_a_new_smoke_user_is_the_personas_customer_signed_in_by_no_ones_name() -> None:
+def test_a_new_smoke_user_is_the_personas_customer_signed_in_by_no_ones_name_in_evaluation() -> (
+    None
+):
     cognito = Cognito()
 
     password = smoke_user.ready(cognito, "pool", CUSTOMER)
 
     kinds = [kind for kind, _ in cognito.calls]
-    assert kinds == ["create", "group", "password", "sign_out"]
+    assert kinds == ["create", "group", "group", "password", "sign_out"]
     created = cognito.calls[0][1]
     assert created["Username"] == "smoke-check"
     assert created["UserAttributes"] == [
         {"Name": "custom:customer_id", "Value": CUSTOMER}
     ]
-    assert cognito.calls[1][1]["GroupName"] == "customer"
-    assert cognito.calls[2][1]["Password"] == password
+    assert [c["GroupName"] for kind, c in cognito.calls if kind == "group"] == [
+        "customer",
+        "evaluation",
+    ]
+    assert cognito.calls[3][1]["Password"] == password
 
 
 def test_a_standing_smoke_user_is_reset_to_the_personas_current_customer() -> None:
@@ -43,11 +48,11 @@ def test_a_standing_smoke_user_is_reset_to_the_personas_current_customer() -> No
     password = smoke_user.ready(cognito, "pool", CUSTOMER)
 
     kinds = [kind for kind, _ in cognito.calls]
-    assert kinds == ["attributes", "group", "password", "sign_out"]
+    assert kinds == ["attributes", "group", "group", "password", "sign_out"]
     assert cognito.calls[0][1]["UserAttributes"] == [
         {"Name": "custom:customer_id", "Value": CUSTOMER}
     ]
-    assert cognito.calls[2][1]["Password"] == password
+    assert cognito.calls[3][1]["Password"] == password
 
 
 def test_the_credentials_go_to_an_owner_only_file_and_never_to_the_output(

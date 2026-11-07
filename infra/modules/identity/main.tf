@@ -9,11 +9,14 @@ locals {
   # Built rather than referenced: the trigger's environment holds the clients' IDs, and the clients need the pool.
   pre_token_arn = "arn:aws:lambda:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:function:${local.pre_token_name}"
 
+  # The first three are roles; the rest label a customer's source and grant nothing (ADR-0004's amendment of 2026-11-07).
   groups = {
     customer    = "Customers: the chat, through the customers' client"
     human_agent = "Human agents: the handoff console, through the staff client"
     ai_team     = "The AI team: the evaluation report, through the staff client"
     evaluation  = "The evaluation's test users, who are customers too"
+    invited     = "Customers we invited, recorded as demo; any other customer counts as a visitor"
+    visitor     = "The guest entry's users, whom the staff client refuses"
   }
 }
 

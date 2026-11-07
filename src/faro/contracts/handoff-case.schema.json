@@ -70,8 +70,8 @@
       "not": { "pattern": "[0-9](?:[ -]?[0-9]){12,}" }
     },
     "source": {
-      "description": "From the groups of the token that filed the case, so an evaluation's cases never reach a human agent's queue (EVL-13; ADR-0007's amendment of 2026-09-30).",
-      "enum": ["demo", "evaluation"]
+      "description": "From the groups of the token that filed the case, so neither an evaluation's cases nor a visitor's reach a human agent's queue, which reads demo alone (EVL-13; ADR-0007's amendments of 2026-09-30 and 2026-11-07).",
+      "enum": ["demo", "visitor", "evaluation"]
     },
     "expires_at": {
       "description": "Epoch seconds, for DynamoDB's time to live.",
@@ -152,7 +152,7 @@
         "queue_key": {
           "description": "The source, the queue, and the status, joined by #: the by_queue index's key, which a draft doesn't carry.",
           "type": "string",
-          "pattern": "^(demo|evaluation)#(customer_service|dispute_intake)#(filed|claimed|resolved)$"
+          "pattern": "^(demo|visitor|evaluation)#(customer_service|dispute_intake)#(filed|claimed|resolved)$"
         },
         "queue_order": {
           "description": "The priority's rank, 1 for urgent and 0 for normal, and the filing time, joined by #: the by_queue index's sort key, so a descending query lists urgent cases first and each priority's newest first (ADR-0007's amendment of 2026-09-30).",

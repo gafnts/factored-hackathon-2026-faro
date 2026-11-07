@@ -247,7 +247,7 @@ The deploy workflow needs a `prototype` environment, two repository variables, a
    gh variable set SMOKE_USERNAME --env prototype --body "$(jq -r .username data/smoke/prototype.json)"
    ```
 
-   Without them, the check is skipped with a notice, and `make release` refuses the deploy. To rotate the password, run the three commands again.
+   Without them, the check is skipped with a notice, and `make release` refuses the deploy. To rotate the password, run the three commands again. The smoke user is in the `evaluation` group, so its turns are counted apart from visitors' and the check runs while the chat is paused.
 
 The deploy runs on merges to `main` that touch the stack's code (`infra/`, `src/`, `web/`) or the changelog, which every promotion changes. A build job without credentials makes the zips and the site; the apply job deploys them, uploads the site once Terraform has applied, and checks that AWS runs the build's zips; and the check job asks about the smoke user's cards. The deployment then links the site's URL from the `prototype` environment, on your fork's own CloudFront domain. Store `prototype`'s model key before its first deploy ([step 3.7](#37-verify-and-deploy-local)), or the apply fails. If `main` already has the infrastructure when you set the variables, trigger the first deploy by hand: **Actions → Deploy · Prototype → Run workflow** on `main`, or `gh workflow run deploy-prototype.yml --ref main`.
 

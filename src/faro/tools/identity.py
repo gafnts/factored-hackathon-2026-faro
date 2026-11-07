@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 CUSTOMER_ID = re.compile(r"^CLI-[A-Z0-9]{12}$")
 CUSTOMER_GROUP = "customer"
 EVALUATION_GROUP = "evaluation"
+INVITED_GROUP = "invited"
 # What GetUser answers a token it won't honor with; anything else is a fault, not a refusal.
 REFUSED = (
     "NotAuthorizedException",
@@ -87,8 +88,17 @@ def caller_of(token: str, user: dict[str, Any], client_id: str) -> Caller | None
         or customer_id != attributes.get("custom:customer_id")
     ):
         return None
-    source = "evaluation" if EVALUATION_GROUP in groups else "demo"
-    return Caller(sub, customer_id, origin_jti, source)
+    return Caller(sub, customer_id, origin_jti, source_of(groups))
+
+
+def source_of(groups: list[Any]) -> str:
+    """
+    The Runtime's rule, kept here since the tools' zip carries none of the agent: a customer we invited is labeled so,
+    and any other counts as a visitor (ADR-0007, The guest entry).
+    """
+    if EVALUATION_GROUP in groups:
+        return "evaluation"
+    return "demo" if INVITED_GROUP in groups else "visitor"
 
 
 class CognitoVerifier:
