@@ -106,19 +106,26 @@ def records(outputs: dict[str, Any], sign_in: str) -> list[dict[str, Any]]:
     return [plain(item) for item in items]
 
 
-def latest_checkpoint(outputs: dict[str, Any], key: str) -> str | None:
-    saver = DynamoDBSaver(
-        table_name=outputs["runtime_tables"]["checkpoints"], region_name="us-east-1"
+def saver(outputs: dict[str, Any]) -> DynamoDBSaver:
+    # It makes a session of its own unless handed one, so it would run as the caller, not as the suites' role.
+    return DynamoDBSaver(
+        table_name=outputs["runtime_tables"]["checkpoints"],
+        region_name="us-east-1",
+        session=boto3.DEFAULT_SESSION,
     )
-    found = saver.get_tuple({"configurable": {"thread_id": key, "checkpoint_ns": ""}})
+
+
+def latest_checkpoint(outputs: dict[str, Any], key: str) -> str | None:
+    found = saver(outputs).get_tuple(
+        {"configurable": {"thread_id": key, "checkpoint_ns": ""}}
+    )
     return None if found is None else str(found.checkpoint["id"])
 
 
 def checkpoint_messages(outputs: dict[str, Any], key: str) -> list[Any]:
-    saver = DynamoDBSaver(
-        table_name=outputs["runtime_tables"]["checkpoints"], region_name="us-east-1"
+    found = saver(outputs).get_tuple(
+        {"configurable": {"thread_id": key, "checkpoint_ns": ""}}
     )
-    found = saver.get_tuple({"configurable": {"thread_id": key, "checkpoint_ns": ""}})
     assert found is not None
     messages: list[Any] = found.checkpoint["channel_values"]["messages"]
     return messages

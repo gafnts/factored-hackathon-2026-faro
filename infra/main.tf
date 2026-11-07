@@ -132,6 +132,25 @@ module "evaluation" {
   file_handoff_function    = module.handoff.function
 }
 
+module "suites" {
+  source = "./modules/suites"
+
+  prefix                   = local.prefix
+  permissions_boundary_arn = local.permissions_boundary_arn
+  user_pool_id             = module.identity.user_pool_id
+  overlay_table            = module.sandbox.overlay
+  confirmations_table      = module.sandbox.confirmations
+  cases_table              = module.handoff.cases_table
+  runtime_tables           = module.runtime.tables
+  file_handoff_function    = module.handoff.function
+  runtime_log_group        = module.runtime.runtime_log_group
+  console_api_id           = module.console.api_id
+  tools_data_table = {
+    name = module.tools_data.table_name
+    arn  = module.tools_data.table_arn
+  }
+}
+
 module "site" {
   source = "./modules/site"
 

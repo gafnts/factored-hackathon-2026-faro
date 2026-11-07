@@ -3,11 +3,13 @@ Throwaway users in the deployed stack's pool, signed in through IAM and deleted 
 Terraform outputs that make integration writes; passwords and tokens stay in memory and are never printed. The two
 customers are the journeys' personas (make personas), so their cards are in the tools' data; their IDs come from
 data/personas/ and are never printed either. The probe (make probe) makes its users the same way. The cases a test
-saves or files are deleted afterwards too, each with its reference.
+saves or files are deleted afterwards too, each with its reference. Every client runs as the stack's role for the suites
+(ADR-0004, Operations, access controls), but the IAM reads, which run as the caller.
 """
 
 import base64
 import contextlib
+import dataclasses
 import json
 import os
 import secrets
@@ -26,9 +28,18 @@ from mypy_boto3_cognito_idp.type_defs import AttributeTypeTypeDef
 
 from faro import personas
 from faro.dataset.lock import read_lock
+from faro.evaluation import deployed
 from faro.tools.cases import REFERENCE, plain
 
 ROOT = Path(__file__).resolve().parents[2]
+
+# What the suites start as: it assumes their role, and reads role policies, which the role can't, since the boundary
+# every role of the stack carries excludes IAM.
+STARTED = boto3.Session(region_name="us-east-1")
+
+
+def caller_iam() -> Any:
+    return STARTED.client("iam")
 
 
 @dataclass(frozen=True)
@@ -56,6 +67,35 @@ def outputs() -> dict[str, Any]:
         pytest.skip("no stack outputs; run make integration")
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
     return {name: value["value"] for name, value in raw.items()}
+
+
+@pytest.fixture(scope="session", autouse=True)
+def as_the_suites_role(request: pytest.FixtureRequest) -> Iterator[None]:
+    """
+    boto3's default session, for the run, is the stack's role for the suites, refreshed before it expires; a stack that
+    predates the role leaves it the caller's, and says so. Without outputs, as in a unit run, nothing changes.
+    """
+    path = os.environ.get("STACK_OUTPUTS")
+    if not path or not Path(path).is_file():
+        yield
+        return
+    stack = deployed.read(Path(path))
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    role_arn = raw.get("suites", {}).get("value", {}).get("role_arn")
+    session, running_as = deployed.session(
+        dataclasses.replace(stack, role_arn=role_arn), "suites", STARTED
+    )
+    reporter = request.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter is not None:
+        reporter.write_line(
+            "the suites run as the caller: the stack has no role for them"
+            if running_as == deployed.CALLER
+            else f"the suites run as {running_as.split('/')[-1]}"
+        )
+    previous = boto3.DEFAULT_SESSION
+    boto3.DEFAULT_SESSION = session
+    yield
+    boto3.DEFAULT_SESSION = previous
 
 
 @pytest.fixture(scope="session")
