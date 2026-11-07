@@ -403,11 +403,15 @@ make smoke              # Ask about the smoke user's cards, as the check after a
 make probe              # Time the Runtime and check what it stores and traces
 make judges             # Manage the judges' users, kept in data/judges/
 make smoke-user         # Create or reset the check's customer, kept in data/smoke/
+make staff WHO=<user>   # Put a staff user on the staff allowlist (WHAT=remove takes one off)
+make label-users        # Once per environment: label the users made before the labels (DRY=1)
 make web-dev            # Serve the web app on localhost:5173
 make destroy ENV=local  # Tear down your local resources
 ```
 
 `ENV` defaults to `local`. Terraform runs with the credentials the AWS CLI resolves for `AWS_PROFILE` (`aws configure export-credentials`), since the pinned AWS provider can't assume the deploy role on top of an `aws login` sign-in.
+
+Every customer carries a label beside the `customer` group, which sets the source its turns and cases are recorded under: `invited` for the customers `make judges` makes, `evaluation` for the harness's test users and the smoke user, and `visitor` for guests. A customer with no label counts as a visitor, whose cases never reach the human agent's queue. Staff sign in only once they're on the staff allowlist, which `make judges` and `make staff` write ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), access controls).
 
 #### The build
 
@@ -552,6 +556,7 @@ Run `make doctor` first; most setup problems show up there.
 | `make data FROM=<folder>` says files weren't copied | Those files in your copy differ from the snapshot, by corruption or from another publication; the rest was copied. Replace them in your copy and run it again. |
 | `make plan` stops at `aws configure export-credentials` | Your sign-in session ended, or `AWS_PROFILE` names a profile that doesn't exist. Run `aws login`, or finish [step 3.4](#34-configure-your-local-deploy-profile). |
 | `make apply` says there is no saved plan | Run `make plan` first; `make apply` applies only what it saved. |
+| A staff user's sign-in fails with `Sign-in refused.` | The user isn't on the staff allowlist, or is in `visitor` too. Run `make staff WHO=<user> ENV=<env>`. Users made before the allowlist existed go on it once with `make label-users ENV=<env>`. |
 | `make plan` fails reading `gold/<snapshot>/<version>/manifest.json` | The export that `tools_data_export` names isn't in the data bucket. Run `make pipeline` and `make export` ([step 3.6](#36-copy-the-dataset-snapshot-and-the-tools-data)) and check that it printed the same version. |
 | `make export` says gold was built from other code | The code that shapes the export changed since the last `make pipeline`. Run `make pipeline` again. |
 | `make iam-apply` fails creating `aws/spans` with `ResourceAlreadyExistsException` | Transaction Search was turned on before the IAM root held it, in the console or by the AgentCore CLI. Import the group once with `AWS_PROFILE=default terraform -chdir=infra/iam import -var-file=iam.tfvars aws_cloudwatch_log_group.spans aws/spans`, then `make iam-apply` again. |
@@ -601,9 +606,10 @@ Run `make help` for every target.
 | `DATA_DIR` | `data` | The pipeline and evaluation targets, for a worktree whose `data/` is empty |
 | `SLOW` | Unset | Set to `1` to add the tests that wait out a token to `make integration` |
 | `WHAT`, `JUDGE` | `create`, every judge | `make judges`: `create`, `reset`, `sign-out`, `disable`, `enable`, or `delete` |
+| `WHO`, `WHAT` | None, `add` | `make staff`: the staff user, and `add` or `remove` |
 | `BUILT` | Unset | Set to `1` to make `make plan` plan the zips already in `build/` instead of building them |
 | `BUMP` | `minor` | `make cut`: `minor` for a promotion, `patch` for one that only fixes the last release |
-| `DRY` | Unset | Set to `1` to make `make release` print what it would tag and the notes, and create nothing |
+| `DRY` | Unset | Set to `1` to make `make release` print what it would tag and the notes, and create nothing; `make label-users` prints what it would change |
 | `SMOKE_*` | Read from `build/<env>.outputs.json` and `data/smoke/<env>.json` | `make smoke`; CI sets them from the deploy's outputs and the environment's secret and variable |
 
 The evaluation targets ([Evaluate](#evaluate)) take their own:
