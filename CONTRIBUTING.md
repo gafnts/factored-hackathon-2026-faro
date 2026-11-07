@@ -413,7 +413,7 @@ make destroy ENV=local  # Tear down your local resources
 
 #### Alarms
 
-The four alarms ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), monitoring) notify an SNS topic that `make outputs` writes under `alarms.topic_arn`. Terraform subscribes no address to it, so none reaches the repository: subscribe once per environment, then confirm from the email AWS sends.
+The five alarms ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), monitoring) notify an SNS topic that `make outputs` writes under `alarms.topic_arn`. Terraform subscribes no address to it, so none reaches the repository: subscribe once per environment, then confirm from the email AWS sends.
 
 ```bash
 aws sns subscribe --protocol email --notification-endpoint you@example.com \
@@ -426,7 +426,7 @@ A subscription outlives applies, and `make destroy` removes it with the topic.
 
 Each turn leaves a trace in CloudWatch: the Runtime's spans for the turn, each node, each model and tool call, and each checkpoint write, under AgentCore's span for the request ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), Tracing). They live in the account's `aws/spans`, both environments' together, for 30 days. In CloudWatch Logs Insights, the saved queries under `banking-agent-<env>/` read a turn's latency, its time by node, and its tokens and cost. CloudWatch's GenAI observability page reads the same spans, but the latency it shows is AgentCore's span's, which ends when the stream starts.
 
-A span holds no text: its attributes come from the list in [`src/faro/agent/tracing.py`](src/faro/agent/tracing.py), and the exporter drops any other, so a new attribute goes on that list. `make probe` fails if a span of its turns holds a message or a reply. Never turn on a Runtime's application logs in the console: they record each request before the entrypoint masks it.
+A span holds no text: its attributes come from the list in [`src/faro/agent/tracing.py`](src/faro/agent/tracing.py), and the exporter drops any other, so a new attribute goes on that list. A stored span also holds five attributes X-Ray adds after the exporter (`aws.local.service`, `aws.local.environment`, `PlatformType`, `aws.genai.span_kind`, and `aws.genai.token_count_total`), names and a count of tokens. `make probe` fails if a span of its turns, these attributes included, holds a message or a reply. Never turn on a Runtime's application logs in the console: they record each request before the entrypoint masks it.
 
 #### Spend limits
 
@@ -446,7 +446,7 @@ The model's limit is set in Anthropic's console, since no API sets it for an ind
 1. Under [Workspaces](https://platform.claude.com/settings/workspaces) in the Claude Console, open the project's workspace, and under its **Spend limits** set a monthly limit (ours is 50 USD) and alerts as spending nears it.
 2. On the [Billing](https://platform.claude.com/settings/billing) page, set the organization's limit at or above the workspace's, so it also caps whatever else the organization runs.
 
-Once a limit is reached, the API refuses the model's calls until the next month or until the limit is raised, and the chat answers every message with its fixed text for when it can't help. Visitors and the evaluation draw from the same limit: before a paid run, raise it by the run's estimate, and lower it after.
+Once a limit is reached, the API refuses the model's calls until the next month or until the limit is raised, and the chat answers every message with its fixed text for when it can't help. The execution record names each such call `spend_limit` and the `model-failing` alarm fires, as it does for a rejected key (`key_rejected`), a model ID the API doesn't know (`model_not_found`), and a request it refuses (`invalid_request`). Visitors and the evaluation draw from the same limit: before a paid run, raise it by the run's estimate, and lower it after.
 
 OpenAI's key is the evaluation's alone: `make outside-write` reads it from `.env`, and no stack holds it. Give it a project of its own in OpenAI's platform with a monthly budget, since only that one command spends from it.
 
@@ -495,9 +495,9 @@ make relabel-sample             # Draw 50 messages of a source to relabel blind
 make relabel-agreement          # Score the filled sheet against the labels
 ```
 
-`make eval-run` needs `AWS_PROFILE`, the stack's outputs (`STACK_OUTPUTS`, default `build/<env>.outputs.json`), and the model key stored. It creates one test user per case in the pool's evaluation group and deletes it when the case ends, and keeps each case's evidence under `data/evaluation/runs/` and in the stack's evaluation bucket; `SITUATIONS=`, `LANGUAGES=`, and `LIMIT=` narrow a run, and `PARALLEL=` sets how many cases play at once. To report a run, commit its manifest and summary under `docs/evaluation/runs/` and run `make eval-index`. Where the system and the oracle disagree, add an entry to `docs/evaluation/disagreements.json` and run `make disagreements`: CI's regression job fails on any finding without an open entry.
+`make eval-run` needs `AWS_PROFILE`, the stack's outputs (`STACK_OUTPUTS`, default `build/<env>.outputs.json`), and the model key stored. It creates one test user per case in the pool's evaluation group and deletes it when the case ends, and keeps each case's evidence under `data/evaluation/runs/` and in the stack's evaluation bucket; `SITUATIONS=`, `LANGUAGES=`, and `LIMIT=` narrow a run, and `PARALLEL=` sets how many cases play at once. A model call that fails for a reason no retry fixes (a spend limit, the key, the model's ID, a request the API refuses, or an error with no other name) stops the run: the cases already playing finish, the rest are skipped, and the run is kept as void, with the cause and what to do before playing the set again; `make eval-report` and `make eval-compare` refuse it. `make eval-play` stops the same way. To report a run, commit its manifest and summary under `docs/evaluation/runs/` and run `make eval-index`. Where the system and the oracle disagree, add an entry to `docs/evaluation/disagreements.json` and run `make disagreements`: CI's regression job fails on any finding without an open entry.
 
-`make language-check` and `make router-compare` call the model and cost money: they read `ANTHROPIC_API_KEY` from `.env` (`ENV_FILE=` names another file), and `ESTIMATE=1` prices a router run without making it. `make outside-write` has OpenAI's model write the held-out wording from our guide ([the outside source](docs/evaluation/outside.md)), reading `OPENAI_API_KEY` from `.env`; it costs a few USD, `ESTIMATE=1` prices it, and a second run writes only what the first didn't keep. The source stays out of git until its first set is played, so `make outside-keep` copies it into the data bucket under its hash (`AWS_PROFILE` as for `make snapshot`); to restore it on another machine, copy that prefix back into `data/evaluation/sources/outside/`. No model grades the replies (ADR-0011). The relabel and report targets take their inputs as variables, which `make help` names and [Configuration](#configuration) describes; `make eval-report` takes every input at once or the page loses a section. To rerun what the reports rest on, start at [Reproduce the results](#reproduce-the-results).
+`make language-check` and `make router-compare` call the model and cost money: they read `ANTHROPIC_API_KEY` from `.env` (`ENV_FILE=` names another file), and `ESTIMATE=1` prices a router run without making it. They stop at the same failures as a run, and keep nothing. `make outside-write` has OpenAI's model write the held-out wording from our guide ([the outside source](docs/evaluation/outside.md)), reading `OPENAI_API_KEY` from `.env`; it costs a few USD, `ESTIMATE=1` prices it, and a second run writes only what the first didn't keep. The source stays out of git until its first set is played, so `make outside-keep` copies it into the data bucket under its hash (`AWS_PROFILE` as for `make snapshot`); to restore it on another machine, copy that prefix back into `data/evaluation/sources/outside/`. No model grades the replies (ADR-0011). The relabel and report targets take their inputs as variables, which `make help` names and [Configuration](#configuration) describes; `make eval-report` takes every input at once or the page loses a section. To rerun what the reports rest on, start at [Reproduce the results](#reproduce-the-results).
 
 ### Promote to prototype
 
@@ -645,13 +645,14 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into
 
 | PR | What it moves | How to take it |
 |---|---|---|
-| Python runtime | The `agent` and `tools` groups: LangGraph, LangChain, FastAPI, AgentCore, boto3 | It ships: merge on green checks, and the next promotion deploys it |
+| Python runtime | The `agent` and `tools` groups: LangGraph, LangChain, the Anthropic SDK, FastAPI, AgentCore, OpenTelemetry, boto3 | It ships: merge on green checks, and the next promotion deploys it |
+| Python, unversioned | `boto3[crt]`, `boto3-stubs`, `moto` and the build backend, `uv-build`: Dependabot reads no locked version for a name with extras or for the build backend, so it can't tell their minors from their majors | Merge on green checks; read a major's notes first |
 | Python tooling | Every other Python package | Merge on green checks |
 | Web app | The web app's `dependencies` | It ships: merge on green checks, then try the site after the promotion |
 | Web tooling | Its `devDependencies` | Merge on green checks |
 | CI | GitHub Actions and the hooks, in one PR | Merge on green checks |
 | Terraform | The AWS provider | Read the plan when it's promoted |
-| Python and web majors | Every major version, one PR per ecosystem | Upgrade on purpose from a feature branch, or comment `@dependabot ignore <dependency> major version` |
+| Python and web majors | Every major version but the unversioned group's, one PR per ecosystem | Upgrade on purpose from a feature branch, or comment `@dependabot ignore <dependency> major version` |
 
 DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. The analysis libraries (polars, pyarrow, matplotlib, plotnine, scikit-learn) get no majors: only `src/faro/analysis/` uses them, for the published reports, and a major can change their results. `@types/node` stays on the Node major in `mise.toml`. TypeScript stays on 6: 7 replaces the compiler, and we don't plan to move.
 

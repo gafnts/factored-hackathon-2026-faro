@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "uv_build"
-requires = [ "uv-build>=0.13,<0.14" ]
+requires = [ "uv-build>=0.13.6,<0.14" ]
 
 [project]
 name = "faro"
-version = "1.10.0"
+version = "1.11.0"
 description = "Faro, a card support agent in Spanish and Portuguese, built for the Factored AI & Data Hackathon 2026"
 readme = "README.md"
 license = "MIT"
@@ -14,7 +14,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "boto3[crt]>=1.43.118",
+  "boto3[crt]>=1.43.121",
   "duckdb>=1.5.5",
   "jsonschema>=4.26",
   "rfc3339-validator>=0.1.4",
@@ -22,17 +22,17 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-  "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,sts]>=1.43.118",
-  "moto[dynamodb,s3]>=5.2.4",
-  "mypy>=2.3.1",
+  "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,sts]>=1.43.121",
+  "moto[dynamodb,s3]>=5.2.5",
+  "mypy>=2.4.1",
   "playwright>=1.63",
   "pre-commit>=4.6.2",
   "pyproject-fmt>=2.29.4",
-  "pytest>=9.1.1",
+  "pytest>=9.2",
   "pytest-cov>=7.1",
   "pytest-timeout>=2.4",
   "pytest-xdist>=3.8",
-  "ruff>=0.16.9",
+  "ruff>=0.17.3",
   "shellcheck-py>=0.11.0.1",
   "types-jsonschema>=4.26.0.20260518",
   "zizmor>=1.31.1",
@@ -40,14 +40,16 @@ dev = [
 agent = [
   "ag-ui-langgraph>=0.0.45",
   "ag-ui-protocol>=1",
+  # 2.x sends API version 2026-10-21, which refuses a temperature on every model, and no CI job calls the model.
+  "anthropic>=1.17,<2",
   "aws-opentelemetry-distro>=0.22",
-  "bedrock-agentcore>=1.25",
+  "bedrock-agentcore>=1.25.1",
   "fastapi>=0.162",
   "httpx>=0.28.1",
   "jsonschema>=4.26",
   "langchain>=1.4.2",
-  "langchain-anthropic>=1.7.4",
-  "langgraph>=1.2.17",
+  "langchain-anthropic>=1.7.7",
+  "langgraph>=1.2.18",
   "langgraph-checkpoint-aws>=1.2.3",
   "opentelemetry-api>=1.45.1",
   "opentelemetry-propagator-aws-xray>=1.0.2",
@@ -68,7 +70,7 @@ pipeline = [
   "types-pyyaml>=6.0.12",
 ]
 tools = [
-  "boto3>=1.43.103",
+  "boto3>=1.43.121",
   "jsonschema>=4.26",
   "rfc3339-validator>=0.1.4",
 ]
@@ -79,9 +81,6 @@ required-version = ">=0.13"
 python-preference = "system"
 default-groups = [ "agent", "dev", "eda", "pipeline", "tools" ]
 exclude-newer = "1 week"
-# ADOT 0.21.0 pins opentelemetry-api 1.44.0 (GHSA-xcq7-p3pf-p88h, in the Runtime's parsing of a tracestate header);
-# 0.22.0 is the first release without it. Remove once it's a week old, on 2026-11-06.
-exclude-newer-package = { aws-opentelemetry-distro = "2026-10-31T00:00:00Z" }
 
 [tool.ruff]
 src = [ "src" ]

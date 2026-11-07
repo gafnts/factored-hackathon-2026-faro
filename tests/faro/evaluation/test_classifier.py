@@ -18,7 +18,7 @@ from langchain_core.runnables import RunnableLambda
 from faro.agent import models
 from faro.agent.models import RouterOutput
 from faro.evaluation import __main__ as cli
-from faro.evaluation import classifier, model_commands
+from faro.evaluation import classifier, model_commands, runs
 from faro.evaluation.router import Candidate
 from faro.model_key import ModelKeyError
 
@@ -179,14 +179,52 @@ def test_a_call_that_keeps_failing_reads_as_no_request_and_says_it_failed(
     assert len(calls) == classifier.ATTEMPTS
 
 
-def test_a_refused_request_is_not_repeated(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("kind", "status", "outcome"),
+    [
+        (anthropic.BadRequestError, 400, "invalid_request"),
+        (anthropic.AuthenticationError, 401, "key_rejected"),
+    ],
+)
+def test_a_failure_no_retry_fixes_stops_the_comparison_at_once(
+    tmp_path: Path, kind: Any, status: int, outcome: str
+) -> None:
+    found, _, calls, slept = made(tmp_path, models.MODEL, [status_error(kind, status)])
+
+    with pytest.raises(runs.StoppedError, match=outcome):
+        asyncio.run(found.read("hola"))
+
+    assert [c["outcome"] for c in calls] == [outcome] and slept == []
+
+
+def test_a_stopped_comparison_says_what_to_do_and_exits_in_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def stopped(*_: Any) -> None:
+        raise runs.StoppedError("key_rejected")
+
+    monkeypatch.setattr(model_commands, "run_router", stopped)
+
+    assert cli.main(["router", "--candidate", "keyword"]) == 1
+    assert "replace the model's key" in capsys.readouterr().err
+
+
+def test_a_refusal_is_not_repeated(tmp_path: Path) -> None:
+    refusal = AIMessage(
+        content="",
+        response_metadata={"model_name": models.MODEL, "stop_reason": "refusal"},
+    )
     found, _, calls, slept = made(
-        tmp_path, models.MODEL, [status_error(anthropic.BadRequestError, 400)]
+        tmp_path,
+        models.MODEL,
+        [{"raw": refusal, "parsed": None, "parsing_error": ValueError("empty")}],
     )
 
     reading = asyncio.run(found.read("hola"))
 
-    assert reading.failed and [c["outcome"] for c in calls] == ["error"] and slept == []
+    assert (
+        reading.failed and [c["outcome"] for c in calls] == ["refused"] and slept == []
+    )
 
 
 def test_no_key_is_read_until_a_call(tmp_path: Path) -> None:

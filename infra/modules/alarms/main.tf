@@ -1,4 +1,4 @@
-# The four alarms D5 builds (ADR-0004, Operations, and its amendment of 2026-10-01; OPS-03), over metric filters on the
+# The alarms (ADR-0004, Operations, and its amendments of 2026-10-01 and 2026-11-03; OPS-03), over metric filters on the
 # Runtime's log group, which count the JSON lines the Runtime writes by source (EVL-13). A planned failure counts in none.
 
 locals {
@@ -10,6 +10,7 @@ locals {
     ReplyChecks       = "{ $.metric = \"reply_check\" }"
     RepliesFellBack   = "{ $.metric = \"reply_check\" && $.fell_back IS TRUE }"
     ToolCallsFailed   = "{ $.metric = \"tool_call\" && $.outcome = \"failed\" && $.last IS TRUE && $.planned IS FALSE }"
+    ModelCallsFailing = "{ $.metric = \"model_call\" && ($.outcome = \"spend_limit\" || $.outcome = \"key_rejected\" || $.outcome = \"model_not_found\" || $.outcome = \"invalid_request\") }"
   }
 }
 
@@ -59,6 +60,41 @@ resource "aws_cloudwatch_metric_alarm" "runtime_errors" {
       id = metric_query.value
       metric {
         metric_name = "RuntimeErrors"
+        namespace   = local.namespace
+        period      = 300
+        stat        = "Sum"
+        dimensions  = { source = metric_query.value }
+      }
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_metric_filter.this]
+}
+
+# Visitors and the evaluation share the provider's workspace, so a spent limit or a rejected key in either fails both.
+resource "aws_cloudwatch_metric_alarm" "model_failing" {
+  alarm_name          = "${var.prefix}-model-failing"
+  alarm_description   = "A model call failed for a cause that fails every turn until a person acts (a spend limit, the key, the model's ID, or the request we build), from any source; the execution record names it."
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 1
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  metric_query {
+    id          = "failing"
+    expression  = join(" + ", [for source in local.sources : "FILL(${source}, 0)"])
+    label       = "Model calls failing every turn"
+    return_data = true
+  }
+
+  dynamic "metric_query" {
+    for_each = toset(local.sources)
+    content {
+      id = metric_query.value
+      metric {
+        metric_name = "ModelCallsFailing"
         namespace   = local.namespace
         period      = 300
         stat        = "Sum"

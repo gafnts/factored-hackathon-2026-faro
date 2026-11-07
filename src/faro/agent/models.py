@@ -30,7 +30,7 @@ TIMEOUT_S = 30.0
 # USD per million tokens at list price on 2026-09-29: input, output, cache write, cache read.
 PRICES = {MODEL: (1.00, 5.00, 1.25, 0.10)}
 EMIT_OFF = {"emit-messages": False, "emit-tool-calls": False}
-# A 4xx (error) would only be repeated (decision 18).
+# Any other outcome would only be repeated (decision 18).
 RETRIED = (
     "rate_limited",
     "server_error",
@@ -39,6 +39,18 @@ RETRIED = (
     "invalid_output",
 )
 WAITED = ("rate_limited", "server_error")
+# They fail every turn until a person acts, so an alarm counts them (ADR-0004's amendment of 2026-11-03).
+EVERY_TURN = ("spend_limit", "key_rejected", "model_not_found", "invalid_request")
+# The 400 for a spend limit we set, the organization's or a workspace's, says so at the start of its message.
+SPEND_LIMIT = "You have reached your specified"
+# The 429 for the usage tier's monthly cap, which no wait clears.
+SPEND_CAP = "enforced_spend_limit_reached"
+STATUSES = {
+    401: "key_rejected",
+    402: "spend_limit",
+    403: "key_rejected",
+    404: "model_not_found",
+}
 
 Label = Literal[
     "card_status",
@@ -227,7 +239,9 @@ OUTPUTS: dict[str, type[BaseModel]] = {
 
 
 class ModelFailedError(RuntimeError):
-    pass
+    def __init__(self, node: str, outcome: str) -> None:
+        super().__init__(f"the {node} call ended {outcome}")
+        self.outcome = outcome
 
 
 def prompt(name: str) -> str:
@@ -264,15 +278,46 @@ def anthropic_factory(key: str) -> Factory:
 
 
 def failure(error: Exception) -> str:
-    if isinstance(error, anthropic.RateLimitError):
-        return "rate_limited"
+    """
+    A failure no retry fixes is named by what a person has to do: raise a spend limit, replace the key, fix the
+    model's ID, or fix the request we built (ADR-0004's amendment of 2026-11-03).
+    """
     if isinstance(error, anthropic.APITimeoutError):
         return "timeout"
     if isinstance(error, anthropic.APIConnectionError):
         return "connection_error"
-    if isinstance(error, anthropic.APIStatusError) and error.status_code >= 500:
+    if not isinstance(error, anthropic.APIStatusError):
+        return "error"
+    body = error.body if isinstance(error.body, dict) else {}
+    said = body.get("error")
+    said = said if isinstance(said, dict) else {}
+    status = error.status_code
+    if status == 429:
+        details = said.get("details")
+        capped = isinstance(details, dict) and details.get("error_code") == SPEND_CAP
+        return "spend_limit" if capped else "rate_limited"
+    if status >= 500:
         return "server_error"
-    return "error"
+    if status == 400:
+        limited = str(said.get("message", "")).startswith(SPEND_LIMIT)
+        return "spend_limit" if limited else "invalid_request"
+    return STATUSES.get(status, "error")
+
+
+def answered(answer: Any, structured: bool) -> tuple[AIMessage, Any, str]:
+    """
+    The message, its structured output, and the outcome. A refusal is read first, since it can end a reply part way,
+    and it isn't tried again, since the same request would likely meet it again.
+    """
+    raw: AIMessage = answer["raw"] if structured else answer
+    parsed = answer["parsed"] if structured else None
+    if raw.response_metadata.get("stop_reason") == "refusal":
+        return raw, None, "refused"
+    if structured:
+        broken = answer.get("parsing_error") is not None or parsed is None
+    else:
+        broken = not raw.text
+    return raw, parsed, "invalid_output" if broken else "ok"
 
 
 def provider_wait(error: Exception) -> float | None:
@@ -368,7 +413,7 @@ class Models:
                 else None
             )
             if wait is None:
-                raise ModelFailedError(f"the {node} call ended {outcome}")
+                raise ModelFailedError(node, outcome)
             await self.retries.sleep(wait.seconds)
             attempt += 1
 
@@ -389,14 +434,7 @@ class Models:
         typed = output or purpose
         try:
             answer = await self.factory(typed).ainvoke(list(messages))
-            if typed in OUTPUTS:
-                raw, parsed = answer["raw"], answer["parsed"]
-                if answer.get("parsing_error") is not None or parsed is None:
-                    outcome = "invalid_output"
-            else:
-                raw = answer
-                if not answer.text:
-                    outcome = "invalid_output"
+            raw, parsed, outcome = answered(answer, typed in OUTPUTS)
         except Exception as error:
             outcome = failure(error)
             provider = provider_wait(error)

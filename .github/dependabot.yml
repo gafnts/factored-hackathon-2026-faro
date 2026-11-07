@@ -48,10 +48,16 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: scikit-learn
         update-types: ["version-update:semver-major"]
+      # Its 2.x sends an API version that refuses the temperature every call
+      # sends, and no CI job calls the model; #173 lifts this with the bound.
+      - dependency-name: anthropic
+        update-types: ["version-update:semver-major"]
     groups:
       python-runtime:
         patterns:
           - ag-ui-*
+          - anthropic
+          - aws-opentelemetry-distro
           - bedrock-agentcore
           - boto3*
           - fastapi
@@ -59,8 +65,17 @@ updates:
           - jsonschema
           - langchain*
           - langgraph*
+          - opentelemetry-*
           - rfc3339-validator
         update-types: [minor, patch]
+      # Dependabot reads no locked version for a name with extras (dependabot-core#16431) or for the build
+      # backend, and a group with update-types turns such a dependency away, so these get one without.
+      python-unversioned:
+        patterns:
+          - "boto3[crt]"
+          - "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,sts]"
+          - "moto[dynamodb,s3]"
+          - uv-build
       python-tooling:
         patterns: ["*"]
         update-types: [minor, patch]

@@ -71,6 +71,13 @@ ATTRIBUTES = frozenset(
     }
 )
 
+# The Anthropic SDK traces its own calls, which our spans already do, and sends their trace context to the API unless
+# these say not to; a client reads them when it's made, at its first call.
+ANTHROPIC_OFF = {
+    "ANTHROPIC_OPEN_TELEMETRY": "false",
+    "ANTHROPIC_OPEN_TELEMETRY_PROPAGATION": "false",
+}
+
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer("faro")
 # AgentCore's span may arrive in either header (ADR-0004, To verify on the first deploy).
@@ -282,6 +289,7 @@ def configure() -> None:
     exporter = OTLPAwsSpanExporter(
         aws_region=region, endpoint=f"https://xray.{region}.amazonaws.com/v1/traces"
     )
+    os.environ.update(ANTHROPIC_OFF)
     trace.set_tracer_provider(provider(exporter))
     named = sorted(name for name in os.environ if name.startswith("OTEL_"))
     logger.info("spans go to X-Ray in %s; OTEL variables set: %s", region, named)

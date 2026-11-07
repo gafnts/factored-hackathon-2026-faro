@@ -83,10 +83,15 @@ class Profile:
 
 def load_run(path: Path, sets: Path = SETS) -> Run:
     """
-    A run's grades, joined to the cases of the set its manifest names, which must hash as the manifest says.
+    A run's grades, joined to the cases of the set its manifest names, which must hash as the manifest says. A void
+    run is refused, since it measured the provider's account rather than the agent.
     """
     manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
     summary = json.loads((path / "summary.json").read_text(encoding="utf-8"))
+    if summary.get("void"):
+        raise ReportError(
+            f"run {manifest['run']} is void: a model call ended {summary['void']['outcome']}"
+        )
     set_path = sets / f"{manifest['set']['name']}.jsonl"
     if not set_path.is_file():
         raise ReportError(f"no drawn set at {set_path} for run {manifest['run']}")

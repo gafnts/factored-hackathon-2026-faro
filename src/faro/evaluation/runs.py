@@ -4,7 +4,8 @@ the player over the tools' items for its customer, a development set's with the 
 baseline's, and the held-out set's with the baseline's alone (ADR-0005, Baselines), graded, and its evidence and grade kept under data/evaluation/runs/<run>/, never committed, since
 both hold the case's values (SEC-03). The summary holds counts, and the findings no open disagreement entry matches by
 situation and check only, so it can be printed. The run's manifest says what ran (ADR-0005, The run manifest): no
-provider and no latency, since no model runs and the network is skipped, and a cost of zero.
+provider and no latency, since no model runs and the network is skipped, and a cost of zero. A model call that fails
+for a reason no retry fixes stops a run, in process or end to end, and the run is kept as void.
 """
 
 import asyncio
@@ -17,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from faro.agent.models import Factory
+from faro.agent.models import EVERY_TURN, Factory
 from faro.evaluation import (
     baseline,
     bronze,
@@ -34,10 +35,36 @@ from faro.evaluation import (
 from faro.evaluation.scripted import ScriptedModels
 
 MODELS = ("scripted", "baseline")
+# A model call that failed for a reason no retry fixes and the model didn't choose, such as a spent limit: from there
+# on a run measures the provider's account, not the agent (ADR-0004's amendment of 2026-11-03). 1.10.0's Runtime, which
+# the held-out play runs again, records every such failure as error.
+STOPPING = (*EVERY_TURN, "error")
+# What a person does before playing again.
+REMEDIES = {
+    "spend_limit": "raise the provider's spend limit, or wait for the month to end",
+    "key_rejected": "replace the model's key (make model-key)",
+    "model_not_found": "check the model's ID",
+    "invalid_request": "fix the request the agent builds",
+    "error": "read the case's record for the failure",
+}
 
 
 class PlayError(ValueError):
     pass
+
+
+class StoppedError(RuntimeError):
+    """
+    A check that reads the model, such as the language check or the router comparison, met a call that stops it, so
+    it keeps nothing.
+    """
+
+    def __init__(self, outcome: str) -> None:
+        super().__init__(
+            f"a model call ended {outcome}, so the check stopped and kept nothing; "
+            f"{REMEDIES[outcome]}, then run it again"
+        )
+        self.outcome = outcome
 
 
 INDEX_PAGE = Path("docs/evaluation/runs.md")
@@ -56,6 +83,9 @@ def index(reported: Path = REPORTED, page: Path = INDEX_PAGE) -> int:
         body = json.loads(path.read_text(encoding="utf-8"))
         manifest, summary = body["manifest"], body["summary"]
         cost = (manifest.get("totals") or {}).get("cost_usd")
+        passed = f"{summary['passed']} of {summary['cases']}"
+        if summary.get("void"):
+            passed += f", void ({summary['void']['outcome']})"
         row = (
             manifest["run"],
             manifest["started_at"][:10],
@@ -64,7 +94,7 @@ def index(reported: Path = REPORTED, page: Path = INDEX_PAGE) -> int:
             f"{manifest['set']['name']} ({manifest['set']['cases']})",
             manifest["stack"]["environment"],
             str(manifest["grader"]),
-            f"{summary['passed']} of {summary['cases']}",
+            passed,
             "" if cost is None else f"{cost:.2f}",
         )
         rows.append("| " + " | ".join(row) + " |")
@@ -120,6 +150,34 @@ def summarize(
 
 
 Played = list[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]]
+
+
+def stopped(record: Sequence[Mapping[str, Any]]) -> str | None:
+    """
+    The outcome of the first model call in a case's record that stops its run, if one does.
+    """
+    return next(
+        (
+            e["outcome"]
+            for e in record
+            if e["kind"] == "model_call" and e["outcome"] in STOPPING
+        ),
+        None,
+    )
+
+
+def void(
+    played: Sequence[tuple[Mapping[str, Any], Mapping[str, Any], Mapping[str, Any]]],
+) -> dict[str, str] | None:
+    """
+    Why a run stopped, from the first case, in the set's order, whose record stops it. ADR-0005 (The run manifest)
+    keeps such a run with its reason and plays the set again beside it.
+    """
+    for case, evidence, _ in played:
+        outcome = stopped(evidence["record"])
+        if outcome is not None:
+            return {"outcome": outcome, "case_id": case["case_id"]}
+    return None
 
 
 def digest(value: Any) -> str:
@@ -205,6 +263,7 @@ def manifest(
         "parallelism": 1,
         "repeats": 1,
         "totals": totals(played),
+        "void": void(played),
         "results": dict(sorted(results.items())),
     }
 
@@ -263,6 +322,8 @@ def play_set(
             )
             evidence = await player.play(case, held, factory)
             found.append((case, evidence, grader.grade(case, evidence)))
+            if stopped(evidence["record"]) is not None:
+                break
         return found
 
     played = asyncio.run(play_all())
@@ -287,6 +348,7 @@ def play_set(
         "grader": grader.VERSION,
         "versions": dict(versions),
         "set_aside": aside,
+        "void": void(played),
         **summarize(graded, disagreements.load()),
         "metrics": metrics.compute(
             graded, counted, {"turns": counted["turns"], "repeats": 1, "parallelism": 1}
