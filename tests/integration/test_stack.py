@@ -623,6 +623,62 @@ def test_only_the_block_writes_the_sandbox_and_it_never_reads_is_fraud(
     )
 
 
+def test_the_suites_role_grants_what_the_tests_do_and_reads_no_row_of_the_tools_data(
+    outputs: dict[str, Any],
+) -> None:
+    # ADR-0004, Operations, access controls, and its amendment of 2026-11-07.
+    role = f"{outputs['prefix']}-suites"
+    tables = outputs["runtime_tables"]
+    sandbox = outputs["sandbox_tables"]
+    tools_data = outputs["tools_data"]["table"]
+
+    assert dynamodb_grants(role, "suites") == {
+        sandbox["overlay"]: {
+            "dynamodb:DeleteItem",
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+            "dynamodb:Query",
+        },
+        tables["execution_records"]: {"dynamodb:GetItem", "dynamodb:Query"},
+        tables["checkpoints"]: {"dynamodb:GetItem", "dynamodb:Query", "dynamodb:Scan"},
+        sandbox["confirmations"]: {"dynamodb:GetItem", "dynamodb:UpdateItem"},
+        outputs["handoff"]["cases_table"]: {
+            "dynamodb:DeleteItem",
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+        },
+        tables["usage_counters"]: {"dynamodb:PutItem"},
+        tools_data: {
+            "dynamodb:DescribeTable",
+            "dynamodb:GetItem",
+            "dynamodb:ListImports",
+            "dynamodb:ListTagsOfResource",
+            "dynamodb:Scan",
+        },
+        f"{tools_data}/import/*": {"dynamodb:DescribeImport"},
+    }
+    iam: Any = boto3.client("iam")
+    document = iam.get_role_policy(RoleName=role, PolicyName="suites")["PolicyDocument"]
+    reading = {
+        s["Sid"]: s
+        for s in document["Statement"]
+        if str(s["Resource"]).endswith(f":table/{tools_data}")
+        and {"dynamodb:Scan", "dynamodb:GetItem"}
+        & ({s["Action"]} if isinstance(s["Action"], str) else set(s["Action"]))
+    }
+    assert set(reading) == {"ToolsDataCount", "ToolsDataStamp"}
+    assert reading["ToolsDataCount"]["Condition"]["StringEquals"] == {
+        "dynamodb:Select": "COUNT"
+    }
+    stamp = reading["ToolsDataStamp"]["Condition"]
+    assert stamp["ForAllValues:StringEquals"]["dynamodb:LeadingKeys"] == "META"
+    assert sorted(stamp["ForAllValues:StringEquals"]["dynamodb:Attributes"]) == [
+        "pk",
+        "sk",
+        "stamp",
+    ]
+
+
 # The Runtime (ADR-0004, spike S4)
 
 

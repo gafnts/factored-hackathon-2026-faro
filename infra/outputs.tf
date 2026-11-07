@@ -113,6 +113,13 @@ output "evaluation" {
   }
 }
 
+output "suites" {
+  description = "The role the integration and browser suites assume"
+  value = {
+    role_arn = module.suites.role_arn
+  }
+}
+
 output "site" {
   description = "The site's URL, the bucket and distribution make site deploys to, and the DNS records a custom domain needs"
   value = {
