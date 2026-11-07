@@ -6,7 +6,7 @@ Accepted (2026-10-31).
 
 Amended, each change applied in the section it names:
 
-- 2026-11-07: a major release is a new agent, measured on a held-out set no earlier agent was measured on and released with that report, so a changed agent isn't promoted before it's measured, and a fix that can't wait is the one exception. Before, a major release was a change in who can use the prototype; opening it to anyone changes nothing for the users we invited, so that rule's reason, the one change users would feel as breaking, doesn't hold for it ([Decision](#decision), [Alternatives considered](#alternatives-considered), [Consequences](#consequences)).
+- 2026-11-07: a major release is a new agent, measured on a held-out set no earlier agent was measured on and released with that report, so a changed agent isn't promoted before it's measured, and a fix that can't wait is the one exception. Before, a major release was a change in who can use the prototype; opening it to anyone changes nothing for the users we invited, so that rule's reason, the one change users would feel as breaking, doesn't hold for it ([Decision](#decision), [Alternatives considered](#alternatives-considered), [Consequences](#consequences)). Accepted 2026-11-07.
 
 ## Context
 
