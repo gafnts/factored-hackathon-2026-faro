@@ -1,6 +1,6 @@
 # Changelog
 
-What changed in the prototype, one section per release, newest first. A release is a promotion from `develop` to `main`, tagged once its deploy is checked ([ADR-0009](docs/adr/0009-release-checked-deploys.md)): a minor version for each promotion, a patch for one that only fixes a release, and a major version for a change in who can use the prototype. `Unreleased` is what's merged into `develop` and not in a release yet. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+What changed in the prototype, one section per release, newest first. A release is a promotion from `develop` to `main`, tagged once its deploy is checked ([ADR-0009](docs/adr/0009-release-checked-deploys.md)): a minor version for each promotion, a patch for one that only fixes a release, and a major version for a new agent, measured on a fresh held-out set and released with its report. `Unreleased` is what's merged into `develop` and not in a release yet. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 History before 2026-10-27 is in the [merged pull requests](https://github.com/gafnts/factored-hackathon-2026-faro/pulls?q=is%3Apr+is%3Amerged). Work we mean to do later is in [GitHub Issues](https://github.com/gafnts/factored-hackathon-2026-faro/issues).
 
@@ -14,6 +14,8 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 ### Changed
 
 - Each environment keeps its own Terraform working directory, `infra/.terraform/<env>`, so `ENV=prototype` targets that only read, such as `make outputs`, run without re-initializing `local`'s. A checkout initialized before needs `make init` once ([#193]).
+- A major release is a new agent, measured on a held-out set no earlier agent was measured on and released with its report, where it was a change in who can use the prototype. A changed agent waits on `develop` until it's measured, and a fix that can't wait is promoted as an exception, with notes that say the agent isn't measured yet ([ADR-0009](docs/adr/0009-release-checked-deploys.md)'s amendment of 2026-11-07, [#194]).
+- The second study opens Faro before its play, on the agent the submission's report measured, and plays the iterated agent on `local` before its release, as its Record says; its registered text and hash are unchanged ([held-out-2.md](docs/evaluation/studies/held-out-2.md), [#194]).
 
 ## [1.11.0] - 2026-11-07 (Promotion 17)
 
@@ -240,6 +242,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#188]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/188
 [#190]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/190
 [#193]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/193
+[#194]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/194
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
