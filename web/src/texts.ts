@@ -56,7 +56,8 @@ export interface Texts {
     // retention). The banner takes the place of the notice, so it says the data is synthetic too (SEC-02); its last
     // words, more, open the dialog.
     terms: {
-      banner: string;
+      synthetic: string;
+      accept: string;
       more: string;
       title: string;
       lines: readonly string[];
@@ -200,7 +201,8 @@ export const TEXTS: Record<Language, Texts> = {
         paused: "Faro está en pausa por ahora. Vuelva a intentarlo más tarde.",
       },
       terms: {
-        banner: "Prototipo sobre datos sintéticos. Al entrar, acepta",
+        synthetic: "Prototipo sobre datos sintéticos.",
+        accept: "Al entrar, acepta",
         more: "estas condiciones",
         title: "Condiciones",
         lines: [
@@ -315,7 +317,8 @@ export const TEXTS: Record<Language, Texts> = {
         paused: "O Faro está pausado no momento. Tente novamente mais tarde.",
       },
       terms: {
-        banner: "Protótipo com dados sintéticos. Ao entrar, você aceita",
+        synthetic: "Protótipo com dados sintéticos.",
+        accept: "Ao entrar, você aceita",
         more: "estas condições",
         title: "Condições",
         lines: [

@@ -99,7 +99,7 @@ function Tabs({
             onClick={() => {
               if (!chosen) onWay(option, true);
             }}
-            className={`h-11 border-b border-white/10 px-8 text-left text-sm font-medium transition-colors duration-300 ${option === "account" ? "border-l" : ""} ${chosen ? "border-b-transparent text-bone" : "bg-night/40 text-bone-muted hover:text-bone"}`}
+            className={`h-11 border-b border-white/10 px-6 text-left text-sm font-medium transition-colors duration-300 sm:px-8 ${option === "account" ? "border-l" : ""} ${chosen ? "border-b-transparent text-bone" : "bg-night/40 text-bone-muted hover:text-bone"}`}
           >
             {texts[option]}
           </button>
@@ -316,8 +316,9 @@ export function Terms({ language }: { language: Language }) {
 
   return (
     <footer className="animate-fade border-t border-white/10 glass-thin px-4 pt-2.5 pb-3.5 text-xs text-bone sm:px-6 sm:text-sm">
+      {/* On a phone, each sentence holds a line of its own. */}
       <p className="text-pretty sm:text-right">
-        {texts.banner}{" "}
+        <span className="max-sm:block">{texts.synthetic}</span> {texts.accept}{" "}
         <button
           type="button"
           onClick={() => {
@@ -349,7 +350,7 @@ export function Terms({ language }: { language: Language }) {
             event.clientY > box.bottom;
           if (event.target === event.currentTarget && outside) close();
         }}
-        className="m-auto w-[calc(2*var(--span)*var(--cell)+1px)] max-w-[calc(100%-2rem)] animate-message border border-white/10 glass px-8 py-8 text-bone [--span:5] backdrop:animate-veil backdrop:bg-night/70 backdrop:backdrop-blur-md focus-visible:outline-none data-closing:animate-leave data-closing:backdrop:animate-unveil motion-reduce:animate-fade sm:[--span:4]"
+        className="m-auto w-[calc(2*var(--span)*var(--cell)+1px)] max-w-[calc(100%-2rem)] animate-message border border-white/10 glass p-6 text-bone [--span:5] backdrop:animate-veil backdrop:bg-night/70 backdrop:backdrop-blur-md focus-visible:outline-none data-closing:animate-leave data-closing:backdrop:animate-unveil motion-reduce:animate-fade sm:p-8 sm:[--span:4]"
       >
         <h2 id="terms" className="text-2xl font-semibold tracking-tight">
           {texts.title}
@@ -415,7 +416,7 @@ export function SignIn({
                   role="tabpanel"
                   id={panel}
                   aria-labelledby={`${panel}-${mode.way}`}
-                  className={`px-8 py-8 ${mode.moved ? "animate-fade" : ""}`}
+                  className={`p-6 sm:p-8 ${mode.moved ? "animate-fade" : ""}`}
                 >
                   {mode.way === "guest" ? (
                     <Guest
@@ -437,7 +438,7 @@ export function SignIn({
               </Eased>
             </>
           ) : (
-            <div className="px-8 py-8">
+            <div className="p-6 sm:p-8">
               <Form
                 language={language}
                 ended={ended}

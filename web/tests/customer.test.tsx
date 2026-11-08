@@ -135,7 +135,9 @@ test("the sign-in says what we keep in the notice's place, and its dialog lists 
   render(<Customer language="es" />);
 
   const footer = await screen.findByRole("contentinfo");
-  expect(footer).toHaveTextContent(texts.signIn.terms.banner);
+  expect(footer).toHaveTextContent(
+    `${texts.signIn.terms.synthetic} ${texts.signIn.terms.accept}`,
+  );
   expect(screen.queryByText(texts.notice)).not.toBeInTheDocument();
   const dialog = screen.getByRole("dialog", { hidden: true });
   expect(dialog).not.toHaveAttribute("open");

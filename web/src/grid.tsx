@@ -3,39 +3,43 @@ import type { ReactNode } from "react";
 type Layout = "sign-in" | "chat";
 
 // Placed in cells from the center, where a line runs, so the cleared block and the lit cells sit on the lines. The
-// block holds the content; the lit cells keep to the outer columns, or to the rows above and below a phone's
-// sign-in, so none sits behind text or glass (the identity guide's Motifs). A phone's empty chat fills its screen,
-// so it has none.
+// block holds the content; the lit cells keep to the outer columns where the page is wide enough for them, to the rows
+// above and below the block where it is tall enough, and otherwise stay off, so none sits behind text or glass or
+// falls off the screen (the identity guide's Motifs). A phone's empty chat fills its screen, so it has none.
 const BLOCK: Record<Layout, string> = {
   "sign-in":
-    "left-[calc(50%-7*var(--cell)+1px)] top-[calc(50%-7*var(--cell)+1px)] h-[calc(14*var(--cell)-1px)] w-[calc(14*var(--cell)-1px)] sm:left-[calc(50%-5*var(--cell)+1px)] sm:top-[calc(50%-5*var(--cell)+1px)] sm:h-[calc(10*var(--cell)-1px)] sm:w-[calc(10*var(--cell)-1px)]",
+    "left-[calc(50%-7*var(--cell)+1px)] top-[calc(50%-6*var(--cell)+1px)] h-[calc(12*var(--cell)-1px)] w-[calc(14*var(--cell)-1px)] sm:left-[calc(50%-5*var(--cell)+1px)] sm:top-[calc(50%-5*var(--cell)+1px)] sm:h-[calc(10*var(--cell)-1px)] sm:w-[calc(10*var(--cell)-1px)]",
   chat: "left-[calc(50%-7*var(--cell)+1px)] top-[calc(50%-8*var(--cell)+1px)] h-[calc(16*var(--cell)-1px)] w-[calc(14*var(--cell)-1px)] sm:left-[calc(50%-8*var(--cell)+1px)] sm:top-[calc(50%-5*var(--cell)+1px)] sm:h-[calc(10*var(--cell)-1px)] sm:w-[calc(16*var(--cell)-1px)]",
 };
 
 // Each cell carries its --beat, its turn as the beam passes. Only one set shows at a time, so each starts at zero:
-// around the block on a phone (the rows above it, then the same cells turned half around below, one beam's pass),
-// the left cells then the right on wider screens.
-const ON_PHONES = [
-  "sm:hidden [--beat:0ms] left-[calc(50%-4*var(--cell)+1px)] top-[calc(50%-8*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
-  "sm:hidden [--beat:180ms] left-[calc(50%-3*var(--cell)+1px)] top-[calc(50%-9*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
-  "sm:hidden [--beat:360ms] left-[calc(50%+1*var(--cell)+1px)] top-[calc(50%-9*var(--cell)+1px)] h-[calc(var(--cell)-1px)] w-[calc(2*var(--cell)-1px)]",
-  "sm:hidden [--beat:540ms] left-[calc(50%+3*var(--cell)+1px)] top-[calc(50%-8*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
-  "sm:hidden [--beat:720ms] left-[calc(50%+3*var(--cell)+1px)] top-[calc(50%+7*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
-  "sm:hidden [--beat:900ms] left-[calc(50%+2*var(--cell)+1px)] top-[calc(50%+8*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
-  "sm:hidden [--beat:1080ms] left-[calc(50%-3*var(--cell)+1px)] top-[calc(50%+8*var(--cell)+1px)] h-[calc(var(--cell)-1px)] w-[calc(2*var(--cell)-1px)]",
-  "sm:hidden [--beat:1260ms] left-[calc(50%-4*var(--cell)+1px)] top-[calc(50%+7*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
-];
+// around the block (the two rows above it, then the same cells turned half around below, one beam's pass), or the
+// left cells then the right. The sign-in's sets choose by the screen: the side cells need 20 columns and a margin; the
+// rows need 16 of a phone's cells or 14 of a wider screen's, whose block is shorter, besides the bar and the footer.
+const AROUND = [
+  "[--beat:0ms] left-[calc(50%-4*var(--cell)+1px)] top-[calc(50%-7*var(--cell)+1px)] sm:top-[calc(50%-6*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
+  "[--beat:180ms] left-[calc(50%-3*var(--cell)+1px)] top-[calc(50%-8*var(--cell)+1px)] sm:top-[calc(50%-7*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
+  "[--beat:360ms] left-[calc(50%+1*var(--cell)+1px)] top-[calc(50%-8*var(--cell)+1px)] sm:top-[calc(50%-7*var(--cell)+1px)] h-[calc(var(--cell)-1px)] w-[calc(2*var(--cell)-1px)]",
+  "[--beat:540ms] left-[calc(50%+3*var(--cell)+1px)] top-[calc(50%-7*var(--cell)+1px)] sm:top-[calc(50%-6*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
+  "[--beat:720ms] left-[calc(50%+3*var(--cell)+1px)] top-[calc(50%+6*var(--cell)+1px)] sm:top-[calc(50%+5*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
+  "[--beat:900ms] left-[calc(50%+2*var(--cell)+1px)] top-[calc(50%+7*var(--cell)+1px)] sm:top-[calc(50%+6*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
+  "[--beat:1080ms] left-[calc(50%-3*var(--cell)+1px)] top-[calc(50%+7*var(--cell)+1px)] sm:top-[calc(50%+6*var(--cell)+1px)] h-[calc(var(--cell)-1px)] w-[calc(2*var(--cell)-1px)]",
+  "[--beat:1260ms] left-[calc(50%-4*var(--cell)+1px)] top-[calc(50%+6*var(--cell)+1px)] sm:top-[calc(50%+5*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
+].map(
+  (place) =>
+    `hidden [@media(width<40rem)_and_(height>=625px)]:block [@media(40rem<=width<66rem)_and_(height>=815px)]:block ${place}`,
+);
 
 const LIT: Record<Layout, string[]> = {
   "sign-in": [
-    ...ON_PHONES,
-    "max-sm:hidden [--beat:0ms] left-[calc(50%-9*var(--cell)+1px)] top-[calc(50%-3*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
-    "max-sm:hidden [--beat:180ms] left-[calc(50%-10*var(--cell)+1px)] top-[calc(50%-2*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
-    "max-sm:hidden [--beat:360ms] left-[calc(50%-8*var(--cell)+1px)] top-[calc(50%+1px)] h-[calc(var(--cell)-1px)] w-[calc(2*var(--cell)-1px)]",
-    "max-sm:hidden [--beat:540ms] left-[calc(50%+6*var(--cell)+1px)] top-[calc(50%-2*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
-    "max-sm:hidden [--beat:720ms] left-[calc(50%+8*var(--cell)+1px)] top-[calc(50%-1*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
-    "max-sm:hidden [--beat:900ms] left-[calc(50%+9*var(--cell)+1px)] top-[calc(50%+1px)] size-[calc(var(--cell)-1px)]",
-    "max-sm:hidden [--beat:1080ms] left-[calc(50%+7*var(--cell)+1px)] top-[calc(50%+1*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
+    ...AROUND,
+    "hidden min-[66rem]:block [--beat:0ms] left-[calc(50%-9*var(--cell)+1px)] top-[calc(50%-3*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
+    "hidden min-[66rem]:block [--beat:180ms] left-[calc(50%-10*var(--cell)+1px)] top-[calc(50%-2*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
+    "hidden min-[66rem]:block [--beat:360ms] left-[calc(50%-8*var(--cell)+1px)] top-[calc(50%+1px)] h-[calc(var(--cell)-1px)] w-[calc(2*var(--cell)-1px)]",
+    "hidden min-[66rem]:block [--beat:540ms] left-[calc(50%+6*var(--cell)+1px)] top-[calc(50%-2*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
+    "hidden min-[66rem]:block [--beat:720ms] left-[calc(50%+8*var(--cell)+1px)] top-[calc(50%-1*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
+    "hidden min-[66rem]:block [--beat:900ms] left-[calc(50%+9*var(--cell)+1px)] top-[calc(50%+1px)] size-[calc(var(--cell)-1px)]",
+    "hidden min-[66rem]:block [--beat:1080ms] left-[calc(50%+7*var(--cell)+1px)] top-[calc(50%+1*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
   ],
   chat: [
     "max-sm:hidden [--beat:0ms] left-[calc(50%-9*var(--cell)+1px)] top-[calc(50%-3*var(--cell)+1px)] size-[calc(var(--cell)-1px)]",
