@@ -408,7 +408,7 @@ make smoke-user         # Create or reset the check's customer, kept in data/smo
 make staff WHO=<user>   # Put a staff user on the staff allowlist (WHAT=remove takes one off)
 make label-users        # Once per environment: label the users made before the labels (DRY=1)
 make guest-list         # Choose the guest entry's customers and write them to the stack (DRY=1)
-make cap                # Print the day's cap and today's count (TURNS=<n> sets it, 0 pauses)
+make cap                # Print the day's cap and today's counts (TURNS=<n> sets it, 0 pauses; GUESTS=<n>)
 make web-dev            # Serve the web app on localhost:5173
 make destroy ENV=local  # Tear down your local resources
 ```
@@ -464,12 +464,13 @@ OpenAI's key is the evaluation's alone: `make outside-write` reads it from `.env
 
 Anyone can enter as a guest, so a limit per user doesn't bound what the chat spends. Every turn of an invited user or a visitor also counts against a cap on the UTC day's turns, for everyone together ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), capacity). The evaluation's turns don't count, and neither do the smoke check's. Past the cap, the chat says Faro reached today's limit and gives the time the day ends in the visitor's own time, and the `cap-reached` alarm fires.
 
-The cap is one item of the usage counters table. Terraform writes it once, from `turns_cap` (750 unless you set it: about 5 USD a day at the freeze's 95th percentile cost of a turn). After that, `make cap` reads and sets it, and a deploy never changes it. A cap of 0 pauses the chat: invited users and visitors read that Faro is paused, and the smoke check still runs.
+The cap is one item of the usage counters table. Terraform writes it once, from `turns_cap` (750 unless you set it: about 5 USD a day at the freeze's 95th percentile cost of a turn) and `guests_cap` (100). After that, `make cap` reads and sets it, and a deploy never changes it. A cap of 0 turns pauses the chat and the guest entry: invited users and visitors read that Faro is paused, the guest entry makes no user, and the smoke check still runs. A stack whose cap was written before the guests' cap has none, and its guest entry makes no user until `make cap GUESTS=100` writes it.
 
 ```bash
 AWS_PROFILE=default make cap ENV=prototype             # The cap and today's count
 AWS_PROFILE=default make cap TURNS=0 ENV=prototype     # Pause
 AWS_PROFILE=default make cap TURNS=750 ENV=prototype   # Resume, or raise the cap for a day
+AWS_PROFILE=default make cap GUESTS=100 ENV=prototype  # Set the guests a day
 ```
 
 #### The site
@@ -626,6 +627,7 @@ Run `make help` for every target.
 | `WHAT`, `JUDGE` | `create`, every judge | `make judges`: `create`, `reset`, `sign-out`, `disable`, `enable`, or `delete` |
 | `WHO`, `WHAT` | None, `add` | `make staff`: the staff user, and `add` or `remove` |
 | `TURNS` | Unset | `make cap`: the cap on the day's turns to set; 0 pauses the chat |
+| `GUESTS` | Unset | `make cap`: the cap on the guests the guest entry makes in a day, to set |
 | `BUILT` | Unset | Set to `1` to make `make plan` plan the zips already in `build/` instead of building them |
 | `BUMP` | `minor` | `make cut`: `minor` for a promotion, `patch` for one that only fixes the last release |
 | `DRY` | Unset | Set to `1` to make `make release` print what it would tag and the notes, and create nothing; `make label-users` prints what it would change, and `make guest-list` the counts it would write |

@@ -121,8 +121,8 @@ smoke-user: _check-profile outputs ## Create or reset ENV's smoke user, the chec
 staff: _check-profile outputs ## Put a staff user on ENV's staff allowlist, or take one off (WHO=, WHAT=remove)
 	uv run python -m faro.staff $(or $(WHAT),add) --stack $(OUTPUTS) $(if $(WHO),--user $(WHO))
 
-cap: _check-profile outputs ## Print ENV's cap on the day's turns and today's count, or set it (TURNS=, 0 pauses)
-	uv run python -m faro.cap --stack $(OUTPUTS) $(if $(TURNS),--turns $(TURNS))
+cap: _check-profile outputs ## Print ENV's cap on the day's turns and guests and today's counts, or set it (TURNS=, 0 pauses; GUESTS=)
+	uv run python -m faro.cap --stack $(OUTPUTS) $(if $(TURNS),--turns $(TURNS)) $(if $(GUESTS),--guests $(GUESTS))
 
 # Once per environment, and again after a new snapshot; it reads the snapshot under data/, like make personas.
 guest-list: _check-profile outputs ## Choose the guest entry's customers and write them to ENV's stack (DRY=1)
