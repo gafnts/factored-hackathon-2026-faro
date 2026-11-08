@@ -70,7 +70,7 @@ export function Grid({
       >
         <div className="absolute -top-(--bar) right-0 bottom-0 -left-(--rail) animate-fade overflow-hidden">
           <div className="absolute top-0 -right-(--rail) -bottom-(--bar) left-0 [mask-image:radial-gradient(ellipse_at_center,black_45%,transparent_85%)]">
-            <div className="absolute top-[calc(50%-64*var(--cell))] left-[calc(50%-64*var(--cell))] size-[calc(128*var(--cell))] bg-[linear-gradient(to_right,rgb(255_255_255/0.1)_1px,transparent_1px),linear-gradient(to_bottom,rgb(255_255_255/0.1)_1px,transparent_1px)] bg-size-[var(--cell)_var(--cell)]" />
+            <div className="absolute top-[calc(50%-64*var(--cell))] left-[calc(50%-64*var(--cell))] size-[calc(128*var(--cell))] bg-[linear-gradient(to_right,rgb(255_255_255/0.11)_1px,transparent_1px),linear-gradient(to_bottom,rgb(255_255_255/0.12)_1px,transparent_1px)] bg-size-[var(--cell)_var(--cell)]" />
           </div>
         </div>
         <div className="absolute inset-0 overflow-hidden">
