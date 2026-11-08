@@ -44,18 +44,15 @@ vi.mock(import("../src/chat/chat"), async () => {
       session,
       onSignInEnded,
       onRunning,
-      welcome,
     }: {
       session: string;
       onSignInEnded: () => void;
       onRunning?: (running: boolean) => void;
-      welcome?: { name: string } | null;
     }) => {
       const [mount] = useState(() => (chats.mounted += 1));
       return (
         <div>
           <p>chat in {session}</p>
-          {welcome && <p>welcome for {welcome.name}</p>}
           <p>conversation {mount}</p>
           <button type="button" onClick={onSignInEnded}>
             runtime turned the token away
@@ -314,12 +311,14 @@ test("the Runtime turning the token away ends the sign-in", async () => {
 test("signing out returns to the guest entry without a message", async () => {
   vi.mocked(currentSignIn).mockResolvedValue(signedIn());
   render(<Customer language="pt" />);
+  const user = userEvent.setup();
 
-  await userEvent
-    .setup()
-    .click(
-      await screen.findByRole("button", { name: TEXTS.pt.signIn.signOut }),
-    );
+  await user.click(
+    await screen.findByRole("button", { name: TEXTS.pt.account.label }),
+  );
+  await user.click(
+    screen.getByRole("button", { name: TEXTS.pt.signIn.signOut }),
+  );
 
   expect(
     await screen.findByRole("button", { name: TEXTS.pt.signIn.guest.enter }),
@@ -439,18 +438,72 @@ test("a guest entry that leaves no readable token can't be reached", async () =>
   );
 });
 
-test("a reload keeps a guest's welcome, and an invited customer has none", async () => {
+test("the rail names who a guest entered as, through a reload, and an invited customer is the account alone", async () => {
   vi.mocked(currentSignIn).mockResolvedValue(signedIn());
   keepWelcome({ name: "Team Customer", cards: null });
   const { unmount } = render(<Customer language="es" />);
 
   expect(
-    await screen.findByText("welcome for Team Customer"),
+    await screen.findByRole("button", {
+      name: `${texts.account.label}: Team Customer`,
+    }),
   ).toBeInTheDocument();
   unmount();
   window.sessionStorage.clear();
   render(<Customer language="es" />);
 
-  expect(await screen.findByText(/^chat in/)).toBeInTheDocument();
-  expect(screen.queryByText(/^welcome for/)).not.toBeInTheDocument();
+  const account = await screen.findByRole("button", {
+    name: texts.account.label,
+  });
+  expect(screen.queryByText("Team Customer")).not.toBeInTheDocument();
+  await userEvent.setup().click(account);
+  expect(
+    screen.queryByRole("list", { name: texts.account.cards }),
+  ).not.toBeInTheDocument();
+});
+
+test("the account's menu lists a guest's cards with no status, and folds away on Escape or a click elsewhere", async () => {
+  vi.mocked(currentSignIn).mockResolvedValue(signedIn());
+  keepWelcome({
+    name: "Team Customer",
+    cards: [
+      { product_type: "Tarjeta Crédito", last_four: "4821" },
+      { product_type: "Tarjeta Débito", last_four: "1177" },
+    ],
+  });
+  render(<Customer language="es" />);
+  const user = userEvent.setup();
+  const account = await screen.findByRole("button", {
+    name: `${texts.account.label}: Team Customer`,
+  });
+  expect(account).toHaveAttribute("aria-expanded", "false");
+  expect(
+    screen.queryByRole("list", { name: texts.account.cards }),
+  ).not.toBeInTheDocument();
+
+  await user.click(account);
+  expect(account).toHaveAttribute("aria-expanded", "true");
+  const cards = within(
+    screen.getByRole("list", { name: texts.account.cards }),
+  ).getAllByRole("listitem");
+  expect(cards.map((card) => card.textContent)).toEqual([
+    "Crédito •••• terminada en 4821",
+    "Débito •••• terminada en 1177",
+  ]);
+
+  await user.keyboard("{Escape}");
+  await waitFor(() => {
+    expect(
+      screen.queryByRole("button", { name: texts.signIn.signOut }),
+    ).not.toBeInTheDocument();
+  });
+  expect(account).toHaveFocus();
+
+  await user.click(account);
+  await user.click(screen.getByText(/^chat in/));
+  await waitFor(() => {
+    expect(
+      screen.queryByRole("button", { name: texts.signIn.signOut }),
+    ).not.toBeInTheDocument();
+  });
 });

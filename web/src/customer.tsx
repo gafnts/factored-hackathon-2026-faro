@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { Account } from "./account";
 import {
   configureAuth,
   currentSignIn,
@@ -12,7 +13,7 @@ import { Chat } from "./chat/chat";
 import { type Config, loadConfig } from "./config";
 import type { Language } from "./contracts/chat";
 import { faces } from "./faces";
-import { LogOut, SquarePen } from "./icons";
+import { SquarePen } from "./icons";
 import { SignIn, Terms } from "./pages/sign-in";
 import { drawRuntimeSession, runtimeSession } from "./session";
 import { RailButton, Shell } from "./shell";
@@ -180,12 +181,11 @@ export function Customer({ language: starting }: { language: Language }) {
             disabled={running}
             onClick={newConversation}
           />
-          <RailButton
-            icon={<LogOut />}
-            label={texts.signIn.signOut}
+          <Account
+            language={language}
+            welcome={welcome}
             expanded={expanded}
-            className="sm:mt-auto"
-            onClick={() => void end(state.config, false)}
+            onSignOut={() => void end(state.config, false)}
           />
         </>
       )}
@@ -197,7 +197,6 @@ export function Customer({ language: starting }: { language: Language }) {
         language={language}
         onSignInEnded={ended}
         onRunning={setRunning}
-        welcome={welcome}
       />
     </Shell>
   );

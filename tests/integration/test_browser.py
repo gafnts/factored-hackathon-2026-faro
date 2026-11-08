@@ -55,6 +55,7 @@ TEXTS = {
         "guest": "Entrar como invitado",
         "guest_full": "Por hoy no hay más lugares para invitados.",
         "guest_paused": "Faro está en pausa por ahora. Vuelva a intentarlo más tarde.",
+        "account": "Su cuenta",
         "cards": "Sus tarjetas",
         "account_tab": "Con usuario",
         "username": "Usuario",
@@ -81,6 +82,7 @@ TEXTS = {
         "guest": "Entrar como convidado",
         "guest_full": "Por hoje não há mais vagas para convidados.",
         "guest_paused": "O Faro está pausado no momento. Tente novamente mais tarde.",
+        "account": "Sua conta",
         "cards": "Seus cartões",
         "account_tab": "Com usuário",
         "username": "Usuário",
@@ -199,6 +201,16 @@ class Tab:
 
 def kind(request: Request) -> str:
     return "warm-up" if '"warmup"' in (request.post_data or "") else "message"
+
+
+def sign_out(page: Page, texts: dict[str, str]) -> None:
+    """
+    The sign-out waits behind the account at the rail's foot, named for a guest and plain for an invited customer.
+    """
+    page.get_by_role(
+        "button", name=re.compile(f"^{re.escape(texts['account'])}")
+    ).click()
+    page.get_by_role("button", name=texts["sign_out"]).click()
 
 
 def ends(entries: list[dict[str, Any]]) -> list[str]:
@@ -882,7 +894,7 @@ def test_signing_out_revokes_the_sign_in(
     refresh = customer.stored(".refreshToken")
     assert refresh is not None
 
-    customer.page.get_by_role("button", name=customer.texts["sign_out"]).click()
+    sign_out(customer.page, customer.texts)
 
     expect(
         customer.page.get_by_role("button", name=customer.texts["guest"])
@@ -899,31 +911,42 @@ def test_signing_out_revokes_the_sign_in(
     assert customer.violations == []
 
 
-def test_a_stranger_enters_as_a_guest_and_is_welcomed_by_name_and_cards(
+def test_a_stranger_enters_as_a_guest_and_is_named_in_the_rail(
     outputs: dict[str, Any], site: str, tab: Callable[[str], Tab]
 ) -> None:
     """
-    One click makes a visitor of a development customer, signed in like any customer, and the opening names who they
-    entered as and each card list_cards reads with their own token, with no status (ADR-0007, The guest entry; SEC-04).
+    One click makes a visitor of a development customer, signed in like any customer: the rail names who they entered
+    as, and its menu lists each card list_cards reads with their own token, with no status (ADR-0007, The guest entry;
+    SEC-04).
     """
     visitor = tab("pt")
     visitor.page.goto(f"{site}/chat")
 
-    visitor.page.get_by_role("button", name=visitor.texts["guest"]).click()
+    with visitor.page.expect_response("**/api/guest") as answer:
+        visitor.page.get_by_role("button", name=visitor.texts["guest"]).click()
 
+    name = answer.value.json()["welcome"]["name"]
     expect(visitor.page.get_by_label(visitor.texts["message"])).to_be_visible()
     access = visitor.stored(".accessToken")
     assert access, "the guest entry stored no access token"
     try:
         assert set(claims(access)["cognito:groups"]) == {"customer", "visitor"}
         listed = tool_output(call(outputs, access, "list_cards", arguments(access)))
+        account = visitor.page.get_by_role(
+            "button", name=re.compile(f"^{re.escape(visitor.texts['account'])}")
+        )
+        unnamed = int(
+            account.get_attribute("aria-label") != f"{visitor.texts['account']}: {name}"
+        )
+        assert unnamed == 0, "the rail doesn't name who the visitor entered as"
+        account.click()
         cards = visitor.page.get_by_role(
             "list", name=visitor.texts["cards"]
         ).get_by_role("listitem")
         expect(cards).to_have_count(len(listed["cards"]))
         shown = " ".join(cards.all_inner_texts())
         missing = sum(1 for card in listed["cards"] if card["last_four"] not in shown)
-        assert missing == 0, f"the welcome leaves out {missing} cards"
+        assert missing == 0, f"the menu leaves out {missing} cards"
         for status in ("Active", "Blocked", "Ativo", "Bloqueado"):
             assert status not in shown
     finally:

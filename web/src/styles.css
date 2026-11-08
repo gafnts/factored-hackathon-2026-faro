@@ -29,6 +29,9 @@
   --animate-veil: veil 500ms ease-out backwards;
   --animate-unveil: veil 250ms ease-in reverse forwards;
   --animate-leave: leave 250ms ease-in forwards;
+  /* A menu unfolds from its button, by --rise, and folds away faster. */
+  --animate-unfold: unfold 220ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  --animate-fold: leave 140ms ease-in forwards;
 
   @keyframes sweep {
     from {
@@ -56,6 +59,13 @@
     from {
       background-color: transparent;
       backdrop-filter: blur(0);
+    }
+  }
+
+  @keyframes unfold {
+    from {
+      opacity: 0;
+      transform: translateY(var(--rise, 6px));
     }
   }
 
