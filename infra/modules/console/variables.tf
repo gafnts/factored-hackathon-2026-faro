@@ -41,6 +41,15 @@ variable "execution_records_table" {
   })
 }
 
+variable "route_limits" {
+  description = "Routes another module adds to the API, each throttled on its own below the stage's limit"
+  type = map(object({
+    rate  = number
+    burst = number
+  }))
+  default = {}
+}
+
 variable "rate_limit" {
   description = "Requests a second the stage allows across callers; an open console makes about 0.7 (ADR-0007, Freshness)"
   type = object({

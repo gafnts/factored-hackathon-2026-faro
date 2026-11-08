@@ -59,7 +59,11 @@ RUNTIME = Artifact(
 ARTIFACTS = (
     RUNTIME,
     Artifact("pre_token", ("identity",), group="identity"),
-    Artifact("tools", ("console", "contracts", "policy", "tools"), group="tools"),
+    Artifact(
+        "tools",
+        ("console", "contracts", "guest", "policy", "split.py", "tools"),
+        group="tools",
+    ),
 )
 # Only the tests read the contracts' examples.
 UNSHIPPED = ("contracts/examples",)

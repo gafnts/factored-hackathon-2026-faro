@@ -473,6 +473,18 @@ AWS_PROFILE=default make cap TURNS=750 ENV=prototype   # Resume, or raise the ca
 AWS_PROFILE=default make cap GUESTS=100 ENV=prototype  # Set the guests a day
 ```
 
+#### The guest entry
+
+The customers' sign-in leads with a button that enters as a guest: each click makes a user of its own, as one of 24 development customers chosen by a committed rule, and signs it in ([ADR-0007](docs/adr/0007-role-gated-web-app.md#the-guest-entry)). It needs two things the stack doesn't hold until an administrator writes them, so a fork's button makes no user before they're written:
+
+```bash
+AWS_PROFILE=default make guest-list DRY=1 ENV=prototype   # The counts the rule chooses from, from the snapshot under data/
+AWS_PROFILE=default make guest-list ENV=prototype         # Write the list to the stack's Parameter Store entry
+AWS_PROFILE=default make cap GUESTS=100 ENV=prototype     # Only for a cap written before the guests' cap
+```
+
+The list holds names, so it lives in the stack and never in the repository; run `make guest-list` again after a new snapshot. A cleanup deletes the visitors' users every hour, a day after each was made.
+
 #### The site
 
 The site's `config.json`, which names the user pool, both app clients, and the Runtime, is written by Terraform at every apply, so `make site` uploads only the build and leaves it alone. `make site` is `make web`, then `make upload`, which uploads `web/dist` as it stands; CI builds once, without credentials, and runs only the upload with them. The console API is served under `/api` on the site's own origin, so the page reaches it without a cross-origin call, and `make web-dev` passes `/api` on to the deployed site. `make outputs` writes the site's URL under `site.url` in `build/<env>.outputs.json`, and the console API's under `console.url`.

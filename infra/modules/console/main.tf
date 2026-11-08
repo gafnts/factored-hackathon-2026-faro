@@ -1,6 +1,7 @@
 # The console API (ADR-0007, The console API, and its amendments of 2026-09-30): an HTTP API behind a JWT authorizer
 # that accepts the staff app client's access tokens only, served on the site's own origin under /api, with a reading
-# Lambda per route, each allowed only the reads its route needs.
+# Lambda per route, each allowed only the reads its route needs. The guest module adds POST /api/guest, with no
+# authorizer and a throttle of its own (ADR-0007, The guest entry).
 
 locals {
   functions = {
@@ -218,6 +219,15 @@ resource "aws_apigatewayv2_stage" "default" {
   default_route_settings {
     throttling_rate_limit  = var.rate_limit.rate
     throttling_burst_limit = var.rate_limit.burst
+  }
+
+  dynamic "route_settings" {
+    for_each = var.route_limits
+    content {
+      route_key              = route_settings.key
+      throttling_rate_limit  = route_settings.value.rate
+      throttling_burst_limit = route_settings.value.burst
+    }
   }
 
   access_log_settings {

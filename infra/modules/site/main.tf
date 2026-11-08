@@ -226,6 +226,20 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
+  # The guest entry's POST (ADR-0007, The guest entry). CloudFront allows GET and HEAD, or all seven methods, so it
+  # gets a behavior of its own and /api/* keeps reads alone; a method the API has no route for gets its 404.
+  ordered_cache_behavior {
+    path_pattern               = "/api/guest"
+    target_origin_id           = "console"
+    viewer_protocol_policy     = "https-only"
+    allowed_methods            = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = data.aws_cloudfront_cache_policy.disabled.id
+    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.api.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.site.id
+  }
+
   # Never cached: each answer depends on the caller's token, and the API sends no-store.
   ordered_cache_behavior {
     path_pattern               = "/api/*"
