@@ -72,3 +72,8 @@ variable "runtime_log_group" {
 variable "console_api_id" {
   type = string
 }
+
+variable "site_access_delivery" {
+  description = "The ARN of the delivery of the site's access logs"
+  type        = string
+}

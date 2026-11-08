@@ -34,3 +34,7 @@ variable "api_origin" {
   description = "The console API's own domain, served under /api on the site's origin, so the page calls it without CORS"
   type        = string
 }
+
+variable "log_retention_days" {
+  type = number
+}

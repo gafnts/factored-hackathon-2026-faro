@@ -26,3 +26,15 @@ output "config" {
   description = "What config.json holds, for the development server"
   value       = var.config
 }
+
+output "access_log_group" {
+  value = aws_cloudwatch_log_group.access.name
+}
+
+output "access_delivery" {
+  description = "The delivery of the site's access logs, which the suites read to check its fields"
+  value = {
+    id  = aws_cloudwatch_log_delivery.access.id
+    arn = aws_cloudwatch_log_delivery.access.arn
+  }
+}

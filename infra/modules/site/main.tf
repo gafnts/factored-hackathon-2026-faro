@@ -196,7 +196,8 @@ data "aws_cloudfront_origin_request_policy" "api" {
   name = "Managed-AllViewerExceptHostHeader"
 }
 
-# Access logs and a WAF are production work (OPS-11).
+# Its access logs go through CloudWatch Logs' delivery below, which the logging check doesn't read; a WAF is production
+# work (OPS-11).
 #trivy:ignore:AVD-AWS-0010
 #trivy:ignore:AVD-AWS-0011
 resource "aws_cloudfront_distribution" "site" {
@@ -266,4 +267,46 @@ resource "aws_cloudfront_distribution" "site" {
     ssl_support_method             = var.attach_domain ? "sni-only" : null
     minimum_protocol_version       = var.attach_domain ? "TLSv1.2_2025" : null
   }
+}
+
+# A line per request, so arrivals and their referrers can be counted (ADR-0004, data retention). Named under
+# /aws/vendedlogs/ so CloudWatch Logs manages the delivery's resource policy.
+#trivy:ignore:AVD-AWS-0017
+resource "aws_cloudwatch_log_group" "access" {
+  name              = "/aws/vendedlogs/cloudfront/${var.prefix}-site"
+  retention_in_days = var.log_retention_days
+}
+
+resource "aws_cloudwatch_log_delivery_source" "access" {
+  name         = "${var.prefix}-site-access"
+  log_type     = "ACCESS_LOGS"
+  resource_arn = aws_cloudfront_distribution.site.arn
+}
+
+resource "aws_cloudwatch_log_delivery_destination" "access" {
+  name          = "${var.prefix}-site-access"
+  output_format = "json"
+
+  delivery_destination_configuration {
+    destination_resource_arn = aws_cloudwatch_log_group.access.arn
+  }
+}
+
+# Never the path, which under /api names a case, the query string, cookies, or forwarded addresses.
+resource "aws_cloudwatch_log_delivery" "access" {
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.access.name
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.access.arn
+  record_fields = [
+    "timestamp(ms)",
+    "c-ip",
+    "c-country",
+    "cs-method",
+    "cache-behavior-path-pattern",
+    "sc-status",
+    "sc-content-type",
+    "cs(Referer)",
+    "cs(User-Agent)",
+    "x-edge-result-type",
+    "time-taken",
+  ]
 }

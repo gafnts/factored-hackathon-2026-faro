@@ -147,6 +147,7 @@ module "suites" {
   file_handoff_function    = module.handoff.function
   runtime_log_group        = module.runtime.runtime_log_group
   console_api_id           = module.console.api_id
+  site_access_delivery     = module.site.access_delivery.arn
   tools_data_table = {
     name = module.tools_data.table_name
     arn  = module.tools_data.table_arn
@@ -168,7 +169,8 @@ module "site" {
     "https://cognito-idp.${var.aws_region}.amazonaws.com",
     "https://bedrock-agentcore.${var.aws_region}.amazonaws.com",
   ]
-  domain_name   = var.domain_name
-  attach_domain = var.attach_domain
-  api_origin    = module.console.origin_domain
+  domain_name        = var.domain_name
+  attach_domain      = var.attach_domain
+  api_origin         = module.console.origin_domain
+  log_retention_days = var.log_retention_days
 }
