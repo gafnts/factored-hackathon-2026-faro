@@ -39,8 +39,9 @@ export function RailButton({
 }
 
 // The language switch, flush right in the bar (ADR-0007, Routes): mono capitals, each option named in its own
-// language, the chosen one in full color and the other muted. It only sets the page's own text; the agent's replies
-// follow the conversation (POL-50).
+// language, the chosen one in full color over a line of sea on the bar's edge, which slides to it as the sign-in's tabs'
+// does. Each option is the bar's height, so a phone's tap finds it. It only sets the page's own text; the agent's
+// replies follow the conversation (POL-50).
 function LanguageSwitch({
   language,
   onLanguage,
@@ -53,7 +54,7 @@ function LanguageSwitch({
     <div
       role="group"
       aria-label={texts.label}
-      className="ml-auto flex shrink-0 items-center"
+      className="relative ml-auto flex shrink-0 self-stretch"
     >
       {(["es", "pt"] as const).map((option) => (
         <button
@@ -65,15 +66,22 @@ function LanguageSwitch({
           onClick={() => {
             onLanguage(option);
           }}
-          className={`flex h-8 items-center px-2.5 font-mono text-xs tracking-[0.08em] transition-colors ${
+          // The tracking's trailing space, given back on the left, so the letters sit centered.
+          className={`flex w-10 items-center justify-center pl-[0.08em] font-mono text-xs tracking-[0.08em] transition-colors duration-300 ${
             option === language
               ? "text-bone"
-              : "text-bone-muted hover:bg-white/5 hover:text-bone"
+              : "text-bone-muted hover:text-bone"
           }`}
         >
           {option.toUpperCase()}
         </button>
       ))}
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute bottom-0 left-0 h-0.5 w-10 bg-sea transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
+          language === "pt" ? "translate-x-10" : ""
+        }`}
+      />
     </div>
   );
 }
