@@ -180,8 +180,8 @@ export const TEXTS: Record<Language, Texts> = {
       signOut: "Cerrar sesión",
       endsAt: (time) => `Su sesión terminará a las ${time}.`,
       guest: {
-        title: "Pruebe Faro",
-        lead: "Entre como un cliente ficticio de LATAM Bank y pregúntele a Faro por sus tarjetas.",
+        title: "Acceso de invitado",
+        lead: "Entre como un cliente ficticio y converse con Faro sobre sus tarjetas.",
         enter: "Entrar como invitado",
         entering: "Entrando…",
         withAccount: "Tengo usuario y contraseña",
@@ -292,8 +292,8 @@ export const TEXTS: Record<Language, Texts> = {
       signOut: "Sair",
       endsAt: (time) => `Sua sessão terminará às ${time}.`,
       guest: {
-        title: "Experimente o Faro",
-        lead: "Entre como um cliente fictício do LATAM Bank e pergunte ao Faro sobre seus cartões.",
+        title: "Acesso de convidado",
+        lead: "Entre como um cliente fictício e converse com o Faro sobre seus cartões.",
         enter: "Entrar como convidado",
         entering: "Entrando…",
         withAccount: "Tenho usuário e senha",
