@@ -1,4 +1,4 @@
-# The alarms (ADR-0004, Operations, and its amendments of 2026-10-01, 2026-11-03 and 2026-11-07; OPS-03), over metric
+# The alarms (ADR-0004, Operations, and its amendments of 2026-10-01, 2026-11-03, 2026-11-07 and 2026-11-08; OPS-03), over metric
 # filters on the Runtime's log group, which count the JSON lines the Runtime writes by source (EVL-13). A planned failure
 # counts in none.
 
@@ -16,6 +16,7 @@ locals {
     ToolCallsFailed   = "{ $.metric = \"tool_call\" && $.outcome = \"failed\" && $.last IS TRUE && $.planned IS FALSE }"
     ModelCallsFailing = "{ $.metric = \"model_call\" && ($.outcome = \"spend_limit\" || $.outcome = \"key_rejected\" || $.outcome = \"model_not_found\" || $.outcome = \"invalid_request\") }"
     CapRefusals       = "{ $.metric = \"request_refused\" && $.code = \"global_limit\" }"
+    SessionRefusals   = "{ $.metric = \"request_refused\" && $.code = \"session_refused\" }"
   }
 }
 
@@ -264,6 +265,42 @@ resource "aws_cloudwatch_metric_alarm" "fallback_share" {
         metric_name = "RepliesFellBack"
         namespace   = local.namespace
         period      = 3600
+        stat        = "Sum"
+        dimensions  = { source = metric_query.value }
+      }
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_metric_filter.this]
+}
+
+# Neither cause meets an honest chat, which keeps one runtime session per sign-in, so a refusal means a client opening
+# sessions past its sign-in's limit, each holding a microVM until it is ended, or naming another user's.
+resource "aws_cloudwatch_metric_alarm" "sessions_refused" {
+  alarm_name          = "${var.prefix}-sessions-refused"
+  alarm_description   = "A runtime session refused, past its sign-in's limit or bound to another user, from any source; the request_refused entries name the sign-in."
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 1
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  metric_query {
+    id          = "refused"
+    expression  = join(" + ", [for source in local.sources : "FILL(${source}, 0)"])
+    label       = "Runtime sessions refused"
+    return_data = true
+  }
+
+  dynamic "metric_query" {
+    for_each = toset(local.sources)
+    content {
+      id = metric_query.value
+      metric {
+        metric_name = "SessionRefusals"
+        namespace   = local.namespace
+        period      = 300
         stat        = "Sum"
         dimensions  = { source = metric_query.value }
       }

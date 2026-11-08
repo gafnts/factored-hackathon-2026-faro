@@ -437,6 +437,9 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
             outcome="spend_limit",
         ),
         "CapRefusals": line("request_refused", "visitor", turn_id, code="global_limit"),
+        "SessionRefusals": line(
+            "request_refused", "visitor", turn_id, code="session_refused"
+        ),
     }
     quiet = {
         "RuntimeErrors": line(
@@ -460,6 +463,9 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
             last=True,
         ),
         "CapRefusals": line("request_refused", "demo", turn_id, code="paused"),
+        "SessionRefusals": line(
+            "request_refused", "visitor", turn_id, code="daily_limit"
+        ),
     }
 
     written = lines_of(outputs, turn_id, since)
@@ -504,6 +510,7 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
         "reply-fallback-share",
         "tool-errors",
         "cap-reached",
+        "sessions-refused",
     )
     assert set(expected) <= set(named)
     assert all(
@@ -525,3 +532,13 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
             for d in m["MetricStat"]["Metric"]["Dimensions"]
         }
         assert read == {"demo", "visitor"}, name
+    # Neither of a session refusal's causes meets an honest chat, so it reads every source (ADR-0004's amendment of
+    # 2026-11-08).
+    read = {
+        d["Value"]
+        for m in named["sessions-refused"]["Metrics"]
+        if m.get("MetricStat", {}).get("Metric", {}).get("MetricName")
+        == "SessionRefusals"
+        for d in m["MetricStat"]["Metric"]["Dimensions"]
+    }
+    assert read == {"demo", "visitor", "evaluation", "unknown"}
