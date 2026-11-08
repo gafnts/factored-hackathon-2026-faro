@@ -200,8 +200,7 @@ export const TEXTS: Record<Language, Texts> = {
         paused: "Faro está en pausa por ahora. Vuelva a intentarlo más tarde.",
       },
       terms: {
-        banner:
-          "Prototipo sobre datos sintéticos. Las conversaciones se guardan hasta por 12 meses y pueden ser leídas. Al entrar, acepta",
+        banner: "Prototipo sobre datos sintéticos. Al entrar, acepta",
         more: "estas condiciones",
         title: "Condiciones",
         lines: [
@@ -316,8 +315,7 @@ export const TEXTS: Record<Language, Texts> = {
         paused: "O Faro está pausado no momento. Tente novamente mais tarde.",
       },
       terms: {
-        banner:
-          "Protótipo com dados sintéticos. As conversas são guardadas por até 12 meses e podem ser lidas. Ao entrar, você aceita",
+        banner: "Protótipo com dados sintéticos. Ao entrar, você aceita",
         more: "estas condições",
         title: "Condições",
         lines: [

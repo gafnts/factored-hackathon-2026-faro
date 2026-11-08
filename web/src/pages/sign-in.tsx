@@ -294,9 +294,9 @@ function Guest({
   );
 }
 
-// What we keep of a visit, said before anyone enters (ADR-0007, Sign-in): the customers' sign-in's footer, in the
-// notice's place, a glass bar like the one at the top. Entering means accepting it, so its last words open the full
-// list. Only the team signs in to the console, which keeps the notice.
+// What we keep of a visit, a click before anyone enters (ADR-0007, Sign-in): the customers' sign-in's footer, in the
+// notice's place, a glass bar like the one at the top, says that entering means accepting it, and its last words open
+// the full list. Only the team signs in to the console, which keeps the notice.
 export function Terms({ language }: { language: Language }) {
   const texts = TEXTS[language].signIn.terms;
   const dialog = useRef<HTMLDialogElement>(null);
