@@ -320,7 +320,11 @@ export function Terms({ language }: { language: Language }) {
         {texts.banner}{" "}
         <button
           type="button"
-          onClick={() => dialog.current?.showModal()}
+          onClick={() => {
+            // Focus the dialog itself, not its first button, so nothing looks pressed and a reader starts at the title.
+            dialog.current?.showModal();
+            dialog.current?.focus();
+          }}
           className="underline underline-offset-4 hover:text-sea"
         >
           {texts.more}
@@ -330,6 +334,7 @@ export function Terms({ language }: { language: Language }) {
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- a click on the backdrop reaches the dialog itself, outside its box: the mouse's way out, where Escape and the button are the keyboard's */}
       <dialog
         ref={dialog}
+        tabIndex={-1}
         aria-labelledby="terms"
         onCancel={(event) => {
           event.preventDefault();
@@ -344,7 +349,7 @@ export function Terms({ language }: { language: Language }) {
             event.clientY > box.bottom;
           if (event.target === event.currentTarget && outside) close();
         }}
-        className="m-auto w-[calc(2*var(--span)*var(--cell)+1px)] max-w-[calc(100%-2rem)] animate-message border border-white/10 glass px-8 py-8 text-bone [--span:5] backdrop:animate-veil backdrop:bg-night/70 backdrop:backdrop-blur-md data-closing:animate-leave data-closing:backdrop:animate-unveil motion-reduce:animate-fade sm:[--span:4]"
+        className="m-auto w-[calc(2*var(--span)*var(--cell)+1px)] max-w-[calc(100%-2rem)] animate-message border border-white/10 glass px-8 py-8 text-bone [--span:5] backdrop:animate-veil backdrop:bg-night/70 backdrop:backdrop-blur-md focus-visible:outline-none data-closing:animate-leave data-closing:backdrop:animate-unveil motion-reduce:animate-fade sm:[--span:4]"
       >
         <h2 id="terms" className="text-2xl font-semibold tracking-tight">
           {texts.title}

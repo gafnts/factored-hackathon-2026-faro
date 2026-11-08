@@ -146,6 +146,7 @@ test("the sign-in says what we keep in the notice's place, and its dialog lists 
   );
 
   expect(dialog).toHaveAttribute("open");
+  expect(dialog).toHaveFocus();
   expect(dialog).toHaveAccessibleName(texts.signIn.terms.title);
   const lines = within(dialog).getAllByRole("listitem");
   expect(lines.map((line) => line.textContent)).toEqual(
