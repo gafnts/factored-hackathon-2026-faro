@@ -75,26 +75,24 @@ export function Account({
         onClick={() => {
           setShown(shown === "open" ? "closing" : "open");
         }}
-        className="flex w-full items-center gap-3 p-1 text-left transition-colors duration-300 hover:bg-white/5"
+        className="flex w-full items-center gap-3 overflow-hidden p-1 text-left transition-colors duration-300 hover:bg-white/5"
       >
         <span className="flex size-8 shrink-0 items-center justify-center border border-white/10 bg-white/5 text-bone-muted">
           <UserRound />
         </span>
         <span
-          className={expanded ? "min-w-0 flex-1 max-sm:sr-only" : "sr-only"}
+          className={`min-w-0 flex-1 transition-opacity motion-reduce:transition-none max-sm:sr-only ${expanded ? "opacity-100 delay-100 duration-200" : "opacity-0 duration-100"}`}
         >
           <span className="block truncate text-sm text-bone">{title}</span>
           <span className="block truncate text-xs text-bone-muted">
             {texts.account.fictional}
           </span>
         </span>
-        {expanded && (
-          <span
-            className={`mr-1 text-bone-muted transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none max-sm:hidden ${shown === "open" ? "" : "rotate-180"}`}
-          >
-            <ChevronUp />
-          </span>
-        )}
+        <span
+          className={`mr-1 text-bone-muted transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none max-sm:hidden ${shown === "open" ? "" : "rotate-180"} ${expanded ? "opacity-100" : "opacity-0"}`}
+        >
+          <ChevronUp />
+        </span>
       </button>
       {shown !== "closed" && (
         <div
