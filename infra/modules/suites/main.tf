@@ -90,11 +90,16 @@ data "aws_iam_policy_document" "suites" {
     resources = [var.cases_table.arn]
   }
 
-  # A test puts a user past the day's cap.
+  # A test puts a user past the user's limit; no test may pause an environment or lift its cap.
   statement {
     sid       = "UsageCounters"
     actions   = ["dynamodb:PutItem"]
     resources = ["${local.table}/${var.runtime_tables.usage_counters}"]
+    condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["user#*"]
+    }
   }
 
   statement {

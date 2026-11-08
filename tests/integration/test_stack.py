@@ -707,6 +707,10 @@ def test_the_suites_role_grants_what_the_tests_do_and_reads_no_row_of_the_tools_
         "sk",
         "stamp",
     ]
+    (counting,) = [s for s in document["Statement"] if s.get("Sid") == "UsageCounters"]
+    assert counting["Condition"]["ForAllValues:StringLike"] == {
+        "dynamodb:LeadingKeys": "user#*"
+    }
 
 
 # The Runtime (ADR-0004, spike S4)
