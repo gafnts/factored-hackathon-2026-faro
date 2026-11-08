@@ -6,6 +6,8 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+## [1.12.0] - 2026-11-07 (Promotion 18)
+
 ### Added
 
 - `make suites`, which runs the browser suite and then the integration suite against an environment: the full check of a promotion that changes the app, now a step of CONTRIBUTING's promotion. With `ENV=prototype`, the Makefile refuses the `local` profile, which can't reach it ([#193]).
@@ -198,6 +200,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judged.
 
+[1.12.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.12.0
 [1.11.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.11.0
 [1.10.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.10.0
 [1.9.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.9.0
