@@ -327,12 +327,22 @@ export function Terms({ language }: { language: Language }) {
         </button>
         .
       </p>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- a click on the backdrop reaches the dialog itself, outside its box: the mouse's way out, where Escape and the button are the keyboard's */}
       <dialog
         ref={dialog}
         aria-labelledby="terms"
         onCancel={(event) => {
           event.preventDefault();
           close();
+        }}
+        onClick={(event) => {
+          const box = event.currentTarget.getBoundingClientRect();
+          const outside =
+            event.clientX < box.left ||
+            event.clientX > box.right ||
+            event.clientY < box.top ||
+            event.clientY > box.bottom;
+          if (event.target === event.currentTarget && outside) close();
         }}
         className="m-auto w-[calc(2*var(--span)*var(--cell)+1px)] max-w-[calc(100%-2rem)] animate-message border border-white/10 glass px-8 py-8 text-bone [--span:5] backdrop:animate-veil backdrop:bg-night/70 backdrop:backdrop-blur-md data-closing:animate-leave data-closing:backdrop:animate-unveil motion-reduce:animate-fade sm:[--span:4]"
       >

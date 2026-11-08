@@ -1,4 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -152,6 +158,35 @@ test("the sign-in says what we keep in the notice's place, and its dialog lists 
     within(dialog).getByRole("button", { name: texts.signIn.terms.close }),
   );
   expect(dialog).not.toHaveAttribute("open");
+});
+
+test("a click on the dialog's backdrop closes it, and a click inside it doesn't", async () => {
+  render(<Customer language="es" />);
+  const footer = await screen.findByRole("contentinfo");
+  await userEvent
+    .setup()
+    .click(
+      within(footer).getByRole("button", { name: texts.signIn.terms.more }),
+    );
+  const dialog = screen.getByRole("dialog");
+  vi.spyOn(dialog, "getBoundingClientRect").mockReturnValue({
+    left: 100,
+    right: 300,
+    top: 100,
+    bottom: 300,
+  } as DOMRect);
+
+  fireEvent.click(dialog, { clientX: 150, clientY: 150 });
+  fireEvent.click(within(dialog).getAllByRole("listitem")[0] as Element, {
+    clientX: 20,
+    clientY: 20,
+  });
+  expect(dialog).toHaveAttribute("open");
+
+  fireEvent.click(dialog, { clientX: 20, clientY: 20 });
+  await waitFor(() => {
+    expect(dialog).not.toHaveAttribute("open");
+  });
 });
 
 test("the bar's switch sets the page's language, starting from the browser's", async () => {
