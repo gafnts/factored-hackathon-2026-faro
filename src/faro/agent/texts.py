@@ -66,6 +66,12 @@ FIXED: dict[str, dict[str, str]] = {
         "es": "En este momento no puedo ayudarle con eso. Por favor, inténtelo de nuevo en unos minutos.",
         "pt": "No momento não posso ajudar com isso. Por favor, tente novamente em alguns minutos.",
     },
+    # In unavailable's place when a model call failed for a cause that fails every turn until a person acts, so it
+    # promises no time (ADR-0004's amendment of 2026-11-07).
+    "out_of_service": {
+        "es": "Por ahora no puedo atender solicitudes en este chat.",
+        "pt": "Por enquanto não consigo atender pedidos neste chat.",
+    },
     # POL-08 and POL-49.
     "refused": {
         "es": "Solo puedo atender las tarjetas de la persona que inició sesión.",
