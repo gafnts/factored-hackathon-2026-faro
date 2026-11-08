@@ -27,6 +27,8 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - The chat's text for a user past the day's limit gives the time the UTC day ends in the browser's own time, where it said "tomorrow", which was wrong in the Americas from the late afternoon ([#201]).
 - A model call that fails for a cause that fails every turn until someone acts (a spend limit, the key, the model's ID, or the request we build) gets a fixed reply of its own, `out_of_service`, which promises no time, where `unavailable` asked to try again in a few minutes; the handoff offer still follows. No case the report measured meets those causes, and the agent's other replies are unchanged ([#201]).
 - A turn whose count meets another turn's at the same moment is counted again, up to three times, where it failed; with every turn of invited users and visitors now writing the day's count, such meetings become likelier ([#201]).
+- The agent's Python dependencies: AgentCore 1.25.2, LangGraph 1.2.19 and boto3 1.43.123. The Runtime, the pre-token Lambda and the five Lambdas built from `tools.zip` redeploy; the Runtime's stamp stays, since its own code didn't change. `boto3[crt]` now requires 1.43.123, the version locked ([#203]).
+- The test and build tools: boto3-stubs 1.43.123 and types-PyYAML 6.0.12.20261030; ESLint 10.14.0 in the web app's tooling; mise-action 5.2.5 in CI and pre-commit-terraform 1.109.4 in the hooks ([#203]).
 
 ## [1.11.0] - 2026-11-07 (Promotion 17)
 
@@ -257,6 +259,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#195]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/195
 [#201]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/201
 [#202]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/202
+[#203]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/203
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
