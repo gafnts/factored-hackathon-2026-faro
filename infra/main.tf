@@ -103,9 +103,10 @@ module "runtime" {
 module "alarms" {
   source = "./modules/alarms"
 
-  prefix         = local.prefix
-  log_group_name = module.runtime.runtime_log_group
-  service_name   = module.runtime.service_name
+  prefix          = local.prefix
+  log_group_name  = module.runtime.runtime_log_group
+  guest_log_group = module.guest.log_groups["entry"]
+  service_name    = module.runtime.service_name
 }
 
 module "console" {

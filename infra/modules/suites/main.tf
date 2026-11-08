@@ -153,13 +153,15 @@ data "aws_iam_policy_document" "suites" {
     resources = [var.file_handoff_function.arn]
   }
 
-  # The tests look for a typed number in the Runtime's and the read tools' logs, and read the lines the alarms count.
+  # The tests look for a typed number in the Runtime's and the read tools' logs, and read the lines the alarms count,
+  # the guest entry's included.
   statement {
     sid     = "LogEvents"
     actions = ["logs:DescribeMetricFilters", "logs:FilterLogEvents"]
     resources = [
       "${local.log_group}:${var.runtime_log_group}:*",
       "${local.log_group}:/aws/lambda/${var.prefix}-reads:*",
+      "${local.log_group}:/aws/lambda/${var.prefix}-guest-entry:*",
     ]
   }
 

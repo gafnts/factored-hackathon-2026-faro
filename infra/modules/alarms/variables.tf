@@ -3,6 +3,11 @@ variable "prefix" {
   type        = string
 }
 
+variable "guest_log_group" {
+  description = "The guest entry's log group, whose line per click two alarms read"
+  type        = string
+}
+
 variable "log_group_name" {
   description = "The Runtime's log group, whose JSON lines the metric filters count"
   type        = string

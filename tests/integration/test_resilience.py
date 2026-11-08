@@ -544,3 +544,55 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
     assert read == {"demo", "visitor", "evaluation", "unknown"}
     # The integration suite refuses two sessions on purpose.
     assert named["sessions-refused"]["Threshold"] == 10
+
+
+def guest_line(outcome: str) -> str:
+    """
+    A line as Lambda's JSON log format writes the guest entry's, its extra fields beside the runtime's own.
+    """
+    return json.dumps(
+        {
+            "timestamp": "2026-11-08T12:00:00Z",
+            "level": "INFO",
+            "message": "guest entry",
+            "logger": "faro.guest.entry",
+            "requestId": str(uuid.uuid4()),
+            "metric": "guest_entry",
+            "outcome": outcome,
+        }
+    )
+
+
+def test_the_guest_alarms_read_the_lines_the_guest_entry_writes(
+    outputs: dict[str, Any],
+) -> None:
+    logs: Any = boto3.client("logs", region_name="us-east-1")
+    cloudwatch: Any = boto3.client("cloudwatch", region_name="us-east-1")
+    filters = {
+        f["metricTransformations"][0]["metricName"]: f["filterPattern"]
+        for f in logs.describe_metric_filters(
+            logGroupName=outputs["guest"]["log_groups"]["entry"]
+        )["metricFilters"]
+    }
+    fires = {"GuestsFull": {"full"}, "GuestEntryFailed": {"failed"}}
+
+    for metric, firing in fires.items():
+        for outcome in ("entered", "full", "paused", "failed"):
+            matched = logs.test_metric_filter(
+                filterPattern=filters[metric], logEventMessages=[guest_line(outcome)]
+            )["matches"]
+            assert bool(matched) == (outcome in firing), (metric, outcome)
+    alarms = cloudwatch.describe_alarms(
+        AlarmNames=[
+            f"{outputs['prefix']}-guests-full",
+            f"{outputs['prefix']}-guest-entry-failing",
+        ]
+    )["MetricAlarms"]
+    named = {a["AlarmName"].removeprefix(f"{outputs['prefix']}-"): a for a in alarms}
+    assert {
+        n: (a["MetricName"], a["Period"], a["Threshold"]) for n, a in named.items()
+    } == {
+        "guests-full": ("GuestsFull", 3600, 1),
+        "guest-entry-failing": ("GuestEntryFailed", 300, 1),
+    }
+    assert all(a["AlarmActions"] == [outputs["alarms"]["topic_arn"]] for a in alarms)

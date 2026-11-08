@@ -98,7 +98,7 @@ output "runtime_log_group" {
 }
 
 output "alarms" {
-  description = "The topic the alarms notify, the namespace of their metrics, and the metric filters on the Runtime's log group"
+  description = "The topic the alarms notify, the namespace of their metrics, and the metric filters on the Runtime's and the guest entry's log groups"
   value = {
     topic_arn      = module.alarms.topic_arn
     namespace      = module.alarms.namespace
