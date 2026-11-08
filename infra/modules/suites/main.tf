@@ -153,6 +153,12 @@ data "aws_iam_policy_document" "suites" {
     resources = [var.file_handoff_function.arn]
   }
 
+  statement {
+    sid       = "GuestCleanup"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [var.guest_cleanup_function.arn]
+  }
+
   # The tests look for a typed number in the Runtime's and the read tools' logs, and read the lines the alarms count,
   # the guest entry's included.
   statement {

@@ -142,6 +142,7 @@ output "guest" {
   description = "The guest entry's and the cleanup's Lambdas, their log groups, and the curated list's Parameter Store entry"
   value = {
     functions  = module.guest.functions
+    cleanup    = module.guest.cleanup.name
     log_groups = module.guest.log_groups
     guest_list = module.guest.guest_list
   }

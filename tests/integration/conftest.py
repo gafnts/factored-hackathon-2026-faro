@@ -23,6 +23,8 @@ from typing import Any
 
 import boto3
 import pytest
+from botocore import UNSIGNED
+from botocore.config import Config
 from botocore.exceptions import ClientError
 from mypy_boto3_cognito_idp import CognitoIdentityProviderClient
 from mypy_boto3_cognito_idp.type_defs import AttributeTypeTypeDef
@@ -61,6 +63,24 @@ def claims(token: str) -> dict[str, Any]:
         base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))
     )
     return decoded
+
+
+def delete_itself(access: str) -> None:
+    """
+    A visitor deletes their own user with their access token: Cognito's DeleteUser takes no AWS credentials, which the
+    deploy's check never holds (ADR-0009's amendment of 2026-11-08). A user already gone is passed over.
+    """
+    region = (
+        str(claims(access)["iss"]).removeprefix("https://cognito-idp.").split(".", 1)[0]
+    )
+    unsigned = boto3.client(
+        "cognito-idp", region_name=region, config=Config(signature_version=UNSIGNED)
+    )
+    try:
+        unsigned.delete_user(AccessToken=access)
+    except ClientError as error:
+        if error.response["Error"]["Code"] != "NotAuthorizedException":
+            raise
 
 
 @pytest.fixture(scope="session")

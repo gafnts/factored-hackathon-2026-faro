@@ -12,13 +12,10 @@ printing a reply, a token, a name, or an ID, and nothing the page shows is saved
 import os
 from collections.abc import Iterator
 
-import boto3
 import pytest
-from botocore import UNSIGNED
-from botocore.config import Config
 from playwright.sync_api import Page, Request, expect, sync_playwright
 
-from tests.integration.conftest import claims
+from tests.integration.conftest import delete_itself
 from tests.integration.test_browser import TEXTS, kind
 from tests.integration.test_stack import arguments, call, tool_output
 
@@ -92,18 +89,6 @@ def gateway() -> dict[str, object]:
         "gateway_url": setting("GATEWAY_URL"),
         "gateway_targets": {"list_cards": setting("LIST_CARDS_TARGET")},
     }
-
-
-def delete_itself(access: str) -> None:
-    """
-    Cognito's DeleteUser takes the user's own access token and no AWS credentials, which the check never holds.
-    """
-    issuer = str(claims(access)["iss"])
-    region = issuer.removeprefix("https://cognito-idp.").split(".", 1)[0]
-    cognito = boto3.client(
-        "cognito-idp", region_name=region, config=Config(signature_version=UNSIGNED)
-    )
-    cognito.delete_user(AccessToken=access)
 
 
 def test_a_guest_enters_and_the_welcome_names_its_cards(page: Page) -> None:

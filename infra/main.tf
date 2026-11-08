@@ -164,6 +164,7 @@ module "suites" {
   cases_table              = module.handoff.cases_table
   runtime_tables           = module.runtime.tables
   file_handoff_function    = module.handoff.function
+  guest_cleanup_function   = module.guest.cleanup
   runtime_log_group        = module.runtime.runtime_log_group
   console_api_id           = module.console.api_id
   site_access_delivery     = module.site.access_delivery.arn

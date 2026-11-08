@@ -8,6 +8,14 @@ output "functions" {
   value       = { for key, function in aws_lambda_function.function : key => function.function_name }
 }
 
+output "cleanup" {
+  description = "The cleanup's Lambda, which the suites' role may run once to show its role reaches the pool"
+  value = {
+    name = aws_lambda_function.function["cleanup"].function_name
+    arn  = aws_lambda_function.function["cleanup"].arn
+  }
+}
+
 output "log_groups" {
   value = { for key, group in aws_cloudwatch_log_group.function : key => group.name }
 }
