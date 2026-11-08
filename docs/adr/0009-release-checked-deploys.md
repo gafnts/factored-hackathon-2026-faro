@@ -7,7 +7,7 @@ Accepted (2026-10-31).
 Amended, each change applied in the section it names:
 
 - 2026-11-07: a major release is a new agent, measured on a held-out set no earlier agent was measured on and released with that report, so a changed agent isn't promoted before it's measured, and a fix that can't wait is the one exception. Before, a major release was a change in who can use the prototype; opening it to anyone changes nothing for the users we invited, so that rule's reason, the one change users would feel as breaking, doesn't hold for it ([Decision](#decision), [Alternatives considered](#alternatives-considered), [Consequences](#consequences)). Accepted 2026-11-07.
-- 2026-11-08: the check also enters as a guest, through the site's button, as nearly every visitor will. It reads the visitor's cards through the Gateway with the visitor's own token, requires the welcome to name each one, and deletes the visitor with the same token; while the chat is paused, it requires the paused answer instead. It makes no model call, and the job still holds no AWS credentials. Before, the check signed in the smoke user alone ([Decision](#decision), [Consequences](#consequences)).
+- 2026-11-08: the check also enters as a guest, through the site's button, as nearly every visitor will. It reads the visitor's cards through the Gateway with the visitor's own token, requires the welcome to name each one, and deletes the visitor with the same token; while the chat is paused, it requires the paused answer instead. It makes no model call, and the job still holds no AWS credentials. Before, the check signed in the smoke user alone ([Decision](#decision), [Consequences](#consequences)). Accepted 2026-11-08.
 
 ## Context
 
