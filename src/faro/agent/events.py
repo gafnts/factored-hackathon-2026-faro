@@ -34,6 +34,8 @@ ERRORS = {
     "no_customer": "The token doesn't name a customer.",
     "rate_limited": "The sign-in sent more turns this minute than the limit allows.",
     "daily_limit": "The user sent more turns today than the limit allows.",
+    "global_limit": "Invited users and visitors sent as many turns today as the cap allows.",
+    "paused": "The chat is paused for invited users and visitors.",
     "internal": "The agent is unavailable.",
 }
 

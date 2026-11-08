@@ -9,6 +9,11 @@ import { WORDS } from "./contracts/words";
 
 export type RunErrorCode = RunError["code"];
 export type Problem = RunErrorCode | "unreachable";
+// Refusals that last until the UTC day ends, which the chat names in the browser's own time (decision 21).
+type DayLong = "daily_limit" | "global_limit";
+export type ProblemTexts = {
+  [P in Problem]: P extends DayLong ? (time: string) => string : string;
+};
 
 export interface Texts {
   notice: string;
@@ -52,7 +57,7 @@ export interface Texts {
     placeholder: string;
     send: string;
     working: string;
-    problems: Record<Problem, string>;
+    problems: ProblemTexts;
   };
   // The confirm control, in the language of the conversation it confirms (POL-36).
   control: {
@@ -72,6 +77,12 @@ export interface Texts {
     decline: string;
   };
 }
+
+// Spanish says "la 1:00" and Portuguese "da 01:00", the one hour named in the singular.
+const FROM: Record<Language, (time: string) => string> = {
+  es: (time) => `a partir de ${time.startsWith("1:") ? "la" : "las"} ${time}`,
+  pt: (time) => `a partir ${time.startsWith("01:") ? "da" : "das"} ${time}`,
+};
 
 const CARD_TYPES: Record<
   Language,
@@ -170,8 +181,11 @@ export const TEXTS: Record<Language, Texts> = {
           "Su usuario no tiene tarjetas que este chat pueda atender.",
         rate_limited:
           "Envió muchos mensajes seguidos. Espere un momento e inténtelo de nuevo.",
-        daily_limit:
-          "Alcanzó el límite de mensajes de hoy. Vuelva a intentarlo mañana.",
+        daily_limit: (time) =>
+          `Alcanzó el límite de mensajes de hoy. Vuelva a intentarlo ${FROM.es(time)}.`,
+        global_limit: (time) =>
+          `Faro alcanzó su límite de mensajes de hoy. Vuelva a intentarlo ${FROM.es(time)}.`,
+        paused: "Faro está en pausa por ahora y no puede responder.",
         internal:
           "En este momento no puedo responder. Por favor, inténtelo de nuevo en unos minutos.",
         unreachable: "No pudimos comunicarnos con Faro. Inténtelo de nuevo.",
@@ -246,8 +260,11 @@ export const TEXTS: Record<Language, Texts> = {
         no_customer: "Seu usuário não tem cartões que este chat possa atender.",
         rate_limited:
           "Você enviou muitas mensagens seguidas. Aguarde um momento e tente novamente.",
-        daily_limit:
-          "Você atingiu o limite de mensagens de hoje. Tente novamente amanhã.",
+        daily_limit: (time) =>
+          `Você atingiu o limite de mensagens de hoje. Tente novamente ${FROM.pt(time)}.`,
+        global_limit: (time) =>
+          `O Faro atingiu o limite de mensagens de hoje. Tente novamente ${FROM.pt(time)}.`,
+        paused: "O Faro está pausado no momento e não pode responder.",
         internal:
           "No momento não consigo responder. Por favor, tente novamente em alguns minutos.",
         unreachable: "Não foi possível falar com o Faro. Tente novamente.",
@@ -271,6 +288,21 @@ export const TEXTS: Record<Language, Texts> = {
     },
   },
 };
+
+// The UTC day ends less than a day from now, so its time alone names it.
+export function problemText(
+  language: Language,
+  problem: Problem,
+  now: Date = new Date(),
+): string {
+  const text = TEXTS[language].chat.problems[problem];
+  if (typeof text === "string") return text;
+  const end = new Date(now);
+  end.setUTCHours(24, 0, 0, 0);
+  return text(
+    new Intl.DateTimeFormat(language, { timeStyle: "short" }).format(end),
+  );
+}
 
 export function isRunErrorCode(code: unknown): code is RunErrorCode {
   return (
