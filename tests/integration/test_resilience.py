@@ -542,3 +542,5 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
         for d in m["MetricStat"]["Metric"]["Dimensions"]
     }
     assert read == {"demo", "visitor", "evaluation", "unknown"}
+    # The integration suite refuses two sessions on purpose.
+    assert named["sessions-refused"]["Threshold"] == 10

@@ -9,7 +9,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 ### Added
 
 - A limit of three runtime sessions per sign-in. The chat keeps one, and each holds a microVM of about 1 GB until its 15-minute idle timeout whether or not a turn runs in it, so a client that drew new session IDs could keep thousands idle on one token while no limit on turns saw it. A new session's binding and its count go in one transaction; a fourth gets `session_refused`, and the entrypoint ends it at once through the caller's own token, reading the Runtime's ARN from a Parameter Store entry Terraform writes once the Runtime exists ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-08, [#207]).
-- An alarm, `sessions-refused`, for a runtime session refused past its sign-in's limit or because another user holds it. It counts every source, since an honest chat meets neither ([#207]).
+- An alarm, `sessions-refused`, for ten or more runtime sessions refused in five minutes, past their sign-in's limit or because another user holds them. It counts every source, since an honest chat meets neither; the integration suite refuses two on purpose and stays under it ([#207]).
 
 ### Changed
 

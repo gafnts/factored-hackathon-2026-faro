@@ -274,13 +274,15 @@ resource "aws_cloudwatch_metric_alarm" "fallback_share" {
   depends_on = [aws_cloudwatch_log_metric_filter.this]
 }
 
-# Neither cause meets an honest chat, which keeps one runtime session per sign-in, so a refusal means a client opening
-# sessions past its sign-in's limit, each holding a microVM until it is ended, or naming another user's.
+# Neither cause meets an honest chat, which keeps one runtime session per sign-in, so many refusals mean a client opening
+# sessions past its sign-in's limit, each holding a microVM until it is ended, or naming another user's. Ten, since the
+# integration suite refuses two on purpose, and a client opening sessions at a rate that costs anything passes ten
+# within seconds.
 resource "aws_cloudwatch_metric_alarm" "sessions_refused" {
   alarm_name          = "${var.prefix}-sessions-refused"
-  alarm_description   = "A runtime session refused, past its sign-in's limit or bound to another user, from any source; the request_refused entries name the sign-in."
+  alarm_description   = "Ten or more runtime sessions refused in five minutes, past their sign-in's limit or bound to another user, from any source; the request_refused entries name the sign-ins."
   comparison_operator = "GreaterThanOrEqualToThreshold"
-  threshold           = 1
+  threshold           = 10
   evaluation_periods  = 1
   datapoints_to_alarm = 1
   treat_missing_data  = "notBreaching"
