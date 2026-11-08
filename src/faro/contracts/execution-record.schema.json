@@ -173,7 +173,7 @@
       "enum": ["retry_after", "backoff", "none"]
     },
     "run_error_code": {
-      "enum": ["invalid_request", "session_refused", "no_customer", "rate_limited", "daily_limit", "internal"]
+      "enum": ["invalid_request", "session_refused", "no_customer", "rate_limited", "daily_limit", "global_limit", "paused", "internal"]
     },
     "trace_id": {
       "description": "The request's trace, when the Runtime records spans, so the record leads to its trace (ADR-0004, Operations, Tracing).",

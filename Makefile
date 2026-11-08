@@ -21,7 +21,7 @@ DATASET_BACKEND := -backend-config=backend.tfbackend
 
 .PHONY: help install tflint-init \
 	check advisories lint format type tf-format \
-	test integration browser suites smoke probe judges smoke-user staff label-users \
+	test integration browser suites smoke probe judges smoke-user staff cap label-users \
 	build web web-dev site upload \
 	bootstrap backend doctor provision teardown \
 	data snapshot personas tiny-export pipeline export contracts analysis \
@@ -120,6 +120,9 @@ smoke-user: _check-profile outputs ## Create or reset ENV's smoke user, the chec
 
 staff: _check-profile outputs ## Put a staff user on ENV's staff allowlist, or take one off (WHO=, WHAT=remove)
 	uv run python -m faro.staff $(or $(WHAT),add) --stack $(OUTPUTS) $(if $(WHO),--user $(WHO))
+
+cap: _check-profile outputs ## Print ENV's cap on the day's turns and today's count, or set it (TURNS=, 0 pauses)
+	uv run python -m faro.cap --stack $(OUTPUTS) $(if $(TURNS),--turns $(TURNS))
 
 # Once per environment, for the users made before the labels and the allowlist; it goes before the guest entry.
 label-users: _check-profile outputs ## Label ENV's invited customers, move the smoke user, list the staff (DRY=1)

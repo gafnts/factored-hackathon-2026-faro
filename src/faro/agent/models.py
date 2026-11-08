@@ -383,6 +383,9 @@ class Models:
         self.record = record
         self.retries = retries
         self.elapsed = elapsed
+        # A call failed this turn for a cause that fails every turn, so the reply promises no time
+        # (ADR-0004's amendment of 2026-11-07).
+        self.out_of_service = False
 
     async def call(
         self,
@@ -413,6 +416,7 @@ class Models:
                 else None
             )
             if wait is None:
+                self.out_of_service |= outcome in EVERY_TURN
                 raise ModelFailedError(node, outcome)
             await self.retries.sleep(wait.seconds)
             attempt += 1

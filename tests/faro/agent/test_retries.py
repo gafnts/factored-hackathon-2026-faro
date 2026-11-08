@@ -269,6 +269,38 @@ def test_a_router_that_keeps_failing_ends_in_the_fixed_reply(harness: Harness) -
     assert FIXED["unavailable"]["es"] in reply(events)
 
 
+def fixed_texts(chat: Chat) -> list[str]:
+    (entry,) = [e for e in chat.entries() if e["kind"] == "reply"]
+    names: list[str] = entry["fixed_texts"]
+    return names
+
+
+def test_a_router_that_fails_every_turn_promises_no_time(harness: Harness) -> None:
+    harness.script.route_error = status_error(anthropic.APIStatusError, 401)
+    chat = Chat(harness)
+
+    events = chat.say(STATUS, requests=["card_status"])
+
+    assert reply(events) == FIXED["out_of_service"]["es"]
+    assert fixed_texts(chat) == ["out_of_service"]
+    assert chat.decision()["outcome_class"] == "abstain"
+
+
+def test_a_reply_that_fails_every_turn_promises_no_time_and_offers_a_person(
+    harness: Harness,
+) -> None:
+    harness.script.reply_error = status_error(anthropic.APIStatusError, 402)
+    chat = Chat(harness)
+
+    events = chat.say(STATUS, requests=["card_status"], last_four="1177")
+
+    assert FIXED["out_of_service"]["es"] in reply(events)
+    assert FIXED["unavailable"]["es"] not in reply(events)
+    assert fixed_texts(chat) == ["out_of_service", "handoff_offer"]
+    assert offer_of(events)["reason_code"] == "tool_failure"
+    assert chat.decision()["outcome_class"] == "abstain"
+
+
 # Tool calls
 
 

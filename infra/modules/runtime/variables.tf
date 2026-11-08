@@ -78,3 +78,8 @@ variable "turns_per_day" {
   description = "A user's turns a UTC day before the entrypoint refuses one (decision 21)"
   type        = number
 }
+
+variable "turns_cap" {
+  description = "Invited users' and visitors' turns a UTC day before the entrypoint refuses one, written once (decision 21)"
+  type        = number
+}
