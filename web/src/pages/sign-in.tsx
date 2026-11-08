@@ -300,6 +300,20 @@ function Guest({
 export function Terms({ language }: { language: Language }) {
   const texts = TEXTS[language].signIn.terms;
   const dialog = useRef<HTMLDialogElement>(null);
+
+  // The dialog leaves as its veil clears, so it closes once those animations end.
+  function close() {
+    const element = dialog.current;
+    if (!element || element.dataset.closing !== undefined) return;
+    element.dataset.closing = "";
+    void Promise.allSettled(
+      element.getAnimations().map((animation) => animation.finished),
+    ).then(() => {
+      element.close();
+      delete element.dataset.closing;
+    });
+  }
+
   return (
     <footer className="animate-fade border-t border-white/10 glass-thin px-4 pt-2.5 pb-3.5 text-xs text-bone sm:px-6 sm:text-sm">
       <p className="text-pretty sm:text-right">
@@ -316,7 +330,11 @@ export function Terms({ language }: { language: Language }) {
       <dialog
         ref={dialog}
         aria-labelledby="terms"
-        className="m-auto w-[calc(2*var(--span)*var(--cell)+1px)] max-w-[calc(100%-2rem)] border border-white/10 glass px-8 py-8 text-bone [--span:5] backdrop:bg-night/70 sm:[--span:4]"
+        onCancel={(event) => {
+          event.preventDefault();
+          close();
+        }}
+        className="m-auto w-[calc(2*var(--span)*var(--cell)+1px)] max-w-[calc(100%-2rem)] animate-message border border-white/10 glass px-8 py-8 text-bone [--span:5] backdrop:animate-veil backdrop:bg-night/70 backdrop:backdrop-blur-md data-closing:animate-leave data-closing:backdrop:animate-unveil motion-reduce:animate-fade sm:[--span:4]"
       >
         <h2 id="terms" className="text-2xl font-semibold tracking-tight">
           {texts.title}
@@ -328,7 +346,7 @@ export function Terms({ language }: { language: Language }) {
         </ul>
         <button
           type="button"
-          onClick={() => dialog.current?.close()}
+          onClick={close}
           className="mt-8 h-11 w-full border border-white/10 font-medium hover:bg-white/5"
         >
           {texts.close}

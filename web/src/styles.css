@@ -25,6 +25,10 @@
   --animate-arrive: arrive 800ms cubic-bezier(0.16, 1, 0.3, 1) 100ms backwards;
   --animate-light: fade 1400ms ease-in-out 300ms backwards;
   --animate-message: arrive 500ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  /* A dialog's veil: the page behind blurs and darkens as the dialog arrives, and clears as it leaves. */
+  --animate-veil: veil 500ms ease-out backwards;
+  --animate-unveil: veil 250ms ease-in reverse forwards;
+  --animate-leave: leave 250ms ease-in forwards;
 
   @keyframes sweep {
     from {
@@ -45,6 +49,19 @@
     from {
       opacity: 0;
       transform: translateY(12px);
+    }
+  }
+
+  @keyframes veil {
+    from {
+      background-color: transparent;
+      backdrop-filter: blur(0);
+    }
+  }
+
+  @keyframes leave {
+    to {
+      opacity: 0;
     }
   }
 }
