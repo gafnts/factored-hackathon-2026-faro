@@ -17,6 +17,8 @@ locals {
     "${local.agentcore}:workload-identity-directory/default",
     "${local.agentcore}:workload-identity-directory/default/workload-identity/${local.runtime_ids}",
   ]
+  # Named before the Runtime exists, so its environment and its role can name the parameter that holds its ARN.
+  runtime_arn_parameter = "/${var.prefix}/runtime/arn"
 }
 
 # Access logs need a second bucket, and every object here is rebuilt from the repository.
@@ -308,14 +310,15 @@ data "aws_iam_policy_document" "runtime" {
     actions   = ["dynamodb:PutItem", "dynamodb:UpdateItem"]
     resources = [var.confirmations_table.arn]
   }
-  # Counts a turn on a condition, and reads no count back; the cap is an administrator's to set (decision 21).
+  # Counts a turn, or a sign-in's new runtime session, on a condition, and reads no count back; the cap is an
+  # administrator's to set (decision 21).
   statement {
     actions   = ["dynamodb:UpdateItem"]
     resources = [aws_dynamodb_table.usage_counters.arn]
     condition {
       test     = "ForAllValues:StringEquals"
       variable = "dynamodb:Attributes"
-      values   = ["counter", "window", "turns", "expires_at"]
+      values   = ["counter", "window", "turns", "sessions", "expires_at"]
     }
     condition {
       test     = "ForAllValues:StringLike"
@@ -351,6 +354,11 @@ data "aws_iam_policy_document" "runtime" {
   statement {
     actions   = ["lambda:InvokeFunction"]
     resources = [var.file_handoff_function.arn]
+  }
+  # Its own ARN, which StopRuntimeSession's URL names, to end a runtime session refused at its sign-in's limit.
+  statement {
+    actions   = ["ssm:GetParameter"]
+    resources = ["arn:aws:ssm:${local.region}:${local.account_id}:parameter${local.runtime_arn_parameter}"]
   }
 }
 
@@ -424,6 +432,7 @@ resource "aws_bedrockagentcore_agent_runtime" "this" {
     FILE_HANDOFF_FUNCTION   = var.file_handoff_function.name
     MODEL_KEY_PROVIDER      = aws_bedrockagentcore_api_key_credential_provider.model.name
     USAGE_COUNTERS_TABLE    = aws_dynamodb_table.usage_counters.name
+    RUNTIME_ARN_PARAMETER   = local.runtime_arn_parameter
     TURNS_PER_MINUTE        = tostring(var.turns_per_minute)
     TURNS_PER_DAY           = tostring(var.turns_per_day)
     # The SDK then fails without a workload token instead of making a local workload identity (spike S4).
@@ -436,6 +445,14 @@ resource "aws_bedrockagentcore_agent_runtime" "this" {
   }
 
   depends_on = [aws_iam_role_policy.runtime]
+}
+
+# The Runtime's environment can't hold its own ARN, which Terraform knows only once the Runtime exists (ADR-0004,
+# Ending a runtime session). An ARN, not a secret.
+resource "aws_ssm_parameter" "runtime_arn" {
+  name  = local.runtime_arn_parameter
+  type  = "String"
+  value = aws_bedrockagentcore_agent_runtime.this.agent_runtime_arn
 }
 
 # Logs hold masked text only, and a KMS key would need a grant for every writer.

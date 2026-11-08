@@ -6,6 +6,15 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Added
+
+- A limit of three runtime sessions per sign-in. The chat keeps one, and each holds a microVM of about 1 GB until its 15-minute idle timeout whether or not a turn runs in it, so a client that drew new session IDs could keep thousands idle on one token while no limit on turns saw it. A new session's binding and its count go in one transaction; a fourth gets `session_refused`, and the entrypoint ends it at once through the caller's own token, reading the Runtime's ARN from a Parameter Store entry Terraform writes once the Runtime exists ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-08, [#207]).
+- An alarm, `sessions-refused`, for ten or more runtime sessions refused in five minutes, past their sign-in's limit or because another user holds them. It counts every source, since an honest chat meets neither; the integration suite refuses two on purpose and stays under it ([#207]).
+
+### Changed
+
+- `session_refused`'s message, and the chat contract's description of it, name the sign-in's limit beside another user's session; the chat's text for it is unchanged ([#207]).
+
 ## [1.12.0] - 2026-11-07 (Promotion 18)
 
 ### Added
@@ -263,6 +272,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#201]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/201
 [#202]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/202
 [#203]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/203
+[#207]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/207
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
