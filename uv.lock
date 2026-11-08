@@ -291,7 +291,7 @@ wheels = [
 
 [[package]]
 name = "bedrock-agentcore"
-version = "1.25.1"
+version = "1.25.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
@@ -303,9 +303,9 @@ dependencies = [
     { name = "uvicorn" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/aa/88/c13b225433fe3f811c3654b35223f4d535c83a6bf096ca666de7cd662153/bedrock_agentcore-1.25.1.tar.gz", hash = "sha256:bedeaaae0a31fffc504a1d959c858802950ff175617a4bd561fd36f3a63d96d6", size = 1291562, upload-time = "2026-10-27T17:51:24.638Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f5/97/c61e93dcd050ecf05269cf99237bee6354b8ac51c1cda5572cf32b32897b/bedrock_agentcore-1.25.2.tar.gz", hash = "sha256:8c1a226b5d2cf5f0c8fa3683c77b9c134237c8e12e810246d59a444b726d8482", size = 1315047, upload-time = "2026-10-30T13:45:22.249Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/85/a5856c02e4d026d4c7e9bdcf32132e0044e3fbd29ae2dd973fa3c76b2f06/bedrock_agentcore-1.25.1-py3-none-any.whl", hash = "sha256:cf8bbe84cfca105e9959e3868c72c36ff41d40d45482a79d5f939ab5e6093905", size = 531607, upload-time = "2026-10-27T17:51:22.96Z" },
+    { url = "https://files.pythonhosted.org/packages/88/d1/88a606ffb238936043327f714f3ea1dee754b84229e4f807ed5c7ed7600c/bedrock_agentcore-1.25.2-py3-none-any.whl", hash = "sha256:058bee62735c1ce664df1114cfa3ccadeba8be6aa9d8c38ec954364c794f2132", size = 548259, upload-time = "2026-10-30T13:45:19.945Z" },
 ]
 
 [[package]]
@@ -913,13 +913,13 @@ agent = [
     { name = "ag-ui-protocol", specifier = ">=1" },
     { name = "anthropic", specifier = ">=1.17,<2" },
     { name = "aws-opentelemetry-distro", specifier = ">=0.22" },
-    { name = "bedrock-agentcore", specifier = ">=1.25.1" },
+    { name = "bedrock-agentcore", specifier = ">=1.25.2" },
     { name = "fastapi", specifier = ">=0.162" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "jsonschema", specifier = ">=4.26" },
     { name = "langchain", specifier = ">=1.4.2" },
     { name = "langchain-anthropic", specifier = ">=1.7.7" },
-    { name = "langgraph", specifier = ">=1.2.18" },
+    { name = "langgraph", specifier = ">=1.2.19" },
     { name = "langgraph-checkpoint-aws", specifier = ">=1.2.3" },
     { name = "opentelemetry-api", specifier = ">=1.45.1" },
     { name = "opentelemetry-propagator-aws-xray", specifier = ">=1.0.2" },
@@ -949,7 +949,7 @@ eda = [
     { name = "pyarrow", specifier = ">=25.0.1" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
 ]
-identity = [{ name = "boto3", specifier = ">=1.43.121" }]
+identity = [{ name = "boto3", specifier = ">=1.43.123" }]
 pipeline = [
     { name = "dbt-core", specifier = ">=1.12.5" },
     { name = "dbt-duckdb", specifier = ">=1.11" },
@@ -957,7 +957,7 @@ pipeline = [
     { name = "types-pyyaml", specifier = ">=6.0.12" },
 ]
 tools = [
-    { name = "boto3", specifier = ">=1.43.121" },
+    { name = "boto3", specifier = ">=1.43.123" },
     { name = "jsonschema", specifier = ">=4.26" },
     { name = "rfc3339-validator", specifier = ">=0.1.4" },
 ]
@@ -1398,7 +1398,7 @@ wheels = [
 
 [[package]]
 name = "langgraph"
-version = "1.2.18"
+version = "1.2.19"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "langchain-core" },
@@ -1408,9 +1408,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "xxhash" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0a/a5/e7d893369550a450143d22e5e18079c2864e29af4907761921c74d587d6e/langgraph-1.2.18.tar.gz", hash = "sha256:4c3e4289043ed0f99625a09990a012d7b16bb576301d8616810de7db01725f9e", size = 776156, upload-time = "2026-10-26T20:04:31.376Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ba/10/329dc49ce3fc40e36faafd407f08607fe3fab75613e709a66758b53faac2/langgraph-1.2.19.tar.gz", hash = "sha256:4a00fa1aad2b5fc2d3a789a8e9eaf993f76218ca924b434902ecf1bbaaf300f6", size = 782618, upload-time = "2026-10-30T22:23:32.962Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/64/ee/c0548039e6523b97891b97e9fe7ce567385673cbbd6e817b735100484a42/langgraph-1.2.18-py3-none-any.whl", hash = "sha256:f430f28ea7fbc129c3cf7dc31c19c33dc27d93aeebd25c6d64fd5c1bad93d27d", size = 260837, upload-time = "2026-10-26T20:04:29.939Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/9e/bd29e368fb16feea8d24270d377d56c34b49afea371717124f19cdfa890c/langgraph-1.2.19-py3-none-any.whl", hash = "sha256:6094a5cbed52a77d8c74c276fcd2056abde7b2836eab1c7a6b74bacbd1a269b3", size = 262285, upload-time = "2026-10-30T22:23:31.334Z" },
 ]
 
 [[package]]
