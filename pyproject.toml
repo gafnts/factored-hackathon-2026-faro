@@ -23,7 +23,7 @@ dependencies = [
 [dependency-groups]
 dev = [
   "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,ssm,sts]>=1.43.123",
-  "moto[dynamodb,s3]>=5.2.5",
+  "moto[cognitoidp,dynamodb,s3]>=5.2.5",
   "mypy>=2.4.1",
   "playwright>=1.63",
   "pre-commit>=4.6.2",
