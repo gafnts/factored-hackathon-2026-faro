@@ -4,6 +4,7 @@ import {
   type SubmitEvent,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -36,8 +37,9 @@ type Way = "guest" | "account";
 const OTHER: Record<Way, Way> = { guest: "account", account: "guest" };
 
 // The two ways in as tabs on the card's top edge, split on the grid's center line, so each spans whole cells, their
-// labels on the panel's left edge. The chosen one opens into the card under a line of sea; the other sits behind a
-// hairline. A click moves focus into the panel, as the switch it replaced did; the arrow keys move between the tabs.
+// labels on the panel's left edge. The chosen one opens into the card under a line of sea, which slides to it; the
+// other sits behind a hairline. A click moves focus into the panel, as the switch it replaced did; the arrow keys move
+// between the tabs.
 function Tabs({
   language,
   way,
@@ -73,8 +75,12 @@ function Tabs({
     <div
       role="tablist"
       aria-label={texts.label}
-      className="grid grid-cols-[calc(var(--span)*var(--cell)-1px)_1fr]"
+      className="relative grid grid-cols-[calc(var(--span)*var(--cell)-1px)_1fr]"
     >
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute top-0 left-0 h-0.5 w-[calc(var(--span)*var(--cell)-1px)] bg-sea transition-transform duration-300 ease-out motion-reduce:transition-none ${way === "account" ? "translate-x-[calc(var(--span)*var(--cell))]" : ""}`}
+      />
       {ways.map((option) => {
         const chosen = option === way;
         return (
@@ -93,12 +99,39 @@ function Tabs({
             onClick={() => {
               if (!chosen) onWay(option, true);
             }}
-            className={`h-11 px-8 text-left text-sm font-medium transition-colors ${option === "account" ? "border-l border-white/10" : ""} ${chosen ? "text-bone shadow-[inset_0_2px_0_var(--color-sea)]" : "border-b border-white/10 bg-night/40 text-bone-muted hover:text-bone"}`}
+            className={`h-11 border-b border-white/10 px-8 text-left text-sm font-medium transition-colors duration-300 ${option === "account" ? "border-l" : ""} ${chosen ? "border-b-transparent text-bone" : "bg-night/40 text-bone-muted hover:text-bone"}`}
           >
             {texts[option]}
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// The card eases to its panel's height, so the page re-centers gradually rather than jumping when the way in changes.
+function Eased({ children }: { children: ReactNode }) {
+  const inner = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const element = inner.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      setHeight(element.offsetHeight);
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <div
+      style={height === null ? undefined : { height }}
+      className="overflow-hidden transition-[height] duration-300 ease-out motion-reduce:transition-none"
+    >
+      <div ref={inner}>{children}</div>
     </div>
   );
 }
@@ -319,11 +352,12 @@ export function SignIn({
   onGuest?: () => Promise<GuestOutcome>;
 }) {
   const panel = useId();
-  // Focus moves with a click on a tab, never on the page's arrival.
-  const [mode, setMode] = useState<{ way: Way; focus: boolean }>({
-    way: onGuest ? "guest" : "account",
-    focus: false,
-  });
+  // Focus moves with a click on a tab, never on the page's arrival; a panel fades in only when the way in changes.
+  const [mode, setMode] = useState<{
+    way: Way;
+    focus: boolean;
+    moved: boolean;
+  }>({ way: onGuest ? "guest" : "account", focus: false, moved: false });
   return (
     <Grid layout="sign-in">
       <div className="flex flex-1 flex-col justify-center px-4 py-6">
@@ -338,32 +372,35 @@ export function SignIn({
                 way={mode.way}
                 panel={panel}
                 onWay={(way, focus) => {
-                  setMode({ way, focus });
+                  setMode({ way, focus, moved: true });
                 }}
               />
-              <div
-                role="tabpanel"
-                id={panel}
-                aria-labelledby={`${panel}-${mode.way}`}
-                className="px-8 py-8"
-              >
-                {mode.way === "guest" ? (
-                  <Guest
-                    language={language}
-                    ended={ended}
-                    focus={mode.focus}
-                    onGuest={onGuest}
-                  />
-                ) : (
-                  <Form
-                    language={language}
-                    ended={ended}
-                    focus={mode.focus}
-                    titled={false}
-                    onSignIn={onSignIn}
-                  />
-                )}
-              </div>
+              <Eased>
+                <div
+                  key={mode.way}
+                  role="tabpanel"
+                  id={panel}
+                  aria-labelledby={`${panel}-${mode.way}`}
+                  className={`px-8 py-8 ${mode.moved ? "animate-fade" : ""}`}
+                >
+                  {mode.way === "guest" ? (
+                    <Guest
+                      language={language}
+                      ended={ended}
+                      focus={mode.focus}
+                      onGuest={onGuest}
+                    />
+                  ) : (
+                    <Form
+                      language={language}
+                      ended={ended}
+                      focus={mode.focus}
+                      titled={false}
+                      onSignIn={onSignIn}
+                    />
+                  )}
+                </div>
+              </Eased>
             </>
           ) : (
             <div className="px-8 py-8">
