@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   configureAuth,
@@ -17,6 +17,7 @@ import { SignIn, Terms } from "./pages/sign-in";
 import { drawRuntimeSession, runtimeSession } from "./session";
 import { RailButton, Shell } from "./shell";
 import { TEXTS } from "./texts";
+import { readWelcome } from "./welcome";
 
 type State =
   | { kind: "loading" }
@@ -34,6 +35,9 @@ export function Customer({ language: starting }: { language: Language }) {
   // (ADR-0007's amendment of 2026-09-30); the earlier one is out of reach once left.
   const [conversation, setConversation] = useState(0);
   const [running, setRunning] = useState(false);
+  // A guest's, kept beside the tab's tokens, so a reload keeps it too.
+  const sub = state.kind === "signed-in" ? state.signedIn.sub : null;
+  const welcome = useMemo(() => (sub ? readWelcome() : null), [sub]);
 
   const end = useCallback(async (config: Config, ended: boolean) => {
     await signOutHere().catch(() => undefined);
@@ -193,6 +197,7 @@ export function Customer({ language: starting }: { language: Language }) {
         language={language}
         onSignInEnded={ended}
         onRunning={setRunning}
+        welcome={welcome}
       />
     </Shell>
   );

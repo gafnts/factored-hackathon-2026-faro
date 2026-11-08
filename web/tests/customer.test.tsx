@@ -12,6 +12,7 @@ import { loadConfig } from "../src/config";
 import { Customer } from "../src/customer";
 import { drawRuntimeSession } from "../src/session";
 import { dayEnds, TEXTS } from "../src/texts";
+import { keepWelcome } from "../src/welcome";
 
 vi.mock(import("../src/config"), async (original) => ({
   ...(await original()),
@@ -37,15 +38,18 @@ vi.mock(import("../src/chat/chat"), async () => {
       session,
       onSignInEnded,
       onRunning,
+      welcome,
     }: {
       session: string;
       onSignInEnded: () => void;
       onRunning?: (running: boolean) => void;
+      welcome?: { name: string } | null;
     }) => {
       const [mount] = useState(() => (chats.mounted += 1));
       return (
         <div>
           <p>chat in {session}</p>
+          {welcome && <p>welcome for {welcome.name}</p>}
           <p>conversation {mount}</p>
           <button type="button" onClick={onSignInEnded}>
             runtime turned the token away
@@ -372,4 +376,20 @@ test("a guest entry that leaves no readable token can't be reached", async () =>
   expect(await screen.findByRole("alert")).toHaveTextContent(
     texts.signIn.unreachable,
   );
+});
+
+test("a reload keeps a guest's welcome, and an invited customer has none", async () => {
+  vi.mocked(currentSignIn).mockResolvedValue(signedIn());
+  keepWelcome({ name: "Team Customer", cards: null });
+  const { unmount } = render(<Customer language="es" />);
+
+  expect(
+    await screen.findByText("welcome for Team Customer"),
+  ).toBeInTheDocument();
+  unmount();
+  window.sessionStorage.clear();
+  render(<Customer language="es" />);
+
+  expect(await screen.findByText(/^chat in/)).toBeInTheDocument();
+  expect(screen.queryByText(/^welcome for/)).not.toBeInTheDocument();
 });

@@ -14,6 +14,7 @@ import {
   signOutHere,
 } from "../src/auth";
 import { drawRuntimeSession } from "../src/session";
+import { keepWelcome, readWelcome } from "../src/welcome";
 
 vi.mock("@aws-amplify/auth", () => ({
   fetchAuthSession: vi.fn(),
@@ -162,8 +163,9 @@ test.each([
   expect(await signInWith("persona", "secret")).toBe(outcome);
 });
 
-test("signs out this sign-in only, and drops its runtime session", async () => {
+test("signs out this sign-in only, and drops its runtime session and a guest's welcome", async () => {
   drawRuntimeSession();
+  keepWelcome({ name: "Team Customer", cards: null });
 
   await signOutHere();
 
@@ -213,6 +215,7 @@ test("a guest's tokens go where a form's sign-in puts them (ADR-0007, The guest 
   expect(tokens.idToken?.toString()).toBe(id);
   expect(tokens.refreshToken).toBe("the-refresh-token");
   expect(tokens.username).toBe("visitor-1");
+  expect(readWelcome()).toEqual({ name: "Team Customer", cards: null });
   vi.unstubAllGlobals();
 });
 

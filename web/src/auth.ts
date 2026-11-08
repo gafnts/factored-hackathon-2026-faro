@@ -4,6 +4,7 @@ import { Amplify, decodeJWT, sessionStorage } from "@aws-amplify/core";
 
 import type { Config } from "./config";
 import { dropRuntimeSession } from "./session";
+import { dropWelcome, keepWelcome, welcomeOf } from "./welcome";
 
 // The refresh token lasts 60 minutes, and no refresh extends it (ADR-0004, decision 10).
 export const SIGN_IN_LASTS_MS = 60 * 60 * 1000;
@@ -135,6 +136,8 @@ export async function enterAsGuest(): Promise<GuestOutcome> {
       username,
     },
   });
+  const welcome = welcomeOf((body as Record<string, unknown>).welcome);
+  if (welcome) keepWelcome(welcome);
   return "signed_in";
 }
 
@@ -145,5 +148,6 @@ export async function signOutHere(): Promise<void> {
     await signOut();
   } finally {
     dropRuntimeSession();
+    dropWelcome();
   }
 }

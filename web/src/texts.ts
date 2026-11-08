@@ -71,6 +71,14 @@ export interface Texts {
     pt: string;
   };
   chat: {
+    // A guest's opening names who they entered as and their cards, so they know what to try (ADR-0007, The guest
+    // entry); the cards' type and digits, never their status.
+    welcome: {
+      as: (name: string) => string;
+      cards: string;
+      type: Record<ProductType, string>;
+      ending: string;
+    };
     question: string;
     // Each one a path that works today: the cards, a block, a charge the customer doesn't recognize. Judges send
     // these words as messages, so the split's guards scan this file for a held-out family's words (ADR-0005).
@@ -210,6 +218,12 @@ export const TEXTS: Record<Language, Texts> = {
       pt: "Português",
     },
     chat: {
+      welcome: {
+        as: (name) => `Hoy usted es ${name}`,
+        cards: "Sus tarjetas",
+        type: { "Tarjeta Crédito": "Crédito", "Tarjeta Débito": "Débito" },
+        ending: "terminada en",
+      },
       question: "¿En qué le puedo ayudar?",
       suggestions: [
         "Muéstreme el estado de mis tarjetas",
@@ -316,6 +330,12 @@ export const TEXTS: Record<Language, Texts> = {
       pt: "Português",
     },
     chat: {
+      welcome: {
+        as: (name) => `Hoje você é ${name}`,
+        cards: "Seus cartões",
+        type: { "Tarjeta Crédito": "Crédito", "Tarjeta Débito": "Débito" },
+        ending: "final",
+      },
       question: "Como posso ajudar?",
       suggestions: [
         "Mostre o status dos meus cartões",
