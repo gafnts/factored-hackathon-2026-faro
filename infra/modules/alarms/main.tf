@@ -1,5 +1,6 @@
-# The alarms (ADR-0004, Operations, and its amendments of 2026-10-01 and 2026-11-03; OPS-03), over metric filters on the
-# Runtime's log group, which count the JSON lines the Runtime writes by source (EVL-13). A planned failure counts in none.
+# The alarms (ADR-0004, Operations, and its amendments of 2026-10-01, 2026-11-03 and 2026-11-07; OPS-03), over metric
+# filters on the Runtime's log group, which count the JSON lines the Runtime writes by source (EVL-13). A planned failure
+# counts in none.
 
 locals {
   namespace = var.prefix
@@ -14,6 +15,7 @@ locals {
     RepliesFellBack   = "{ $.metric = \"reply_check\" && $.fell_back IS TRUE }"
     ToolCallsFailed   = "{ $.metric = \"tool_call\" && $.outcome = \"failed\" && $.last IS TRUE && $.planned IS FALSE }"
     ModelCallsFailing = "{ $.metric = \"model_call\" && ($.outcome = \"spend_limit\" || $.outcome = \"key_rejected\" || $.outcome = \"model_not_found\" || $.outcome = \"invalid_request\") }"
+    CapRefusals       = "{ $.metric = \"request_refused\" && $.code = \"global_limit\" }"
   }
 }
 
@@ -134,6 +136,41 @@ resource "aws_cloudwatch_metric_alarm" "action_not_verified" {
         metric_name = "BlocksNotVerified"
         namespace   = local.namespace
         period      = 300
+        stat        = "Sum"
+        dimensions  = { source = metric_query.value }
+      }
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_metric_filter.this]
+}
+
+# A pause refuses turns too, and alarms on nothing, since an administrator set it.
+resource "aws_cloudwatch_metric_alarm" "cap_reached" {
+  alarm_name          = "${var.prefix}-cap-reached"
+  alarm_description   = "The cap on the day's turns refused an invited user's or a visitor's turn; make cap prints the day's count."
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 1
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  metric_query {
+    id          = "refused"
+    expression  = join(" + ", [for source in local.live : "FILL(${source}, 0)"])
+    label       = "Turns the cap refused"
+    return_data = true
+  }
+
+  dynamic "metric_query" {
+    for_each = toset(local.live)
+    content {
+      id = metric_query.value
+      metric {
+        metric_name = "CapRefusals"
+        namespace   = local.namespace
+        period      = 3600
         stat        = "Sum"
         dimensions  = { source = metric_query.value }
       }

@@ -436,6 +436,7 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
             attempt=1,
             outcome="spend_limit",
         ),
+        "CapRefusals": line("request_refused", "visitor", turn_id, code="global_limit"),
     }
     quiet = {
         "RuntimeErrors": line(
@@ -458,6 +459,7 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
             planned=True,
             last=True,
         ),
+        "CapRefusals": line("request_refused", "demo", turn_id, code="paused"),
     }
 
     written = lines_of(outputs, turn_id, since)
@@ -501,6 +503,7 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
         "action-not-verified",
         "reply-fallback-share",
         "tool-errors",
+        "cap-reached",
     )
     assert set(expected) <= set(named)
     assert all(
@@ -512,6 +515,7 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
         "action-not-verified": "BlocksNotVerified",
         "tool-errors": "ToolCallsFailed",
         "reply-fallback-share": "ReplyChecks",
+        "cap-reached": "CapRefusals",
     }
     for name, metric in live.items():
         read = {
