@@ -295,23 +295,24 @@ function Guest({
 }
 
 // What we keep of a visit, said before anyone enters (ADR-0007, Sign-in): the customers' sign-in's footer, in the
-// notice's place, a glass bar like the one at the top. Entering means accepting it, so its one button opens the full
+// notice's place, a glass bar like the one at the top. Entering means accepting it, so its last words open the full
 // list. Only the team signs in to the console, which keeps the notice.
 export function Terms({ language }: { language: Language }) {
   const texts = TEXTS[language].signIn.terms;
   const dialog = useRef<HTMLDialogElement>(null);
   return (
     <footer className="animate-fade border-t border-white/10 glass-thin px-4 py-3 text-xs text-bone sm:px-6 sm:text-sm">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-        <p className="text-pretty">{texts.banner}</p>
+      <p className="text-pretty">
+        {texts.banner}{" "}
         <button
           type="button"
           onClick={() => dialog.current?.showModal()}
-          className="shrink-0 self-start underline underline-offset-4 hover:text-sea sm:self-auto"
+          className="underline underline-offset-4 hover:text-sea"
         >
           {texts.more}
         </button>
-      </div>
+        .
+      </p>
       <dialog
         ref={dialog}
         aria-labelledby="terms"

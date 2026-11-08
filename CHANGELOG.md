@@ -23,6 +23,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - The deploy's check also enters as a guest: it reads the visitor's cards through the Gateway, requires the welcome to name each one, and deletes the visitor with its own token, so the check still holds no AWS credentials; while the chat is paused it expects the paused answer ([ADR-0009](docs/adr/0009-release-checked-deploys.md)'s amendment of 2026-11-08, [#208]).
 - The suites' role may read the guest entry's log and run the cleanup once, for the tests that check them ([#208]).
 - The README's first lines say how to enter ([#208]).
+- The bar at the foot of the customers' sign-in is one sentence: synthetic data, conversations kept up to 12 months and possibly read, and entering as accepting these conditions, whose words open the full list. The warning not to type real data moved to the list's first line.
 - The test and build tools: globals 17.14.0 in the web app's tooling ([#210]).
 
 ## [1.12.0] - 2026-11-07 (Promotion 18)

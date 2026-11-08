@@ -68,6 +68,7 @@ TEXTS = {
         "session_refused": "No pudimos continuar esta conversación.",
         "other_language": "Português",
         "what_we_keep": "Lo que guardamos",
+        "conditions": "estas condiciones",
         "accepted": "Al entrar, acepta estas condiciones.",
         "ip": "Su dirección IP se guarda hasta 90 días.",
     },
@@ -93,6 +94,7 @@ TEXTS = {
         "session_refused": "Não foi possível continuar esta conversa.",
         "other_language": "Español",
         "what_we_keep": "O que guardamos",
+        "conditions": "estas condições",
         "accepted": "Ao entrar, você aceita estas condições.",
         "ip": "Seu endereço IP é guardado por até 90 dias.",
     },
@@ -556,7 +558,7 @@ def test_the_customers_sign_in_says_what_we_keep_and_the_consoles_doesnt(
     customer.page.goto(f"{site}/chat")
     footer = customer.page.get_by_role("contentinfo")
     expect(footer).to_contain_text(customer.texts["accepted"])
-    footer.get_by_role("button", name=customer.texts["what_we_keep"]).click()
+    footer.get_by_role("button", name=customer.texts["conditions"]).click()
     dialog = customer.page.get_by_role("dialog", name=customer.texts["what_we_keep"])
     expect(dialog).to_contain_text(customer.texts["ip"])
     customer.page.keyboard.press("Escape")
@@ -565,7 +567,7 @@ def test_the_customers_sign_in_says_what_we_keep_and_the_consoles_doesnt(
     expect(dialog).to_be_hidden()
     expect(staff.page.get_by_role("contentinfo")).to_contain_text(CONSOLE["notice"])
     expect(
-        staff.page.get_by_role("button", name=TEXTS["es"]["what_we_keep"])
+        staff.page.get_by_role("button", name=TEXTS["es"]["conditions"])
     ).to_have_count(0)
     assert (customer.violations, customer.errors) == ([], 0)
     assert (staff.violations, staff.errors) == ([], 0)

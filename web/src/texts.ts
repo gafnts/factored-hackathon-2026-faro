@@ -53,7 +53,8 @@ export interface Texts {
       paused: string;
     };
     // What we keep of a visit, in the customers' sign-in's banner and its dialog (ADR-0007, Sign-in; ADR-0004, data
-    // retention). The banner takes the place of the notice, so it says the bank is synthetic too (SEC-02).
+    // retention). The banner takes the place of the notice, so it says the data is synthetic too (SEC-02); its last
+    // words, more, open the dialog.
     terms: {
       banner: string;
       more: string;
@@ -199,8 +200,8 @@ export const TEXTS: Record<Language, Texts> = {
       },
       terms: {
         banner:
-          "Prototipo sobre datos sintéticos: no escriba datos reales. Guardamos sus conversaciones hasta 12 meses y podemos leerlas. Al entrar, acepta estas condiciones.",
-        more: "Lo que guardamos",
+          "Prototipo sobre datos sintéticos. Las conversaciones se guardan hasta por 12 meses y pueden ser leídas. Al entrar, acepta",
+        more: "estas condiciones",
         title: "Lo que guardamos",
         lines: [
           "LATAM Bank y sus clientes son ficticios. No escriba datos reales, suyos ni de nadie.",
@@ -314,8 +315,8 @@ export const TEXTS: Record<Language, Texts> = {
       },
       terms: {
         banner:
-          "Protótipo com dados sintéticos: não escreva dados reais. Guardamos suas conversas por até 12 meses e podemos lê-las. Ao entrar, você aceita estas condições.",
-        more: "O que guardamos",
+          "Protótipo com dados sintéticos. As conversas são guardadas por até 12 meses e podem ser lidas. Ao entrar, você aceita",
+        more: "estas condições",
         title: "O que guardamos",
         lines: [
           "O LATAM Bank e seus clientes são fictícios. Não escreva dados reais, seus ou de ninguém.",
