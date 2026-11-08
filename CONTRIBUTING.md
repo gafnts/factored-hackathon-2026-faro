@@ -409,7 +409,7 @@ make staff WHO=<user>   # Put a staff user on the staff allowlist (WHAT=remove t
 make label-users        # Once per environment: label the users made before the labels (DRY=1)
 make guest-list         # Choose the guest entry's customers and write them to the stack (DRY=1)
 make cap                # Print the day's cap and today's counts (TURNS=<n> sets it, 0 pauses; GUESTS=<n>)
-make web-dev            # Serve the web app on localhost:5173
+make web-dev            # Serve the web app on localhost:5173 (/devices.html shows it at phone and tablet sizes)
 make destroy ENV=local  # Tear down your local resources
 ```
 
