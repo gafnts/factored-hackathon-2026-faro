@@ -48,6 +48,7 @@ def message(request: Request) -> bool:
 
 def test_the_smoke_user_reads_its_cards_in_the_chat(page: Page) -> None:
     page.goto(f"{setting('SITE')}/chat")
+    page.get_by_role("button", name=TEXT["with_account"]).click()
     page.get_by_label(TEXT["username"]).fill(setting("USERNAME"))
     page.get_by_label(TEXT["password"]).fill(setting("PASSWORD"))
     page.get_by_role("button", name=TEXT["submit"]).click()
@@ -80,4 +81,4 @@ def test_the_smoke_user_reads_its_cards_in_the_chat(page: Page) -> None:
     assert missing == 0, f"the reply leaves out {missing} of {len(cards)} cards"
 
     page.get_by_role("button", name=TEXT["sign_out"]).click()
-    expect(page.get_by_label(TEXT["username"])).to_be_visible()
+    expect(page.get_by_role("button", name=TEXT["guest"])).to_be_visible()

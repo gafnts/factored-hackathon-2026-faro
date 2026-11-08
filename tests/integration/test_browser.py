@@ -52,6 +52,8 @@ pytestmark = [pytest.mark.integration, pytest.mark.browser, pytest.mark.timeout(
 TEXTS = {
     "es": {
         "locale": "es-CO",
+        "guest": "Entrar como invitado",
+        "with_account": "Tengo usuario y contraseña",
         "username": "Usuario",
         "password": "Contraseña",
         "submit": "Entrar",
@@ -72,6 +74,8 @@ TEXTS = {
         "cancel": "Cancelar",
         "offer": "Encaminhar seu caso para uma pessoa",
         "locale": "pt-BR",
+        "guest": "Entrar como convidado",
+        "with_account": "Tenho usuário e senha",
         "username": "Usuário",
         "password": "Senha",
         "submit": "Entrar",
@@ -141,6 +145,10 @@ class Tab:
 
     def sign_in(self, site: str, user: User, path: str = "/chat") -> None:
         self.page.goto(f"{site}{path}")
+        # The customers' sign-in leads with the guest entry, the form behind a quiet button; the console's has the
+        # form alone (ADR-0007, Sign-in).
+        if path == "/chat":
+            self.page.get_by_role("button", name=self.texts["with_account"]).click()
         self.page.get_by_label(self.texts["username"]).fill(user.username)
         self.page.get_by_label(self.texts["password"]).fill(user.password)
         self.page.get_by_role("button", name=self.texts["submit"]).click()
@@ -868,7 +876,9 @@ def test_signing_out_revokes_the_sign_in(
 
     customer.page.get_by_role("button", name=customer.texts["sign_out"]).click()
 
-    expect(customer.page.get_by_label(customer.texts["username"])).to_be_visible()
+    expect(
+        customer.page.get_by_role("button", name=customer.texts["guest"])
+    ).to_be_visible()
     assert customer.page.evaluate("() => sessionStorage.length") == 0
     with pytest.raises(ClientError) as refused:
         cognito.admin_initiate_auth(

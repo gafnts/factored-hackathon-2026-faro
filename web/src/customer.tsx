@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   configureAuth,
   currentSignIn,
+  enterAsGuest,
   type SignedIn,
   signInWith,
   signOutHere,
@@ -99,6 +100,22 @@ export function Customer({ language: starting }: { language: Language }) {
     [state],
   );
 
+  const guest = useCallback(async () => {
+    if (state.kind !== "signed-out") return "unreachable" as const;
+    const outcome = await enterAsGuest();
+    const signedIn = outcome === "signed_in" ? await currentSignIn() : null;
+    if (outcome === "signed_in" && !signedIn) return "unreachable" as const;
+    if (signedIn) {
+      setState({
+        kind: "signed-in",
+        config: state.config,
+        signedIn,
+        session: drawRuntimeSession(),
+      });
+    }
+    return outcome;
+  }, [state]);
+
   const ended = useCallback(() => {
     if (config) void end(config, true);
   }, [config, end]);
@@ -130,7 +147,12 @@ export function Customer({ language: starting }: { language: Language }) {
         onLanguage={setLanguage}
         footer={<Terms language={language} />}
       >
-        <SignIn language={language} ended={state.ended} onSignIn={signIn} />
+        <SignIn
+          language={language}
+          ended={state.ended}
+          onSignIn={signIn}
+          onGuest={guest}
+        />
       </Shell>
     );
   }
