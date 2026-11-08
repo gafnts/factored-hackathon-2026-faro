@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:banking-agent:card-support:guest:1",
+  "title": "Guest entry",
+  "description": "What the guest entry answers the customers' sign-in (ADR-0007, The guest entry, and its amendment of 2026-11-08): a new visitor's tokens with the welcome, or a refusal. A full day and the pause are answers, so they come as a 200, as the chat's refusals come in a 200 stream; a throttle or a fault comes as an error status with API Gateway's or Lambda's own body, never this contract.",
+  "oneOf": [{ "$ref": "#/$defs/entered" }, { "$ref": "#/$defs/refused" }],
+  "$defs": {
+    "entered": {
+      "description": "A new user in the customer and visitor groups, signed in through the customers' app client: the tokens Cognito issued, which the tab puts where the form's sign-in puts them, and the welcome.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access_token", "id_token", "refresh_token", "welcome"],
+      "properties": {
+        "access_token": { "type": "string", "minLength": 1 },
+        "id_token": { "type": "string", "minLength": 1 },
+        "refresh_token": { "type": "string", "minLength": 1 },
+        "welcome": { "$ref": "#/$defs/welcome" }
+      }
+    },
+    "welcome": {
+      "description": "Who the visitor entered as: the customer's synthetic name, from the curated list, and each card as list_cards returned it with the visitor's own token, in its order. No status, since a block changes it during the visit. cards is null when that read failed, and the welcome names the customer alone.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "cards"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "cards": {
+          "anyOf": [
+            { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/welcome_card" } },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "welcome_card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product_type", "last_four"],
+      "properties": {
+        "product_type": { "$ref": "urn:banking-agent:card-support:tools:1#/$defs/product_type" },
+        "last_four": { "$ref": "urn:banking-agent:card-support:tools:1#/$defs/last_four" }
+      }
+    },
+    "refused": {
+      "description": "No user was made: the day's guests reached their cap (full), or the chat is paused, which pauses the guest entry too (paused). The page says when a full day ends, in the visitor's own time; the pause names no time.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["refused"],
+      "properties": {
+        "refused": { "enum": ["full", "paused"] }
+      }
+    }
+  }
+}

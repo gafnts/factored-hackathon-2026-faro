@@ -1,8 +1,8 @@
 """
-The shared contracts: JSON Schemas that the tools, the pipeline's export, the chat, the console, the graph, and the
-evaluation are checked against (ADR-0004, decisions 9 and 16). The schemas are the source of truth; code is tested
-against them. A contract may refer to another, or to the handoff schema, by its ID. Beside them, the words a reply states
-recorded values in, which the agent and the evaluation's oracle both read.
+The shared contracts: JSON Schemas that the tools, the pipeline's export, the chat, the console, the guest entry, the
+graph, and the evaluation are checked against (ADR-0004, decisions 9 and 16). The schemas are the source of truth;
+code is tested against them. A contract may refer to another, or to the handoff schema, by its ID. Beside them, the
+words a reply states recorded values in, which the agent and the evaluation's oracle both read.
 """
 
 import json
@@ -20,6 +20,7 @@ NAMES = (
     "chat",
     "console",
     "execution-record",
+    "guest",
     "handoff-case",
     "overlay",
     "tools",
