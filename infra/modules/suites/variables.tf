@@ -57,6 +57,14 @@ variable "tools_data_table" {
   })
 }
 
+variable "guest_cleanup_function" {
+  description = "The visitors' cleanup, which a test runs once; it deletes only visitors made more than a day before"
+  type = object({
+    name = string
+    arn  = string
+  })
+}
+
 variable "file_handoff_function" {
   description = "file_handoff, which the access tests call directly with another customer's payload or token"
   type = object({

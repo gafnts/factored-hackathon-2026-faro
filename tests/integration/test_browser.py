@@ -42,7 +42,7 @@ from faro.agent.texts import FIXED, render
 from faro.contracts import validator
 from faro.tools.cases import draw_reference, queue_order, reference_item
 
-from .conftest import SignIn, User, cases, claims, handoffs
+from .conftest import SignIn, User, cases, claims, delete_itself, handoffs
 from .test_agent import checkpoint_messages, records
 from .test_handoff import disputed, named, window
 from .test_stack import arguments, call, tool_output
@@ -52,6 +52,11 @@ pytestmark = [pytest.mark.integration, pytest.mark.browser, pytest.mark.timeout(
 TEXTS = {
     "es": {
         "locale": "es-CO",
+        "guest": "Entrar como invitado",
+        "guest_full": "Por hoy no hay más lugares para invitados.",
+        "guest_paused": "Faro está en pausa por ahora. Vuelva a intentarlo más tarde.",
+        "cards": "Sus tarjetas",
+        "with_account": "Tengo usuario y contraseña",
         "username": "Usuario",
         "password": "Contraseña",
         "submit": "Entrar",
@@ -72,6 +77,11 @@ TEXTS = {
         "cancel": "Cancelar",
         "offer": "Encaminhar seu caso para uma pessoa",
         "locale": "pt-BR",
+        "guest": "Entrar como convidado",
+        "guest_full": "Por hoje não há mais vagas para convidados.",
+        "guest_paused": "O Faro está pausado no momento. Tente novamente mais tarde.",
+        "cards": "Seus cartões",
+        "with_account": "Tenho usuário e senha",
         "username": "Usuário",
         "password": "Senha",
         "submit": "Entrar",
@@ -141,9 +151,13 @@ class Tab:
 
     def sign_in(self, site: str, user: User, path: str = "/chat") -> None:
         self.page.goto(f"{site}{path}")
+        # The customers' sign-in leads with the guest entry, the form behind a quiet button; the console's has the
+        # form alone (ADR-0007, Sign-in).
+        if path == "/chat":
+            self.page.get_by_role("button", name=self.texts["with_account"]).click()
         self.page.get_by_label(self.texts["username"]).fill(user.username)
         self.page.get_by_label(self.texts["password"]).fill(user.password)
-        self.page.get_by_role("button", name=self.texts["submit"]).click()
+        self.page.get_by_role("button", name=self.texts["submit"], exact=True).click()
 
     def ask(self, outputs: dict[str, Any], text: str) -> str:
         message = self.page.get_by_label(self.texts["message"])
@@ -868,7 +882,9 @@ def test_signing_out_revokes_the_sign_in(
 
     customer.page.get_by_role("button", name=customer.texts["sign_out"]).click()
 
-    expect(customer.page.get_by_label(customer.texts["username"])).to_be_visible()
+    expect(
+        customer.page.get_by_role("button", name=customer.texts["guest"])
+    ).to_be_visible()
     assert customer.page.evaluate("() => sessionStorage.length") == 0
     with pytest.raises(ClientError) as refused:
         cognito.admin_initiate_auth(
@@ -879,3 +895,35 @@ def test_signing_out_revokes_the_sign_in(
         )
     assert refused.value.response["Error"]["Code"] == "NotAuthorizedException"
     assert customer.violations == []
+
+
+def test_a_stranger_enters_as_a_guest_and_is_welcomed_by_name_and_cards(
+    outputs: dict[str, Any], site: str, tab: Callable[[str], Tab]
+) -> None:
+    """
+    One click makes a visitor of a development customer, signed in like any customer, and the opening names who they
+    entered as and each card list_cards reads with their own token, with no status (ADR-0007, The guest entry; SEC-04).
+    """
+    visitor = tab("pt")
+    visitor.page.goto(f"{site}/chat")
+
+    visitor.page.get_by_role("button", name=visitor.texts["guest"]).click()
+
+    expect(visitor.page.get_by_label(visitor.texts["message"])).to_be_visible()
+    access = visitor.stored(".accessToken")
+    assert access, "the guest entry stored no access token"
+    try:
+        assert set(claims(access)["cognito:groups"]) == {"customer", "visitor"}
+        listed = tool_output(call(outputs, access, "list_cards", arguments(access)))
+        cards = visitor.page.get_by_role(
+            "list", name=visitor.texts["cards"]
+        ).get_by_role("listitem")
+        expect(cards).to_have_count(len(listed["cards"]))
+        shown = " ".join(cards.all_inner_texts())
+        missing = sum(1 for card in listed["cards"] if card["last_four"] not in shown)
+        assert missing == 0, f"the welcome leaves out {missing} cards"
+        for status in ("Active", "Blocked", "Ativo", "Bloqueado"):
+            assert status not in shown
+    finally:
+        delete_itself(access)
+    assert (visitor.violations, visitor.errors) == ([], 0)

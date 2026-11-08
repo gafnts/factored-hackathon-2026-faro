@@ -79,6 +79,18 @@ HOOKS = {
 # The scenarios whose customers the browser journey and the tiny export stage (ADR-0006's amendment).
 JOURNEYS = ("declines", "dispute")
 
+# Active, nothing updated after the as-of instant, and no conflicting record, so the demo shows no flag it doesn't mean
+# to; over the tables that tables() writes, with c the customer.
+CLEAN = """
+    c.customer_status = 'Active' and c.last_updated <= $as_of
+    and (select count(*) from persona_cards k where k.customer_id = c.customer_id) <= $max_cards
+    and not exists (select 1 from persona_cards k where k.customer_id = c.customer_id
+      and (k.last_updated > $as_of
+        or (k.product_status = 'Active' and k.expiration_date < $business_date)))
+    and not exists (select 1 from persona_transactions t where t.customer_id = c.customer_id
+      and (t.before_card_opening or t.after_card_expiration))
+"""
+
 
 class PersonaError(Exception):
     pass
@@ -142,11 +154,11 @@ def briefing(
     )
 
 
-def select(
-    con: duckdb.DuckDBPyConnection, snapshot: str, business_date: date, as_of: datetime
-) -> Personas:
+def tables(con: duckdb.DuckDBPyConnection, as_of: datetime) -> None:
     """
-    Reads the raw_customers, raw_products, and raw_transactions views that analysis.source.connect opens.
+    Writes the development customers' persona_customers, persona_cards, and persona_transactions from the
+    raw_customers, raw_products, and raw_transactions views that analysis.source.connect opens; no later query reads a
+    held-out customer past its ID.
     """
     con.create_function("held_out", held_out, [sqltypes.VARCHAR], sqltypes.BOOLEAN)
     con.execute(
@@ -185,6 +197,31 @@ def select(
         "  and cast(t.transaction_date as timestamp) <= $as_of",
         {"start": as_of - WINDOW, "as_of": as_of},
     )
+
+
+def parameters(business_date: date, as_of: datetime) -> dict[str, object]:
+    return {
+        "as_of": as_of,
+        "business_date": business_date,
+        "recent": as_of - RECENT,
+        "window_start": (as_of - WINDOW).date(),
+        "codes": list(LISTED_CODES),
+        "max_cards": MAX_CARDS,
+        "busy": BUSY_CARD,
+    }
+
+
+def bound(query: str, values: dict[str, object]) -> dict[str, object]:
+    """
+    The values a query names, since DuckDB refuses one it doesn't.
+    """
+    return {k: v for k, v in values.items() if f"${k}" in query}
+
+
+def select(
+    con: duckdb.DuckDBPyConnection, snapshot: str, business_date: date, as_of: datetime
+) -> Personas:
+    tables(con, as_of)
     rules = {
         "declines": """
             (select count(*) from persona_cards k where k.customer_id = c.customer_id
@@ -245,24 +282,7 @@ def select(
               and k.product_type = 'Tarjeta Crédito')
         """,
     }
-    clean = """
-        c.customer_status = 'Active' and c.last_updated <= $as_of
-        and (select count(*) from persona_cards k where k.customer_id = c.customer_id) <= $max_cards
-        and not exists (select 1 from persona_cards k where k.customer_id = c.customer_id
-          and (k.last_updated > $as_of
-            or (k.product_status = 'Active' and k.expiration_date < $business_date)))
-        and not exists (select 1 from persona_transactions t where t.customer_id = c.customer_id
-          and (t.before_card_opening or t.after_card_expiration))
-    """
-    parameters = {
-        "as_of": as_of,
-        "business_date": business_date,
-        "recent": as_of - RECENT,
-        "window_start": (as_of - WINDOW).date(),
-        "codes": list(LISTED_CODES),
-        "max_cards": MAX_CARDS,
-        "busy": BUSY_CARD,
-    }
+    values = parameters(business_date, as_of)
     chosen: dict[str, Persona] = {}
     qualifying: dict[str, int] = {}
     taken_ids: set[str] = set()
@@ -270,10 +290,10 @@ def select(
     for scenario, rule in rules.items():
         rows = con.execute(
             "select c.customer_id, c.first_name, c.last_name, c.country "
-            f"from persona_customers c where {clean} and {rule} "
+            f"from persona_customers c where {CLEAN} and {rule} "
             "order by (select count(*) from persona_transactions t where t.customer_id = c.customer_id) desc, "
             "customer_id",
-            {k: v for k, v in parameters.items() if f"${k}" in clean + rule},
+            bound(CLEAN + rule, values),
         ).fetchall()
         qualifying[scenario] = len(rows)
         picked = next(

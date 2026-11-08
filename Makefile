@@ -98,7 +98,7 @@ suites: browser integration ## Run both against ENV, the full check of a promoti
 
 # CI sets SMOKE_* from the deploy's outputs and the environment's secret; here they come from ENV's outputs and
 # data/smoke/. One retry, for a fault upstream of us.
-smoke: $(if $(SMOKE_SITE),,_check-profile outputs) ## Sign ENV's smoke user in and ask about its cards, as after a deploy
+smoke: $(if $(SMOKE_SITE),,_check-profile outputs) ## Ask about ENV's smoke user's cards, then enter as a guest and read its welcome, as after a deploy
 	uv run playwright install chromium
 	@export SMOKE_SITE="$${SMOKE_SITE:-$$(jq -r .site.value.url $(OUTPUTS))}" \
 		SMOKE_GATEWAY_URL="$${SMOKE_GATEWAY_URL:-$$(jq -r .gateway_url.value $(OUTPUTS))}" \
@@ -121,8 +121,12 @@ smoke-user: _check-profile outputs ## Create or reset ENV's smoke user, the chec
 staff: _check-profile outputs ## Put a staff user on ENV's staff allowlist, or take one off (WHO=, WHAT=remove)
 	uv run python -m faro.staff $(or $(WHAT),add) --stack $(OUTPUTS) $(if $(WHO),--user $(WHO))
 
-cap: _check-profile outputs ## Print ENV's cap on the day's turns and today's count, or set it (TURNS=, 0 pauses)
-	uv run python -m faro.cap --stack $(OUTPUTS) $(if $(TURNS),--turns $(TURNS))
+cap: _check-profile outputs ## Print ENV's cap on the day's turns and guests and today's counts, or set it (TURNS=, 0 pauses; GUESTS=)
+	uv run python -m faro.cap --stack $(OUTPUTS) $(if $(TURNS),--turns $(TURNS)) $(if $(GUESTS),--guests $(GUESTS))
+
+# Once per environment, and again after a new snapshot; it reads the snapshot under data/, like make personas.
+guest-list: _check-profile outputs ## Choose the guest entry's customers and write them to ENV's stack (DRY=1)
+	uv run python -m faro.export guests --stack $(OUTPUTS) $(if $(DRY),--dry-run)
 
 # Once per environment, for the users made before the labels and the allowlist; it goes before the guest entry.
 label-users: _check-profile outputs ## Label ENV's invited customers, move the smoke user, list the staff (DRY=1)

@@ -199,7 +199,8 @@ resource "aws_dynamodb_table" "usage_counters" {
   }
 }
 
-# Written once, so a fork gets one; make cap sets it afterwards, and a deploy never undoes a pause (decision 21).
+# Written once, so a fork gets one; make cap sets it afterwards, and a deploy never undoes a pause (decision 21). A cap
+# written before the guests' gets them from make cap GUESTS=, since a change here never reaches it.
 resource "aws_dynamodb_table_item" "cap" {
   table_name = aws_dynamodb_table.usage_counters.name
   hash_key   = aws_dynamodb_table.usage_counters.hash_key
@@ -208,6 +209,7 @@ resource "aws_dynamodb_table_item" "cap" {
     counter = { S = "cap" }
     window  = { S = "current" }
     turns   = { N = tostring(var.turns_cap) }
+    guests  = { N = tostring(var.guests_cap) }
   })
 
   lifecycle {

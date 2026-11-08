@@ -93,7 +93,7 @@ The operations that can hurt are hard to trigger by mistake:
 | Deploying from an unreviewed branch | The prototype deploy role only trusts jobs in the `prototype` GitHub Environment, which only `main` can use |
 | Write credentials on pull requests | PR plans run under a read-only role, without taking the state lock; the plan's comment is posted by a job with no AWS credentials |
 | Build code running with a deploy role | The build job, which runs `make build` and the web app's install and build, holds no credentials; the plan and apply jobs download what it made and run only Terraform, the AWS CLI, jq, and git ([ADR-0009](docs/adr/0009-release-checked-deploys.md)) |
-| A deploy that runs something other than its build, or breaks the chat | `make verify` compares what each Lambda and the Runtime run with the build's zips, and `make smoke` asks about the smoke user's cards; either failing turns the run red, and a red run gets no release |
+| A deploy that runs something other than its build, or breaks the chat or the guest entry | `make verify` compares what each Lambda and the Runtime run with the build's zips, and `make smoke` asks about the smoke user's cards and enters as a guest; either failing turns the run red, and a red run gets no release |
 | A release tag that moves | Releases are immutable once published, and a ruleset lets only administrators create, move, or delete a `v*` tag |
 | CI changing its own permissions | `infra/iam/` is applied by hand with admin credentials; the deploy roles are denied IAM changes to themselves, and every role they create must carry a permissions boundary that excludes IAM |
 | One environment touching another's state | Each role is denied every other prefix in the state bucket (including the IAM and dataset roots'), and any change to the bucket itself; the roles they create are denied the bucket entirely |
@@ -401,13 +401,14 @@ make verify             # Check that the Lambdas and the Runtime run the zips in
 make integration        # Test the stack (SLOW=1 waits out a token, 15 min)
 make browser            # Play the chat and the console in Chromium
 make suites             # Both, browser first, as a promotion's full check
-make smoke              # Ask about the smoke user's cards, as the check after a deploy does
+make smoke              # Ask about the smoke user's cards and enter as a guest, as the check after a deploy does
 make probe              # Time the Runtime and check what it stores and traces
 make judges             # Manage the judges' users, kept in data/judges/
 make smoke-user         # Create or reset the check's customer, kept in data/smoke/
 make staff WHO=<user>   # Put a staff user on the staff allowlist (WHAT=remove takes one off)
 make label-users        # Once per environment: label the users made before the labels (DRY=1)
-make cap                # Print the day's cap and today's count (TURNS=<n> sets it, 0 pauses)
+make guest-list         # Choose the guest entry's customers and write them to the stack (DRY=1)
+make cap                # Print the day's cap and today's counts (TURNS=<n> sets it, 0 pauses; GUESTS=<n>)
 make web-dev            # Serve the web app on localhost:5173
 make destroy ENV=local  # Tear down your local resources
 ```
@@ -422,7 +423,7 @@ Every customer carries a label beside the `customer` group, which sets the sourc
 
 #### Alarms
 
-The seven alarms ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), monitoring) notify an SNS topic that `make outputs` writes under `alarms.topic_arn`. Terraform subscribes no address to it, so none reaches the repository: subscribe once per environment, then confirm from the email AWS sends.
+The nine alarms ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), monitoring) notify an SNS topic that `make outputs` writes under `alarms.topic_arn`. Terraform subscribes no address to it, so none reaches the repository: subscribe once per environment, then confirm from the email AWS sends.
 
 ```bash
 aws sns subscribe --protocol email --notification-endpoint you@example.com \
@@ -463,13 +464,26 @@ OpenAI's key is the evaluation's alone: `make outside-write` reads it from `.env
 
 Anyone can enter as a guest, so a limit per user doesn't bound what the chat spends. Every turn of an invited user or a visitor also counts against a cap on the UTC day's turns, for everyone together ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), capacity). The evaluation's turns don't count, and neither do the smoke check's. Past the cap, the chat says Faro reached today's limit and gives the time the day ends in the visitor's own time, and the `cap-reached` alarm fires.
 
-The cap is one item of the usage counters table. Terraform writes it once, from `turns_cap` (750 unless you set it: about 5 USD a day at the freeze's 95th percentile cost of a turn). After that, `make cap` reads and sets it, and a deploy never changes it. A cap of 0 pauses the chat: invited users and visitors read that Faro is paused, and the smoke check still runs.
+The cap is one item of the usage counters table. Terraform writes it once, from `turns_cap` (750 unless you set it: about 5 USD a day at the freeze's 95th percentile cost of a turn) and `guests_cap` (100). After that, `make cap` reads and sets it, and a deploy never changes it. A cap of 0 turns pauses the chat and the guest entry: invited users and visitors read that Faro is paused, the guest entry makes no user, and the smoke check still runs. A stack whose cap was written before the guests' cap has none, and its guest entry makes no user until `make cap GUESTS=100` writes it.
 
 ```bash
 AWS_PROFILE=default make cap ENV=prototype             # The cap and today's count
 AWS_PROFILE=default make cap TURNS=0 ENV=prototype     # Pause
 AWS_PROFILE=default make cap TURNS=750 ENV=prototype   # Resume, or raise the cap for a day
+AWS_PROFILE=default make cap GUESTS=100 ENV=prototype  # Set the guests a day
 ```
+
+#### The guest entry
+
+The customers' sign-in leads with a button that enters as a guest: each click makes a user of its own, as one of 24 development customers chosen by a committed rule, and signs it in ([ADR-0007](docs/adr/0007-role-gated-web-app.md#the-guest-entry)). It needs two things the stack doesn't hold until an administrator writes them, so a fork's button makes no user before they're written:
+
+```bash
+AWS_PROFILE=default make guest-list DRY=1 ENV=prototype   # The counts the rule chooses from, from the snapshot under data/
+AWS_PROFILE=default make guest-list ENV=prototype         # Write the list to the stack's Parameter Store entry
+AWS_PROFILE=default make cap GUESTS=100 ENV=prototype     # Only for a cap written before the guests' cap
+```
+
+The list holds names, so it lives in the stack and never in the repository; run `make guest-list` again after a new snapshot. A cleanup deletes the visitors' users every hour, a day after each was made.
 
 #### The site
 
@@ -625,9 +639,10 @@ Run `make help` for every target.
 | `WHAT`, `JUDGE` | `create`, every judge | `make judges`: `create`, `reset`, `sign-out`, `disable`, `enable`, or `delete` |
 | `WHO`, `WHAT` | None, `add` | `make staff`: the staff user, and `add` or `remove` |
 | `TURNS` | Unset | `make cap`: the cap on the day's turns to set; 0 pauses the chat |
+| `GUESTS` | Unset | `make cap`: the cap on the guests the guest entry makes in a day, to set |
 | `BUILT` | Unset | Set to `1` to make `make plan` plan the zips already in `build/` instead of building them |
 | `BUMP` | `minor` | `make cut`: `minor` for a promotion, `patch` for one that only fixes the last release |
-| `DRY` | Unset | Set to `1` to make `make release` print what it would tag and the notes, and create nothing; `make label-users` prints what it would change |
+| `DRY` | Unset | Set to `1` to make `make release` print what it would tag and the notes, and create nothing; `make label-users` prints what it would change, and `make guest-list` the counts it would write |
 | `SMOKE_*` | Read from `build/<env>.outputs.json` and `data/smoke/<env>.json` | `make smoke`; CI sets them from the deploy's outputs and the environment's secret and variable |
 
 The evaluation targets ([Evaluate](#evaluate)) take their own:

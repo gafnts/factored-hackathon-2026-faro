@@ -65,3 +65,9 @@ variable "turns_cap" {
   type        = number
   default     = 750
 }
+
+variable "guests_cap" {
+  description = "Guests the guest entry makes a UTC day; written once with turns_cap, then set with make cap GUESTS= (ADR-0007, The guest entry)"
+  type        = number
+  default     = 100
+}

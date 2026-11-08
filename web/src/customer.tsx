@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   configureAuth,
   currentSignIn,
+  enterAsGuest,
   type SignedIn,
   signInWith,
   signOutHere,
@@ -16,6 +17,7 @@ import { SignIn, Terms } from "./pages/sign-in";
 import { drawRuntimeSession, runtimeSession } from "./session";
 import { RailButton, Shell } from "./shell";
 import { TEXTS } from "./texts";
+import { readWelcome } from "./welcome";
 
 type State =
   | { kind: "loading" }
@@ -33,6 +35,9 @@ export function Customer({ language: starting }: { language: Language }) {
   // (ADR-0007's amendment of 2026-09-30); the earlier one is out of reach once left.
   const [conversation, setConversation] = useState(0);
   const [running, setRunning] = useState(false);
+  // A guest's, kept beside the tab's tokens, so a reload keeps it too.
+  const sub = state.kind === "signed-in" ? state.signedIn.sub : null;
+  const welcome = useMemo(() => (sub ? readWelcome() : null), [sub]);
 
   const end = useCallback(async (config: Config, ended: boolean) => {
     await signOutHere().catch(() => undefined);
@@ -99,6 +104,22 @@ export function Customer({ language: starting }: { language: Language }) {
     [state],
   );
 
+  const guest = useCallback(async () => {
+    if (state.kind !== "signed-out") return "unreachable" as const;
+    const outcome = await enterAsGuest();
+    const signedIn = outcome === "signed_in" ? await currentSignIn() : null;
+    if (outcome === "signed_in" && !signedIn) return "unreachable" as const;
+    if (signedIn) {
+      setState({
+        kind: "signed-in",
+        config: state.config,
+        signedIn,
+        session: drawRuntimeSession(),
+      });
+    }
+    return outcome;
+  }, [state]);
+
   const ended = useCallback(() => {
     if (config) void end(config, true);
   }, [config, end]);
@@ -130,7 +151,12 @@ export function Customer({ language: starting }: { language: Language }) {
         onLanguage={setLanguage}
         footer={<Terms language={language} />}
       >
-        <SignIn language={language} ended={state.ended} onSignIn={signIn} />
+        <SignIn
+          language={language}
+          ended={state.ended}
+          onSignIn={signIn}
+          onGuest={guest}
+        />
       </Shell>
     );
   }
@@ -171,6 +197,7 @@ export function Customer({ language: starting }: { language: Language }) {
         language={language}
         onSignInEnded={ended}
         onRunning={setRunning}
+        welcome={welcome}
       />
     </Shell>
   );

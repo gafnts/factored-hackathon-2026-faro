@@ -36,6 +36,18 @@ export interface Texts {
     ended: string;
     signOut: string;
     endsAt: (time: string) => string;
+    // The guest entry, which leads the customers' sign-in; the form opens behind its quiet button (ADR-0007, The guest
+    // entry). Past the day's guests, the time the UTC day ends, in the browser's own.
+    guest: {
+      title: string;
+      lead: string;
+      enter: string;
+      entering: string;
+      withAccount: string;
+      asGuest: string;
+      full: (time: string) => string;
+      paused: string;
+    };
     // What we keep of a visit, in the customers' sign-in's banner and its dialog (ADR-0007, Sign-in; ADR-0004, data
     // retention). The banner takes the place of the notice, so it says the bank is synthetic too (SEC-02).
     terms: {
@@ -59,6 +71,14 @@ export interface Texts {
     pt: string;
   };
   chat: {
+    // A guest's opening names who they entered as and their cards, so they know what to try (ADR-0007, The guest
+    // entry); the cards' type and digits, never their status.
+    welcome: {
+      as: (name: string) => string;
+      cards: string;
+      type: Record<ProductType, string>;
+      ending: string;
+    };
     question: string;
     // Each one a path that works today: the cards, a block, a charge the customer doesn't recognize. Judges send
     // these words as messages, so the split's guards scan this file for a held-out family's words (ADR-0005).
@@ -159,6 +179,17 @@ export const TEXTS: Record<Language, Texts> = {
       ended: "Su sesión terminó. Inicie sesión de nuevo para continuar.",
       signOut: "Cerrar sesión",
       endsAt: (time) => `Su sesión terminará a las ${time}.`,
+      guest: {
+        title: "Pruebe Faro",
+        lead: "Entre como un cliente ficticio de LATAM Bank y pregúntele a Faro por sus tarjetas.",
+        enter: "Entrar como invitado",
+        entering: "Entrando…",
+        withAccount: "Tengo usuario y contraseña",
+        asGuest: "Entrar como invitado",
+        full: (time) =>
+          `Por hoy no hay más lugares para invitados. Vuelva a intentarlo ${FROM.es(time)}.`,
+        paused: "Faro está en pausa por ahora. Vuelva a intentarlo más tarde.",
+      },
       terms: {
         banner:
           "Prototipo sobre datos sintéticos: no escriba datos reales. Guardamos sus conversaciones hasta 12 meses y podemos leerlas. Al entrar, acepta estas condiciones.",
@@ -187,6 +218,12 @@ export const TEXTS: Record<Language, Texts> = {
       pt: "Português",
     },
     chat: {
+      welcome: {
+        as: (name) => `Hoy usted es ${name}`,
+        cards: "Sus tarjetas",
+        type: { "Tarjeta Crédito": "Crédito", "Tarjeta Débito": "Débito" },
+        ending: "terminada en",
+      },
       question: "¿En qué le puedo ayudar?",
       suggestions: [
         "Muéstreme el estado de mis tarjetas",
@@ -254,6 +291,17 @@ export const TEXTS: Record<Language, Texts> = {
       ended: "Sua sessão terminou. Entre de novo para continuar.",
       signOut: "Sair",
       endsAt: (time) => `Sua sessão terminará às ${time}.`,
+      guest: {
+        title: "Experimente o Faro",
+        lead: "Entre como um cliente fictício do LATAM Bank e pergunte ao Faro sobre seus cartões.",
+        enter: "Entrar como convidado",
+        entering: "Entrando…",
+        withAccount: "Tenho usuário e senha",
+        asGuest: "Entrar como convidado",
+        full: (time) =>
+          `Por hoje não há mais vagas para convidados. Tente novamente ${FROM.pt(time)}.`,
+        paused: "O Faro está pausado no momento. Tente novamente mais tarde.",
+      },
       terms: {
         banner:
           "Protótipo com dados sintéticos: não escreva dados reais. Guardamos suas conversas por até 12 meses e podemos lê-las. Ao entrar, você aceita estas condições.",
@@ -282,6 +330,12 @@ export const TEXTS: Record<Language, Texts> = {
       pt: "Português",
     },
     chat: {
+      welcome: {
+        as: (name) => `Hoje você é ${name}`,
+        cards: "Seus cartões",
+        type: { "Tarjeta Crédito": "Crédito", "Tarjeta Débito": "Débito" },
+        ending: "final",
+      },
       question: "Como posso ajudar?",
       suggestions: [
         "Mostre o status dos meus cartões",
@@ -329,18 +383,19 @@ export const TEXTS: Record<Language, Texts> = {
 };
 
 // The UTC day ends less than a day from now, so its time alone names it.
+export function dayEnds(language: Language, now: Date = new Date()): string {
+  const end = new Date(now);
+  end.setUTCHours(24, 0, 0, 0);
+  return new Intl.DateTimeFormat(language, { timeStyle: "short" }).format(end);
+}
+
 export function problemText(
   language: Language,
   problem: Problem,
   now: Date = new Date(),
 ): string {
   const text = TEXTS[language].chat.problems[problem];
-  if (typeof text === "string") return text;
-  const end = new Date(now);
-  end.setUTCHours(24, 0, 0, 0);
-  return text(
-    new Intl.DateTimeFormat(language, { timeStyle: "short" }).format(end),
-  );
+  return typeof text === "string" ? text : text(dayEnds(language, now));
 }
 
 export function isRunErrorCode(code: unknown): code is RunErrorCode {

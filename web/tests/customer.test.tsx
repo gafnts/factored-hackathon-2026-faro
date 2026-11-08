@@ -2,11 +2,17 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import { currentSignIn, signInWith, signOutHere } from "../src/auth";
+import {
+  currentSignIn,
+  enterAsGuest,
+  signInWith,
+  signOutHere,
+} from "../src/auth";
 import { loadConfig } from "../src/config";
 import { Customer } from "../src/customer";
 import { drawRuntimeSession } from "../src/session";
-import { TEXTS } from "../src/texts";
+import { dayEnds, TEXTS } from "../src/texts";
+import { keepWelcome } from "../src/welcome";
 
 vi.mock(import("../src/config"), async (original) => ({
   ...(await original()),
@@ -17,6 +23,7 @@ vi.mock(import("../src/auth"), async (original) => ({
   ...(await original()),
   configureAuth: vi.fn(),
   currentSignIn: vi.fn(),
+  enterAsGuest: vi.fn(),
   signInWith: vi.fn(),
   signOutHere: vi.fn(() => Promise.resolve()),
 }));
@@ -31,15 +38,18 @@ vi.mock(import("../src/chat/chat"), async () => {
       session,
       onSignInEnded,
       onRunning,
+      welcome,
     }: {
       session: string;
       onSignInEnded: () => void;
       onRunning?: (running: boolean) => void;
+      welcome?: { name: string } | null;
     }) => {
       const [mount] = useState(() => (chats.mounted += 1));
       return (
         <div>
           <p>chat in {session}</p>
+          {welcome && <p>welcome for {welcome.name}</p>}
           <p>conversation {mount}</p>
           <button type="button" onClick={onSignInEnded}>
             runtime turned the token away
@@ -69,8 +79,12 @@ function signedIn(endsIn = 30 * 60 * 1000) {
   return { sub: "sub", endsAt: Date.now() + endsIn };
 }
 
+// The form waits behind a quiet button, since the guest entry leads (ADR-0007, Sign-in).
 async function signInThroughTheForm() {
   const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: texts.signIn.guest.withAccount }),
+  );
   await user.type(
     await screen.findByLabelText(texts.signIn.username),
     " persona ",
@@ -144,7 +158,7 @@ test("the bar's switch sets the page's language, starting from the browser's", a
   render(<Customer language="es" />);
 
   expect(
-    await screen.findByLabelText(texts.signIn.username),
+    await screen.findByRole("heading", { name: texts.signIn.guest.title }),
   ).toBeInTheDocument();
   const options = screen.getByRole("group", { name: texts.language.label });
   expect(
@@ -154,7 +168,9 @@ test("the bar's switch sets the page's language, starting from the browser's", a
     .setup()
     .click(within(options).getByRole("button", { name: texts.language.pt }));
 
-  expect(screen.getByLabelText(TEXTS.pt.signIn.username)).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: TEXTS.pt.signIn.guest.title }),
+  ).toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: texts.language.pt }),
   ).toHaveAttribute("aria-pressed", "true");
@@ -260,7 +276,7 @@ test("the Runtime turning the token away ends the sign-in", async () => {
   );
 });
 
-test("signing out returns to the form without a message", async () => {
+test("signing out returns to the guest entry without a message", async () => {
   vi.mocked(currentSignIn).mockResolvedValue(signedIn());
   render(<Customer language="pt" />);
 
@@ -271,10 +287,109 @@ test("signing out returns to the form without a message", async () => {
     );
 
   expect(
-    await screen.findByLabelText(TEXTS.pt.signIn.username),
+    await screen.findByRole("button", { name: TEXTS.pt.signIn.guest.enter }),
   ).toBeInTheDocument();
   expect(signOutHere).toHaveBeenCalled();
   await waitFor(() => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
+});
+
+test("the customers' sign-in leads with the guest entry, and the form waits behind a quiet button (ADR-0007, Sign-in)", async () => {
+  render(<Customer language="es" />);
+  const user = userEvent.setup();
+
+  const enter = await screen.findByRole("button", {
+    name: texts.signIn.guest.enter,
+  });
+  expect(screen.getByText(texts.signIn.guest.lead)).toBeInTheDocument();
+  expect(
+    screen.queryByLabelText(texts.signIn.username),
+  ).not.toBeInTheDocument();
+  expect(enter).not.toHaveFocus();
+
+  await user.click(
+    screen.getByRole("button", { name: texts.signIn.guest.withAccount }),
+  );
+  expect(screen.getByLabelText(texts.signIn.username)).toHaveFocus();
+
+  await user.click(
+    screen.getByRole("button", { name: texts.signIn.guest.asGuest }),
+  );
+  expect(
+    screen.getByRole("button", { name: texts.signIn.guest.enter }),
+  ).toHaveFocus();
+});
+
+test("entering as a guest opens the chat in a runtime session of its own", async () => {
+  vi.mocked(enterAsGuest).mockResolvedValue("signed_in");
+  vi.mocked(currentSignIn)
+    .mockResolvedValueOnce(null)
+    .mockResolvedValue(signedIn());
+  render(<Customer language="es" />);
+
+  await userEvent
+    .setup()
+    .click(
+      await screen.findByRole("button", { name: texts.signIn.guest.enter }),
+    );
+
+  expect(await screen.findByText(/^chat in [0-9a-f]{64}$/)).toBeInTheDocument();
+  expect(enterAsGuest).toHaveBeenCalledOnce();
+});
+
+test.each([
+  ["full", texts.signIn.guest.full(dayEnds("es")), true],
+  ["paused", texts.signIn.guest.paused, true],
+  ["unreachable", texts.signIn.unreachable, false],
+] as const)(
+  "a guest entry answered %s says so above the button",
+  async (outcome, sentence, held) => {
+    vi.mocked(enterAsGuest).mockResolvedValue(outcome);
+    render(<Customer language="es" />);
+
+    await userEvent
+      .setup()
+      .click(
+        await screen.findByRole("button", { name: texts.signIn.guest.enter }),
+      );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(sentence);
+    const button = screen.getByRole("button", {
+      name: texts.signIn.guest.enter,
+    });
+    if (held) expect(button).toBeDisabled();
+    else expect(button).toBeEnabled();
+  },
+);
+
+test("a guest entry that leaves no readable token can't be reached", async () => {
+  vi.mocked(enterAsGuest).mockResolvedValue("signed_in");
+  render(<Customer language="es" />);
+
+  await userEvent
+    .setup()
+    .click(
+      await screen.findByRole("button", { name: texts.signIn.guest.enter }),
+    );
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    texts.signIn.unreachable,
+  );
+});
+
+test("a reload keeps a guest's welcome, and an invited customer has none", async () => {
+  vi.mocked(currentSignIn).mockResolvedValue(signedIn());
+  keepWelcome({ name: "Team Customer", cards: null });
+  const { unmount } = render(<Customer language="es" />);
+
+  expect(
+    await screen.findByText("welcome for Team Customer"),
+  ).toBeInTheDocument();
+  unmount();
+  window.sessionStorage.clear();
+  render(<Customer language="es" />);
+
+  expect(await screen.findByText(/^chat in/)).toBeInTheDocument();
+  expect(screen.queryByText(/^welcome for/)).not.toBeInTheDocument();
 });

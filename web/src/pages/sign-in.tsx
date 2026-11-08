@@ -1,22 +1,67 @@
-import { type SubmitEvent, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type SubmitEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-import type { SignInOutcome } from "../auth";
+import type { GuestOutcome, SignInOutcome } from "../auth";
 import type { Language } from "../contracts/chat";
 import { Grid } from "../grid";
-import { TEXTS } from "../texts";
+import { dayEnds, TEXTS } from "../texts";
+
+// Whole cells either side of the grid's center, so the card's edges fall on the lines its cleared block hides.
+function Card({ children }: { children: ReactNode }) {
+  return (
+    <section className="ml-[max(0px,calc(50%-var(--span)*var(--cell)))] w-[calc(2*var(--span)*var(--cell)+1px)] max-w-full border border-white/10 glass px-8 py-8 [--span:5] sm:[--span:4]">
+      {children}
+    </section>
+  );
+}
+
+function Alert({ children }: { children: ReactNode }) {
+  // Small enough that the session's-end sentence holds one line in both languages.
+  return (
+    <p role="alert" className="text-xs text-lamp">
+      {children}
+    </p>
+  );
+}
+
+function Switch({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="self-center text-sm text-bone-muted underline underline-offset-4 hover:text-sea"
+    >
+      {label}
+    </button>
+  );
+}
 
 function Form({
   language,
   ended,
+  focus,
   onSignIn,
+  toGuest,
 }: {
   language: Language;
   ended: boolean;
+  focus: boolean;
   onSignIn: (username: string, password: string) => Promise<SignInOutcome>;
+  toGuest: (() => void) | null;
 }) {
   const texts = TEXTS[language].signIn;
   const [pending, setPending] = useState(false);
   const [outcome, setOutcome] = useState<SignInOutcome | null>(null);
+  const username = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (focus) username.current?.focus();
+  }, [focus]);
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,9 +87,8 @@ function Form({
           ? texts.ended
           : null;
 
-  // Whole cells either side of the grid's center, so the form's edges fall on the lines its cleared block hides.
   return (
-    <section className="ml-[max(0px,calc(50%-var(--span)*var(--cell)))] w-[calc(2*var(--span)*var(--cell)+1px)] max-w-full border border-white/10 glass px-8 py-8 [--span:5] sm:[--span:4]">
+    <Card>
       <h1 className="text-2xl font-semibold tracking-[-0.025em]">
         {texts.title}
       </h1>
@@ -56,6 +100,7 @@ function Form({
         <label className="flex flex-col gap-1">
           <span className="text-sm font-medium">{texts.username}</span>
           <input
+            ref={username}
             name="username"
             autoComplete="username"
             required
@@ -72,12 +117,7 @@ function Form({
             className="border border-white/10 bg-night px-3 py-2.5 text-base"
           />
         </label>
-        {message && (
-          // Small enough that the session's-end sentence holds one line in both languages.
-          <p role="alert" className="text-xs text-lamp">
-            {message}
-          </p>
-        )}
+        {message && <Alert>{message}</Alert>}
         <button
           type="submit"
           disabled={pending}
@@ -85,8 +125,77 @@ function Form({
         >
           {pending ? texts.submitting : texts.submit}
         </button>
+        {toGuest && <Switch label={texts.guest.asGuest} onClick={toGuest} />}
       </form>
-    </section>
+    </Card>
+  );
+}
+
+// Nearly everyone who arrives is a stranger, so the button leads and the form waits behind a quiet one. A refusal
+// holds the button until the page loads again, since the day's guests and the pause don't lift in minutes.
+function Guest({
+  language,
+  ended,
+  focus,
+  onGuest,
+  onForm,
+}: {
+  language: Language;
+  ended: boolean;
+  focus: boolean;
+  onGuest: () => Promise<GuestOutcome>;
+  onForm: () => void;
+}) {
+  const texts = TEXTS[language].signIn;
+  const [pending, setPending] = useState(false);
+  const [outcome, setOutcome] = useState<GuestOutcome | null>(null);
+  const enter = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (focus) enter.current?.focus();
+  }, [focus]);
+
+  async function click() {
+    setPending(true);
+    const result = await onGuest();
+    if (result !== "signed_in") {
+      setOutcome(result);
+      setPending(false);
+    }
+  }
+
+  const message =
+    outcome === "full"
+      ? texts.guest.full(dayEnds(language))
+      : outcome === "paused"
+        ? texts.guest.paused
+        : outcome === "unreachable"
+          ? texts.unreachable
+          : ended
+            ? texts.ended
+            : null;
+  const closed = outcome === "full" || outcome === "paused";
+
+  return (
+    <Card>
+      <h1 className="text-2xl font-semibold tracking-[-0.025em]">
+        {texts.guest.title}
+      </h1>
+      <p className="mt-3 text-pretty text-bone-muted">{texts.guest.lead}</p>
+      <div className="mt-6 flex flex-col gap-4">
+        {message && <Alert>{message}</Alert>}
+        <button
+          ref={enter}
+          type="button"
+          disabled={pending || closed}
+          onClick={() => void click()}
+          className="h-11 bg-sea font-medium text-night disabled:opacity-40"
+        >
+          {pending ? texts.guest.entering : texts.guest.enter}
+        </button>
+        <Switch label={texts.guest.withAccount} onClick={onForm} />
+      </div>
+    </Card>
   );
 }
 
@@ -133,24 +242,56 @@ export function Terms({ language }: { language: Language }) {
   );
 }
 
-// The customer's sign-in and the console's alike, inside the shell: the banner's grid, with the wordmark over the form
-// in its cleared block (the identity guide's Surfaces).
+// The customer's sign-in and the console's alike, inside the shell: the banner's grid, with the wordmark over the card
+// in its cleared block (the identity guide's Surfaces). The customers' leads with the guest entry; the console, which
+// only the team signs in to, has the form alone.
 export function SignIn({
   language,
   ended,
   onSignIn,
+  onGuest,
 }: {
   language: Language;
   ended: boolean;
   onSignIn: (username: string, password: string) => Promise<SignInOutcome>;
+  onGuest?: () => Promise<GuestOutcome>;
 }) {
+  // Focus moves with a switch, never on the page's arrival.
+  const [mode, setMode] = useState<{ form: boolean; switched: boolean }>({
+    form: !onGuest,
+    switched: false,
+  });
   return (
     <Grid layout="sign-in">
       <div className="flex flex-1 flex-col justify-center px-4 py-6">
         <p className="mx-auto w-full max-w-sm pb-6 text-center font-display text-6xl font-semibold tracking-[-0.07em]">
           Faro
         </p>
-        <Form language={language} ended={ended} onSignIn={onSignIn} />
+        {onGuest && !mode.form ? (
+          <Guest
+            language={language}
+            ended={ended}
+            focus={mode.switched}
+            onGuest={onGuest}
+            onForm={() => {
+              setMode({ form: true, switched: true });
+            }}
+          />
+        ) : (
+          <Form
+            language={language}
+            ended={ended}
+            focus={mode.switched}
+            onSignIn={onSignIn}
+            toGuest={
+              onGuest
+                ? () => {
+                    setMode({ form: false, switched: true });
+                  }
+                : null
+            }
+          />
+        )}
       </div>
     </Grid>
   );

@@ -97,14 +97,16 @@ module "runtime" {
   turns_per_minute         = var.turns_per_minute
   turns_per_day            = var.turns_per_day
   turns_cap                = var.turns_cap
+  guests_cap               = var.guests_cap
 }
 
 module "alarms" {
   source = "./modules/alarms"
 
-  prefix         = local.prefix
-  log_group_name = module.runtime.runtime_log_group
-  service_name   = module.runtime.service_name
+  prefix          = local.prefix
+  log_group_name  = module.runtime.runtime_log_group
+  guest_log_group = module.guest.log_groups["entry"]
+  service_name    = module.runtime.service_name
 }
 
 module "console" {
@@ -118,6 +120,23 @@ module "console" {
   staff_client_id          = module.identity.staff_client_id
   cases_table              = module.handoff.cases_table
   execution_records_table  = module.runtime.execution_records_table
+  # ADR-0007, The guest entry: a few requests a second, which a click every few seconds never meets.
+  route_limits = { (module.guest.route_key) = { rate = 2, burst = 5 } }
+}
+
+module "guest" {
+  source = "./modules/guest"
+
+  prefix                   = local.prefix
+  permissions_boundary_arn = local.permissions_boundary_arn
+  log_retention_days       = var.log_retention_days
+  tools_zip                = "${local.build}/tools.zip"
+  user_pool                = { id = module.identity.user_pool_id, arn = module.identity.user_pool_arn }
+  customer_client_id       = module.identity.customer_client_id
+  usage_counters_table     = module.runtime.usage_counters_table
+  gateway_url              = module.gateway.gateway_url
+  list_cards_target        = module.gateway.targets["list_cards"]
+  api                      = { id = module.console.api_id, execution_arn = module.console.execution_arn }
 }
 
 module "evaluation" {
@@ -145,6 +164,7 @@ module "suites" {
   cases_table              = module.handoff.cases_table
   runtime_tables           = module.runtime.tables
   file_handoff_function    = module.handoff.function
+  guest_cleanup_function   = module.guest.cleanup
   runtime_log_group        = module.runtime.runtime_log_group
   console_api_id           = module.console.api_id
   site_access_delivery     = module.site.access_delivery.arn

@@ -22,6 +22,8 @@
 </p>
 
 > [!NOTE]
+> **Try it.** Open [faro.gabriel.com.gt](https://faro.gabriel.com.gt/chat) and press *Entrar como invitado* (*Entrar como convidado* in Portuguese): you enter as one of the bank's synthetic customers, with no account and nothing to give. The page says what we keep of a visit before you enter ([ADR-0007](docs/adr/0007-role-gated-web-app.md#the-guest-entry)).
+>
 > **For the judges.** The prototype runs at [faro.gabriel.com.gt](https://faro.gabriel.com.gt). The credentials for its customer personas and the human agent reached the organizers with the submission and are in no file here. The [slides](docs/slides.pdf) are in this repository and the [video pitch](https://www.youtube.com/watch?v=3lSxTLhZ7FY) is unlisted on YouTube. Anyone else can deploy their own copy: see [Self-hosting](#self-hosting).
 
 ---
