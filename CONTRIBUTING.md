@@ -405,6 +405,7 @@ make judges             # Manage the judges' users, kept in data/judges/
 make smoke-user         # Create or reset the check's customer, kept in data/smoke/
 make staff WHO=<user>   # Put a staff user on the staff allowlist (WHAT=remove takes one off)
 make label-users        # Once per environment: label the users made before the labels (DRY=1)
+make cap                # Print the day's cap and today's count (TURNS=<n> sets it, 0 pauses)
 make web-dev            # Serve the web app on localhost:5173
 make destroy ENV=local  # Tear down your local resources
 ```
@@ -419,7 +420,7 @@ Every customer carries a label beside the `customer` group, which sets the sourc
 
 #### Alarms
 
-The five alarms ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), monitoring) notify an SNS topic that `make outputs` writes under `alarms.topic_arn`. Terraform subscribes no address to it, so none reaches the repository: subscribe once per environment, then confirm from the email AWS sends.
+The six alarms ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), monitoring) notify an SNS topic that `make outputs` writes under `alarms.topic_arn`. Terraform subscribes no address to it, so none reaches the repository: subscribe once per environment, then confirm from the email AWS sends.
 
 ```bash
 aws sns subscribe --protocol email --notification-endpoint you@example.com \
@@ -445,16 +446,28 @@ AWS_PROFILE=default aws sns subscribe --protocol email --notification-endpoint y
   --topic-arn "$(AWS_PROFILE=default terraform -chdir=infra/iam output -raw budget_topic_arn)"
 ```
 
-Budgets reads the account's charges a few times a day, so a notice can arrive hours after the spending that set it off. The budget warns and stops nothing: what bounds the stack's spending is the limit on turns per sign-in and per user (ADR-0004, decision 21).
+Budgets reads the account's charges a few times a day, so a notice can arrive hours after the spending that set it off. The budget warns and stops nothing: what bounds the stack's spending is the limits on turns per sign-in and per user, and the cap on the day's turns ([below](#the-days-cap-and-the-pause)).
 
 The model's limit is set in Anthropic's console, since no API sets it for an individual account. Anthropic limits a workspace or the whole organization, never a key, and the Default workspace takes no limit, so every key the project uses comes from a workspace of its own: both environments' secrets, and the `.env` the router comparison and the language check read.
 
 1. Under [Workspaces](https://platform.claude.com/settings/workspaces) in the Claude Console, open the project's workspace, and under its **Spend limits** set a monthly limit (ours is 50 USD) and alerts as spending nears it.
 2. On the [Billing](https://platform.claude.com/settings/billing) page, set the organization's limit at or above the workspace's, so it also caps whatever else the organization runs.
 
-Once a limit is reached, the API refuses the model's calls until the next month or until the limit is raised, and the chat answers every message with its fixed text for when it can't help. The execution record names each such call `spend_limit` and the `model-failing` alarm fires, as it does for a rejected key (`key_rejected`), a model ID the API doesn't know (`model_not_found`), and a request it refuses (`invalid_request`). Visitors and the evaluation draw from the same limit: before a paid run, raise it by the run's estimate, and lower it after.
+Once a limit is reached, the API refuses the model's calls until the next month or until the limit is raised, and the chat answers every message with a fixed text that says it can't take requests for now (`out_of_service`). The execution record names each such call `spend_limit` and the `model-failing` alarm fires, as it does for a rejected key (`key_rejected`), a model ID the API doesn't know (`model_not_found`), and a request it refuses (`invalid_request`). Visitors and the evaluation draw from the same limit: before a paid run, raise it by the run's estimate, and lower it after.
 
 OpenAI's key is the evaluation's alone: `make outside-write` reads it from `.env`, and no stack holds it. Give it a project of its own in OpenAI's platform with a monthly budget, since only that one command spends from it.
+
+#### The day's cap and the pause
+
+Anyone can enter as a guest, so a limit per user doesn't bound what the chat spends. Every turn of an invited user or a visitor also counts against a cap on the UTC day's turns, for everyone together ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md#operations), capacity). The evaluation's turns don't count, and neither do the smoke check's. Past the cap, the chat says Faro reached today's limit and gives the time the day ends in the visitor's own time, and the `cap-reached` alarm fires.
+
+The cap is one item of the usage counters table. Terraform writes it once, from `turns_cap` (750 unless you set it: about 5 USD a day at the freeze's 95th percentile cost of a turn). After that, `make cap` reads and sets it, and a deploy never changes it. A cap of 0 pauses the chat: invited users and visitors read that Faro is paused, and the smoke check still runs.
+
+```bash
+AWS_PROFILE=default make cap ENV=prototype             # The cap and today's count
+AWS_PROFILE=default make cap TURNS=0 ENV=prototype     # Pause
+AWS_PROFILE=default make cap TURNS=750 ENV=prototype   # Resume, or raise the cap for a day
+```
 
 #### The site
 
@@ -512,7 +525,7 @@ A promotion is a release ([ADR-0009](docs/adr/0009-release-checked-deploys.md)):
 1. **Cut the release.** When `develop` is in a state you'd be happy for judges to see, add a line under `Unreleased` for anything merged without one, such as Dependabot's PRs, and run `make cut` on a branch from `develop`. It takes the next minor version, or with `BUMP=patch` the next patch, for a promotion that only fixes the last release; it sets `version` in `pyproject.toml` and `uv.lock` with uv and moves `Unreleased`'s entries under `## [x.y.z] - date (Promotion N)`, leaving `Unreleased` empty. Merge it into `develop` through a PR. `make cut` warns when the last version has no release: its check failed, or `make release` never ran.
 2. **Open the promotion** from `develop` into `main`, titled with the version and naming the base, since new PRs target `develop`: `gh pr create --base main --title v1.6.0`. It's final when it opens. **Restrict merges to main** refuses it unless the release is cut: `Unreleased` empty, the changelog's top version the same as `pyproject.toml`'s, and that version not yet tagged. CI builds the zips and the site without credentials, plans `prototype` from them, and posts a sticky **Terraform Plan · `prototype`** comment for reviewers.
 3. **Merge** with **Create a merge commit**: a squash or rebase puts commits on `main` that `develop` never gets, and the next promotion then carries the whole history again. The deploy run builds again, applies, uploads the site, checks that each Lambda and the Runtime run the build's zips (`make verify`), and then signs the smoke user in and asks about its cards (`make smoke`). The deployment links the site's URL, the one the submission gives (SUB-02). A red run gets no release, and nothing rolls back: the fix ships as a patch release, through `develop` like any change.
-4. **Run the suites, for a promotion that changes the app.** Once the deploy run has passed, run both suites against `prototype`: `AWS_PROFILE=default make suites ENV=prototype`, about 16 minutes and a quarter of a dollar in model calls. They're the full check the deploy's smoke test stands in for ([ADR-0009](docs/adr/0009-release-checked-deploys.md)), and they run as the stack's role for them. A failure stops the release like a red run: the fix ships as a patch.
+4. **Run the suites, for a promotion that changes the app.** Once the deploy run has passed, run both suites against `prototype`: `AWS_PROFILE=default make suites ENV=prototype`, about 16 minutes and a quarter of a dollar in model calls. They're the full check the deploy's smoke test stands in for ([ADR-0009](docs/adr/0009-release-checked-deploys.md)), and they run as the stack's role for them. Their invited customers spend about 50 of the day's capped turns and are refused while the chat is paused, so check `make cap ENV=prototype` first, and raise the cap for the run if the day is near it. A failure stops the release like a red run: the fix ships as a patch.
 5. **Name the release.** Once the deploy run for `main`'s head has passed, its check included, run `make release` (`DRY=1` previews it). It tags that commit `vx.y.z` and makes the GitHub release, whose notes are the version's section and the build's SHA-256, so anyone can check out the tag, build, and compare. It refuses unless the run passed and the heading, `pyproject.toml`, and the tag agree. No workflow holds a token that can write to the repository, so this step is ours.
 6. **Fast-forward `develop` to `main`.** The merge commit is the only commit `main` has that `develop` lacks, so after this step any commit on `main` and not on `develop` reached `main` some other way:
 
@@ -556,6 +569,8 @@ Run `make doctor` first; most setup problems show up there.
 | `make data FROM=<folder>` says files weren't copied | Those files in your copy differ from the snapshot, by corruption or from another publication; the rest was copied. Replace them in your copy and run it again. |
 | `make plan` stops at `aws configure export-credentials` | Your sign-in session ended, or `AWS_PROFILE` names a profile that doesn't exist. Run `aws login`, or finish [step 3.4](#34-configure-your-local-deploy-profile). |
 | `make apply` says there is no saved plan | Run `make plan` first; `make apply` applies only what it saved. |
+| The chat says Faro is paused, or that it reached today's limit | The day's cap is 0, or the day's turns reached it. `make cap ENV=<env>` prints both; `make cap TURNS=<n> ENV=<env>` sets the cap. |
+| Every message of an invited user or a visitor fails, and `runtime-errors` fires | The day's cap is missing from the usage counters table, so the Runtime fails closed. Run `make plan` and `make apply` for the environment, which write it again. |
 | A staff user's sign-in fails with `Sign-in refused.` | The user isn't on the staff allowlist, or is in `visitor` too. Run `make staff WHO=<user> ENV=<env>`. Users made before the allowlist existed go on it once with `make label-users ENV=<env>`. |
 | `make plan` fails reading `gold/<snapshot>/<version>/manifest.json` | The export that `tools_data_export` names isn't in the data bucket. Run `make pipeline` and `make export` ([step 3.6](#36-copy-the-dataset-snapshot-and-the-tools-data)) and check that it printed the same version. |
 | `make export` says gold was built from other code | The code that shapes the export changed since the last `make pipeline`. Run `make pipeline` again. |
@@ -607,6 +622,7 @@ Run `make help` for every target.
 | `SLOW` | Unset | Set to `1` to add the tests that wait out a token to `make integration` |
 | `WHAT`, `JUDGE` | `create`, every judge | `make judges`: `create`, `reset`, `sign-out`, `disable`, `enable`, or `delete` |
 | `WHO`, `WHAT` | None, `add` | `make staff`: the staff user, and `add` or `remove` |
+| `TURNS` | Unset | `make cap`: the cap on the day's turns to set; 0 pauses the chat |
 | `BUILT` | Unset | Set to `1` to make `make plan` plan the zips already in `build/` instead of building them |
 | `BUMP` | `minor` | `make cut`: `minor` for a promotion, `patch` for one that only fixes the last release |
 | `DRY` | Unset | Set to `1` to make `make release` print what it would tag and the notes, and create nothing; `make label-users` prints what it would change |
