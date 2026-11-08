@@ -230,6 +230,8 @@ def users(
         "both_staff": (["human_agent", "ai_team"], None),
         # A customer the evaluation's harness would sign in, whose cases never reach a human agent (EVL-13).
         "evaluation": (["customer", "evaluation"], persona_ids["declines"]),
+        # A second user on the same customer, as two guests may be (SEC-05).
+        "beside": (["customer", "evaluation"], persona_ids["declines"]),
         # Its day's turns are filled to the cap, so no other test signs it in (decision 21).
         "capped": (["customer", "evaluation"], persona_ids["declines"]),
         # A guest, and a customer whose label is missing, which counts as one (ADR-0007, The guest entry).
