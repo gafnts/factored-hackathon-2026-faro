@@ -13,6 +13,9 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - A staff allowlist: the staff client issues a token only to a user with an entry in Parameter Store, named by the user's `sub`, and refuses anyone in `visitor`, so a guest entry gone wrong can't make staff. `make judges` and the suites put the staff they make on it, and `make staff` puts one on or takes one off. The pre-token trigger's zip now carries the SDK its group locks, to read it. Parameter Store joins S3 and CloudFront in the deny by name between environments, an IAM root change ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-07, [#195]).
 - `make label-users`, run once per environment for the users made before the labels: it labels each customer with none `invited`, moves the smoke user to `evaluation`, and puts every staff user on the allowlist. It refuses a pool that holds a visitor ([#195]).
 - A cap on the day's turns of invited users and visitors together, since a limit per user doesn't bound how many users there are once anyone can enter. It starts at 750, about 5 USD a day at the freeze's 95th percentile cost of a turn, a tenth of the model's monthly limit; the evaluation's turns and the smoke check's don't count. A turn past it gets `global_limit`, and the `cap-reached` alarm fires. Terraform writes the cap once, and `make cap` reads and sets it, so a deploy never undoes a change; 0 pauses the chat, with its own fixed text (`paused`). The Runtime reads the cap and can't write it, and no test can: the suites' role now writes users' counters alone ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-07, [#201]).
+- A bar at the foot of the customers' sign-in that says what we keep of a visit, and that entering means accepting it: conversations up to 12 months, which we may read, with the full list in a dialog (Anthropic processes the messages, no one follows up on the cases Faro files, and the IP address is kept up to 90 days). It takes the synthetic-data label's place there; the console's sign-in keeps the label ([ADR-0007](docs/adr/0007-role-gated-web-app.md)'s amendment of 2026-11-07, [#202]).
+- The site's access logs: CloudFront delivers a line per request to a log group of the stack, kept 30 days, with the client's IP address and the referrer, and never the path, the query string, or cookies. The suites' role may read which fields the delivery keeps ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-07, [#202]).
+- `SECURITY.md`: how to report a vulnerability privately, what's in scope, and how to test against the prototype ([#202]).
 
 ### Changed
 
@@ -253,6 +256,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#194]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/194
 [#195]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/195
 [#201]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/201
+[#202]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/202
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
