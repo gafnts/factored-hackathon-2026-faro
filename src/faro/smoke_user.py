@@ -1,11 +1,12 @@
 """
 The smoke user (ADR-0009): one standing customer per environment, as which the check after each deploy signs in
 through the site's form. It is the declines persona's customer, whose cards are known to list, signed in by a
-username that names no one, with its customer ID only in its Cognito attribute. One command creates it, or resets
-it if it's in the pool already: a new password, the persona's current customer, and a sign-out everywhere. The
-username and password go to data/smoke/<env>.json with owner-only permissions; the script prints the path, never the
-password or the ID (SEC-03). On prototype, the password goes into the environment's secrets and the username into
-its variables.
+username that names no one, with its customer ID only in its Cognito attribute. It's in the evaluation group, so its
+turns count apart from visitors' and the check runs while the chat is paused (ADR-0004's amendment of 2026-11-07).
+One command creates it, or resets it if it's in the pool already: a new password, the persona's current customer, and
+a sign-out everywhere. The username and password go to data/smoke/<env>.json with owner-only permissions; the script
+prints the path, never the password or the ID (SEC-03). On prototype, the password goes into the environment's
+secrets and the username into its variables.
 """
 
 import argparse
@@ -22,6 +23,7 @@ from faro.dataset.lock import read_lock
 
 USERNAME = "smoke-check"
 PERSONA = "declines"
+GROUPS = ("customer", "evaluation")
 
 
 def credentials_path(data_dir: Path, env: str) -> Path:
@@ -46,9 +48,10 @@ def ready(cognito: Any, pool: str, customer_id: str) -> str:
         cognito.admin_update_user_attributes(
             UserPoolId=pool, Username=USERNAME, UserAttributes=attributes
         )
-    cognito.admin_add_user_to_group(
-        UserPoolId=pool, Username=USERNAME, GroupName="customer"
-    )
+    for group in GROUPS:
+        cognito.admin_add_user_to_group(
+            UserPoolId=pool, Username=USERNAME, GroupName=group
+        )
     return judges.reset(cognito, pool, USERNAME)
 
 

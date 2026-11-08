@@ -96,6 +96,7 @@ module "runtime" {
   runtime_zip              = "${local.build}/runtime.zip"
   turns_per_minute         = var.turns_per_minute
   turns_per_day            = var.turns_per_day
+  turns_cap                = var.turns_cap
 }
 
 module "alarms" {
@@ -132,6 +133,27 @@ module "evaluation" {
   file_handoff_function    = module.handoff.function
 }
 
+module "suites" {
+  source = "./modules/suites"
+
+  prefix                   = local.prefix
+  permissions_boundary_arn = local.permissions_boundary_arn
+  user_pool_id             = module.identity.user_pool_id
+  staff_allowlist          = module.identity.staff_allowlist
+  overlay_table            = module.sandbox.overlay
+  confirmations_table      = module.sandbox.confirmations
+  cases_table              = module.handoff.cases_table
+  runtime_tables           = module.runtime.tables
+  file_handoff_function    = module.handoff.function
+  runtime_log_group        = module.runtime.runtime_log_group
+  console_api_id           = module.console.api_id
+  site_access_delivery     = module.site.access_delivery.arn
+  tools_data_table = {
+    name = module.tools_data.table_name
+    arn  = module.tools_data.table_arn
+  }
+}
+
 module "site" {
   source = "./modules/site"
 
@@ -147,7 +169,8 @@ module "site" {
     "https://cognito-idp.${var.aws_region}.amazonaws.com",
     "https://bedrock-agentcore.${var.aws_region}.amazonaws.com",
   ]
-  domain_name   = var.domain_name
-  attach_domain = var.attach_domain
-  api_origin    = module.console.origin_domain
+  domain_name        = var.domain_name
+  attach_domain      = var.attach_domain
+  api_origin         = module.console.origin_domain
+  log_retention_days = var.log_retention_days
 }

@@ -21,7 +21,7 @@ from faro.console.queue import PROJECTED
 from faro.contracts import validator
 from faro.tools.provenance import KEYS
 
-from .conftest import SignIn, User, claims
+from .conftest import SignIn, User, caller_iam, claims
 from .test_block import Conversation
 from .test_handoff import Dispute, dispute, filed_case, forged, reported
 from .test_stack import dynamodb_grants
@@ -255,20 +255,32 @@ def test_the_readmes_cases_reach_dispute_intake_urgent_first_and_read_back_whole
     assert not ours & set(listed(outputs, agent, "customer_service"))
 
 
-def test_an_evaluations_case_never_reaches_a_human_agent(
+@pytest.mark.parametrize(
+    ("role", "source"),
+    [
+        ("evaluation", "evaluation"),
+        # Nobody reads a visitor's conversation, and a missing label counts as a visitor (ADR-0007, The guest entry).
+        ("visitor", "visitor"),
+        ("unlabeled", "visitor"),
+    ],
+)
+def test_an_evaluations_or_a_visitors_case_never_reaches_a_human_agent(
     outputs: dict[str, Any],
     users: dict[str, User],
     sign_in: SignIn,
     tokens: dict[str, str],
     saved: list[str],
+    role: str,
+    source: str,
 ) -> None:
-    access = sign_in(users["evaluation"], "customer")["access"]
+    access = sign_in(users[role], "customer")["access"]
     chat = Conversation(outputs, access, "es")
 
     chat.say("Quiero hablar con una persona, por favor.")
 
     _, case = filed_case(outputs, chat, saved)
-    assert (case["source"], case["queue"]) == ("evaluation", "customer_service")
+    assert (case["source"], case["queue"]) == (source, "customer_service")
+    assert {e["source"] for e in chat.entries()} == {source}
     response = api(outputs, tokens["human_agent"], f"/cases/{case['reference']}")
     assert (response.status_code, response.json()) == (404, {"error": "not_found"})
     time.sleep(3)
@@ -290,7 +302,7 @@ def test_each_console_lambda_reads_what_its_route_needs_and_writes_nothing(
         cases: {"dynamodb:GetItem"},
         records: {"dynamodb:Query"},
     }
-    iam: Any = boto3.client("iam")
+    iam: Any = caller_iam()
     for role, resource, named, partitions in (
         ("console-queue", "by_queue", PROJECTED, "demo#*"),
         ("console-case", records, CALL, None),

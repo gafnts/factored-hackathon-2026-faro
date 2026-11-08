@@ -3,8 +3,9 @@ The confirmation and the verified block on the deployed stack: a persona asks to
 a reason, confirms with the control, and reads in fixed text that the card is blocked, with the read-back showing it
 in that sign-in only, the handoff control offering the replacement, and the whole path in the execution record. A
 typed yes confirms nothing and a stale control changes nothing; another sign-in's control and the time limit each end
-the confirmation unused, and file the lost card's case; and block_card called through the Gateway without a
-confirmation blocks nothing (ADR-0004, The confirmation; POL-09, POL-33 to POL-38; CTL-02, CTL-04, AI-05, SEC-05,
+the confirmation unused, and file the lost card's case; block_card called through the Gateway without a confirmation
+blocks nothing; and two users on one customer, as two visitors may be, share no block, confirmation, or conversation
+(ADR-0004, The confirmation; ADR-0007, The guest entry; POL-09, POL-33 to POL-38; CTL-02, CTL-04, AI-05, SEC-05,
 SEC-07, EVL-03, EVL-04, OPS-02). Each test deletes the drafts and cases its conversations leave. Assertions compare
 without printing a card, a reply, or an ID.
 """
@@ -423,3 +424,31 @@ def test_block_card_through_the_gateway_blocks_nothing_without_a_confirmation(
     assert "result" not in misnamed or misnamed["result"].get("isError")
     assert status(outputs, chat.access, card["card_id"]) == "Active"
     assert confirmation(outputs, pending)["status"] == "pending"
+
+
+def test_two_users_on_one_customer_share_no_block_confirmation_or_conversation(
+    outputs: dict[str, Any], persona: Any
+) -> None:
+    # Visitors share the curated customers, each as a user of their own (ADR-0007, The guest entry; SEC-05).
+    chat, card = persona("evaluation")
+    beside, theirs = persona("beside")
+    assert theirs["card_id"] == card["card_id"]
+    shown = chat.say(asked("pt", card, LOST))
+    control = control_of(shown)
+    across = Conversation(outputs, beside.access, "pt", beside.session, chat.thread)
+
+    refused = across.press("confirm", shown)
+
+    assert [(e["type"], e.get("code")) for e in refused] == [
+        ("RUN_ERROR", "invalid_request")
+    ]
+    assert confirmation(outputs, control["confirmation_id"])["status"] == "pending"
+
+    chat.press("confirm", shown)
+    seen = across.say("Oi")
+
+    assert status(outputs, chat.access, card["card_id"]) == "Blocked"
+    assert status(outputs, beside.access, card["card_id"]) == "Active"
+    (snapshot,) = [e for e in seen if e["type"] == "MESSAGES_SNAPSHOT"]
+    assert len(snapshot["messages"]) == 2
+    assert snapshot["messages"][0]["content"] == "Oi"

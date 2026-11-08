@@ -9,6 +9,11 @@ import { WORDS } from "./contracts/words";
 
 export type RunErrorCode = RunError["code"];
 export type Problem = RunErrorCode | "unreachable";
+// Refusals that last until the UTC day ends, which the chat names in the browser's own time (decision 21).
+type DayLong = "daily_limit" | "global_limit";
+export type ProblemTexts = {
+  [P in Problem]: P extends DayLong ? (time: string) => string : string;
+};
 
 export interface Texts {
   notice: string;
@@ -31,6 +36,15 @@ export interface Texts {
     ended: string;
     signOut: string;
     endsAt: (time: string) => string;
+    // What we keep of a visit, in the customers' sign-in's banner and its dialog (ADR-0007, Sign-in; ADR-0004, data
+    // retention). The banner takes the place of the notice, so it says the bank is synthetic too (SEC-02).
+    terms: {
+      banner: string;
+      more: string;
+      title: string;
+      lines: readonly string[];
+      close: string;
+    };
   };
   rail: {
     label: string;
@@ -52,7 +66,7 @@ export interface Texts {
     placeholder: string;
     send: string;
     working: string;
-    problems: Record<Problem, string>;
+    problems: ProblemTexts;
   };
   // The confirm control, in the language of the conversation it confirms (POL-36).
   control: {
@@ -72,6 +86,12 @@ export interface Texts {
     decline: string;
   };
 }
+
+// Spanish says "la 1:00" and Portuguese "da 01:00", the one hour named in the singular.
+const FROM: Record<Language, (time: string) => string> = {
+  es: (time) => `a partir de ${time.startsWith("1:") ? "la" : "las"} ${time}`,
+  pt: (time) => `a partir ${time.startsWith("01:") ? "da" : "das"} ${time}`,
+};
 
 const CARD_TYPES: Record<
   Language,
@@ -139,6 +159,21 @@ export const TEXTS: Record<Language, Texts> = {
       ended: "Su sesión terminó. Inicie sesión de nuevo para continuar.",
       signOut: "Cerrar sesión",
       endsAt: (time) => `Su sesión terminará a las ${time}.`,
+      terms: {
+        banner:
+          "Prototipo sobre datos sintéticos: no escriba datos reales. Guardamos sus conversaciones hasta 12 meses y podemos leerlas. Al entrar, acepta estas condiciones.",
+        more: "Lo que guardamos",
+        title: "Lo que guardamos",
+        lines: [
+          "LATAM Bank y sus clientes son ficticios. No escriba datos reales, suyos ni de nadie.",
+          "Guardamos sus conversaciones hasta 12 meses y podemos leerlas para evaluar y mejorar el agente.",
+          "Anthropic, el proveedor del modelo, procesa sus mensajes.",
+          "Nadie da seguimiento a los casos que Faro registra.",
+          "Su dirección IP se guarda hasta 90 días.",
+          "Al entrar, acepta estas condiciones.",
+        ],
+        close: "Cerrar",
+      },
     },
     rail: {
       label: "Menú",
@@ -170,8 +205,11 @@ export const TEXTS: Record<Language, Texts> = {
           "Su usuario no tiene tarjetas que este chat pueda atender.",
         rate_limited:
           "Envió muchos mensajes seguidos. Espere un momento e inténtelo de nuevo.",
-        daily_limit:
-          "Alcanzó el límite de mensajes de hoy. Vuelva a intentarlo mañana.",
+        daily_limit: (time) =>
+          `Alcanzó el límite de mensajes de hoy. Vuelva a intentarlo ${FROM.es(time)}.`,
+        global_limit: (time) =>
+          `Faro alcanzó su límite de mensajes de hoy. Vuelva a intentarlo ${FROM.es(time)}.`,
+        paused: "Faro está en pausa por ahora y no puede responder.",
         internal:
           "En este momento no puedo responder. Por favor, inténtelo de nuevo en unos minutos.",
         unreachable: "No pudimos comunicarnos con Faro. Inténtelo de nuevo.",
@@ -216,6 +254,21 @@ export const TEXTS: Record<Language, Texts> = {
       ended: "Sua sessão terminou. Entre de novo para continuar.",
       signOut: "Sair",
       endsAt: (time) => `Sua sessão terminará às ${time}.`,
+      terms: {
+        banner:
+          "Protótipo com dados sintéticos: não escreva dados reais. Guardamos suas conversas por até 12 meses e podemos lê-las. Ao entrar, você aceita estas condições.",
+        more: "O que guardamos",
+        title: "O que guardamos",
+        lines: [
+          "O LATAM Bank e seus clientes são fictícios. Não escreva dados reais, seus ou de ninguém.",
+          "Guardamos suas conversas por até 12 meses e podemos lê-las para avaliar e melhorar o agente.",
+          "A Anthropic, fornecedora do modelo, processa suas mensagens.",
+          "Ninguém acompanha os casos que o Faro registra.",
+          "Seu endereço IP é guardado por até 90 dias.",
+          "Ao entrar, você aceita estas condições.",
+        ],
+        close: "Fechar",
+      },
     },
     rail: {
       label: "Menu",
@@ -246,8 +299,11 @@ export const TEXTS: Record<Language, Texts> = {
         no_customer: "Seu usuário não tem cartões que este chat possa atender.",
         rate_limited:
           "Você enviou muitas mensagens seguidas. Aguarde um momento e tente novamente.",
-        daily_limit:
-          "Você atingiu o limite de mensagens de hoje. Tente novamente amanhã.",
+        daily_limit: (time) =>
+          `Você atingiu o limite de mensagens de hoje. Tente novamente ${FROM.pt(time)}.`,
+        global_limit: (time) =>
+          `O Faro atingiu o limite de mensagens de hoje. Tente novamente ${FROM.pt(time)}.`,
+        paused: "O Faro está pausado no momento e não pode responder.",
         internal:
           "No momento não consigo responder. Por favor, tente novamente em alguns minutos.",
         unreachable: "Não foi possível falar com o Faro. Tente novamente.",
@@ -271,6 +327,21 @@ export const TEXTS: Record<Language, Texts> = {
     },
   },
 };
+
+// The UTC day ends less than a day from now, so its time alone names it.
+export function problemText(
+  language: Language,
+  problem: Problem,
+  now: Date = new Date(),
+): string {
+  const text = TEXTS[language].chat.problems[problem];
+  if (typeof text === "string") return text;
+  const end = new Date(now);
+  end.setUTCHours(24, 0, 0, 0);
+  return text(
+    new Intl.DateTimeFormat(language, { timeStyle: "short" }).format(end),
+  );
+}
 
 export function isRunErrorCode(code: unknown): code is RunErrorCode {
   return (

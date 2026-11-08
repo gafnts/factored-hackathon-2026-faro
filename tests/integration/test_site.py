@@ -1,13 +1,14 @@
 """
 The site on CloudFront (ADR-0007, Hosting and the domain): every route of the app serves it while a missing asset is a
 404, each response carries the security headers, config.json names the stack and no customer, the bucket answers no one
-but CloudFront, and the Runtime answers the site's own origin (OPS-12, SUB-02, SEC-02, SEC-03, DSN-01). Assertions
-count and compare without printing an ID.
+but CloudFront, the access logs keep no path, and the Runtime answers the site's own origin (OPS-10, OPS-12, SUB-02,
+SEC-02, SEC-03, DSN-01). Assertions count and compare without printing an ID.
 """
 
 import re
 from typing import Any
 
+import boto3
 import httpx
 import pytest
 
@@ -135,6 +136,26 @@ def test_the_bucket_answers_only_cloudfront(outputs: dict[str, Any]) -> None:
     )
 
     assert response.status_code == 403
+
+
+def test_the_access_logs_keep_no_path_query_cookie_or_forwarded_address(
+    outputs: dict[str, Any],
+) -> None:
+    """
+    Under /api, a path names a case (ADR-0004, data retention).
+    """
+    logs = boto3.client("logs", region_name="us-east-1")
+
+    delivery = logs.get_delivery(id=outputs["site"]["access_delivery"])["delivery"]
+
+    fields = delivery["recordFields"]
+    assert "cs(Referer)" in fields
+    assert not {
+        "cs-uri-stem",
+        "cs-uri-query",
+        "cs(Cookie)",
+        "x-forwarded-for",
+    } & set(fields)
 
 
 def test_the_runtime_answers_the_sites_origin(

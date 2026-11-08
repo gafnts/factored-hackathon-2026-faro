@@ -36,8 +36,8 @@
     },
     "at": { "$ref": "#/$defs/wall_time" },
     "source": {
-      "description": "From the token's groups; every metric is split by it, so evaluation runs never pass for live traffic (EVL-13).",
-      "enum": ["demo", "evaluation"]
+      "description": "From the token's groups: demo for a customer we invited, labeled so, visitor for any other customer, and evaluation for the harness's; every metric is split by it, so evaluation runs never pass for live traffic (EVL-13; ADR-0004's amendment of 2026-11-07).",
+      "enum": ["demo", "visitor", "evaluation"]
     },
     "case_id": {
       "description": "The evaluation case, for source evaluation only.",
@@ -173,7 +173,7 @@
       "enum": ["retry_after", "backoff", "none"]
     },
     "run_error_code": {
-      "enum": ["invalid_request", "session_refused", "no_customer", "rate_limited", "daily_limit", "internal"]
+      "enum": ["invalid_request", "session_refused", "no_customer", "rate_limited", "daily_limit", "global_limit", "paused", "internal"]
     },
     "trace_id": {
       "description": "The request's trace, when the Runtime records spans, so the record leads to its trace (ADR-0004, Operations, Tracing).",

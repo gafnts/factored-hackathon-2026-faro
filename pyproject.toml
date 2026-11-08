@@ -4,7 +4,7 @@ requires = [ "uv-build>=0.13.6,<0.14" ]
 
 [project]
 name = "faro"
-version = "1.11.0"
+version = "1.12.0"
 description = "Faro, a card support agent in Spanish and Portuguese, built for the Factored AI & Data Hackathon 2026"
 readme = "README.md"
 license = "MIT"
@@ -14,7 +14,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "boto3[crt]>=1.43.121",
+  "boto3[crt]>=1.43.123",
   "duckdb>=1.5.5",
   "jsonschema>=4.26",
   "rfc3339-validator>=0.1.4",
@@ -22,7 +22,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-  "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,sts]>=1.43.121",
+  "boto3-stubs[cognito-idp,dynamodb,logs,s3,secretsmanager,ssm,sts]>=1.43.123",
   "moto[dynamodb,s3]>=5.2.5",
   "mypy>=2.4.1",
   "playwright>=1.63",
@@ -43,13 +43,13 @@ agent = [
   # 2.x sends API version 2026-10-21, which refuses a temperature on every model, and no CI job calls the model.
   "anthropic>=1.17,<2",
   "aws-opentelemetry-distro>=0.22",
-  "bedrock-agentcore>=1.25.1",
+  "bedrock-agentcore>=1.25.2",
   "fastapi>=0.162",
   "httpx>=0.28.1",
   "jsonschema>=4.26",
   "langchain>=1.4.2",
   "langchain-anthropic>=1.7.7",
-  "langgraph>=1.2.18",
+  "langgraph>=1.2.19",
   "langgraph-checkpoint-aws>=1.2.3",
   "opentelemetry-api>=1.45.1",
   "opentelemetry-propagator-aws-xray>=1.0.2",
@@ -63,14 +63,17 @@ eda = [
   "pyarrow>=25.0.1",
   "scikit-learn>=1.9.1",
 ]
+identity = [
+  "boto3>=1.43.123",
+]
 pipeline = [
   "dbt-core>=1.12.5",
   "dbt-duckdb>=1.11",
   "pyyaml>=6.0.3",
-  "types-pyyaml>=6.0.12",
+  "types-pyyaml>=6.0.12.20261030",
 ]
 tools = [
-  "boto3>=1.43.121",
+  "boto3>=1.43.123",
   "jsonschema>=4.26",
   "rfc3339-validator>=0.1.4",
 ]
@@ -79,7 +82,7 @@ tools = [
 required-version = ">=0.13"
 # The Python mise installs (mise.toml), not one uv downloads.
 python-preference = "system"
-default-groups = [ "agent", "dev", "eda", "pipeline", "tools" ]
+default-groups = [ "agent", "dev", "eda", "identity", "pipeline", "tools" ]
 exclude-newer = "1 week"
 
 [tool.ruff]

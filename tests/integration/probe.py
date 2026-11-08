@@ -217,7 +217,8 @@ def main() -> int:
     cognito = boto3.client("cognito-idp", region_name="us-east-1")
     started = time.time()
     wanted: dict[str, tuple[list[str], str | None]] = {
-        scenario: (["customer"], ids[scenario].customer_id) for scenario in QUESTIONS
+        scenario: (["customer", "invited"], ids[scenario].customer_id)
+        for scenario in QUESTIONS
     }
     report: dict[str, Any] = {}
     with throwaway_users(outputs["user_pool_id"], cognito, wanted) as users:

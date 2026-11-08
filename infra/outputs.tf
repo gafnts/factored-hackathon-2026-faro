@@ -29,6 +29,11 @@ output "staff_client_id" {
   value = module.identity.staff_client_id
 }
 
+output "staff_allowlist" {
+  description = "Where the pre-token trigger reads the staff allowlist; make judges, make staff and the suites write it"
+  value       = module.identity.staff_allowlist
+}
+
 output "gateway_url" {
   value = module.gateway.gateway_url
 }
@@ -113,13 +118,22 @@ output "evaluation" {
   }
 }
 
-output "site" {
-  description = "The site's URL, the bucket and distribution make site deploys to, and the DNS records a custom domain needs"
+output "suites" {
+  description = "The role the integration and browser suites assume"
   value = {
-    url             = module.site.url
-    bucket          = module.site.bucket
-    distribution_id = module.site.distribution_id
-    config          = module.site.config
-    domain_records  = module.site.domain_records
+    role_arn = module.suites.role_arn
+  }
+}
+
+output "site" {
+  description = "The site's URL, the bucket and distribution make site deploys to, the DNS records a custom domain needs, and its access logs"
+  value = {
+    url              = module.site.url
+    bucket           = module.site.bucket
+    distribution_id  = module.site.distribution_id
+    config           = module.site.config
+    domain_records   = module.site.domain_records
+    access_log_group = module.site.access_log_group
+    access_delivery  = module.site.access_delivery.id
   }
 }

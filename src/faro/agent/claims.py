@@ -15,6 +15,7 @@ from typing import Any
 CUSTOMER_ID = re.compile(r"^CLI-[A-Z0-9]{12}$")
 CUSTOMER_GROUP = "customer"
 EVALUATION_GROUP = "evaluation"
+INVITED_GROUP = "invited"
 
 
 @dataclass(frozen=True)
@@ -45,8 +46,14 @@ class ClaimsRefusedError(Exception):
 
 
 def source_of(groups: Any) -> str:
+    """
+    A customer we invited is labeled so, and any other counts as a visitor, so a missing label fails closed (ADR-0004,
+    Operations, access controls, and its amendment of 2026-11-07).
+    """
     listed = groups if isinstance(groups, list | tuple) else []
-    return "evaluation" if EVALUATION_GROUP in listed else "demo"
+    if EVALUATION_GROUP in listed:
+        return "evaluation"
+    return "demo" if INVITED_GROUP in listed else "visitor"
 
 
 def uuid_or_none(value: Any) -> str | None:

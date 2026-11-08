@@ -17,3 +17,8 @@ output "issuer" {
 output "discovery_url" {
   value = "https://${aws_cognito_user_pool.this.endpoint}/.well-known/openid-configuration"
 }
+
+output "staff_allowlist" {
+  description = "The staff allowlist's path in Parameter Store: an entry per staff user, named by its sub"
+  value       = local.staff_allowlist
+}

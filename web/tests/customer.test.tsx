@@ -114,6 +114,32 @@ test("signs in through the form and opens the chat in a runtime session of its o
   expect(screen.queryByText(texts.notice)).not.toBeInTheDocument();
 });
 
+test("the sign-in says what we keep in the notice's place, and its dialog lists it all (ADR-0007, Sign-in)", async () => {
+  render(<Customer language="es" />);
+
+  const footer = await screen.findByRole("contentinfo");
+  expect(footer).toHaveTextContent(texts.signIn.terms.banner);
+  expect(screen.queryByText(texts.notice)).not.toBeInTheDocument();
+  const dialog = screen.getByRole("dialog", { hidden: true });
+  expect(dialog).not.toHaveAttribute("open");
+
+  const user = userEvent.setup();
+  await user.click(
+    within(footer).getByRole("button", { name: texts.signIn.terms.more }),
+  );
+
+  expect(dialog).toHaveAttribute("open");
+  expect(dialog).toHaveAccessibleName(texts.signIn.terms.title);
+  const lines = within(dialog).getAllByRole("listitem");
+  expect(lines.map((line) => line.textContent)).toEqual(
+    texts.signIn.terms.lines,
+  );
+  await user.click(
+    within(dialog).getByRole("button", { name: texts.signIn.terms.close }),
+  );
+  expect(dialog).not.toHaveAttribute("open");
+});
+
 test("the bar's switch sets the page's language, starting from the browser's", async () => {
   render(<Customer language="es" />);
 

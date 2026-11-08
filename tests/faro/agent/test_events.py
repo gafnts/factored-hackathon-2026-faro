@@ -29,7 +29,15 @@ from ag_ui.core import (
     UserMessage,
 )
 
-from faro.agent.events import UnexpectedEventError, as_json, checked, rebuild
+from faro.agent.events import (
+    ERRORS,
+    UnexpectedEventError,
+    as_json,
+    checked,
+    rebuild,
+    run_error,
+)
+from faro.contracts import schema
 
 THREAD = "3f1c3c1a-0b9e-5c3e-9d7a-1f2e3d4c5b6a"
 
@@ -193,3 +201,11 @@ def test_an_interrupt_whose_value_breaks_the_contract_isnt_passed_on() -> None:
 
     with pytest.raises(UnexpectedEventError):
         rebuild(interrupted(value), "thread-0001", "run-00000001")
+
+
+def test_every_code_the_contract_names_has_a_message_that_fits_it() -> None:
+    codes = schema("chat")["$defs"]["run_error"]["properties"]["code"]["enum"]
+
+    assert set(ERRORS) == set(codes)
+    for code in codes:
+        assert as_json(checked(run_error(code)))["code"] == code

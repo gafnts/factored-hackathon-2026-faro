@@ -240,7 +240,10 @@ jobs:
 
       - run: make init ENV="${ENV}"
 
+      # The working directory make init wrote for this environment.
       - name: Apply
+        env:
+          TF_DATA_DIR: .terraform/${{ env.ENV }}
         run: |
           terraform -chdir=infra apply -auto-approve \
             -var-file="envs/${ENV}.tfvars"

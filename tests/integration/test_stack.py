@@ -22,7 +22,7 @@ from mypy_boto3_cognito_idp import CognitoIdentityProviderClient
 
 from faro.contracts import validator
 
-from .conftest import SignIn, User, claims
+from .conftest import SignIn, User, caller_iam, claims
 
 pytestmark = pytest.mark.integration
 
@@ -144,6 +144,10 @@ def test_a_staff_token_carries_no_customer_id(
         ("ai_team", "customer"),
         ("no_group", "customer"),
         ("no_group", "staff"),
+        ("visitor", "staff"),
+        # The staff client's own rules: the allowlist, and no visitor (ADR-0004's amendment of 2026-11-07).
+        ("unlisted_staff", "staff"),
+        ("visitor_staff", "staff"),
     ],
 )
 def test_a_user_gets_no_token_from_the_other_sides_client(
@@ -509,7 +513,7 @@ def test_the_tools_data_carries_its_environment_tag(outputs: dict[str, Any]) -> 
 def test_the_read_tools_may_name_every_attribute_but_is_fraud(
     outputs: dict[str, Any],
 ) -> None:
-    iam: Any = boto3.client("iam")
+    iam: Any = caller_iam()
     document = iam.get_role_policy(
         RoleName=f"{outputs['prefix']}-reads", PolicyName="reads"
     )["PolicyDocument"]
@@ -533,7 +537,7 @@ def dynamodb_grants(role: str, policy: str) -> dict[str, set[str]]:
     """
     Each DynamoDB table the role's inline policy names, with the actions it allows there.
     """
-    iam: Any = boto3.client("iam")
+    iam: Any = caller_iam()
     document = iam.get_role_policy(RoleName=role, PolicyName=policy)["PolicyDocument"]
     grants: dict[str, set[str]] = {}
     for statement in document["Statement"]:
@@ -551,7 +555,7 @@ def dynamodb_grants(role: str, policy: str) -> dict[str, set[str]]:
 
 
 def overlay_statements(role: str, policy: str, overlay: str) -> list[dict[str, Any]]:
-    iam: Any = boto3.client("iam")
+    iam: Any = caller_iam()
     document = iam.get_role_policy(RoleName=role, PolicyName=policy)["PolicyDocument"]
     return [
         s
@@ -590,7 +594,7 @@ def test_only_the_block_writes_the_sandbox_and_it_never_reads_is_fraud(
     assert filing[overlay] == {"dynamodb:GetItem"}
     assert overlay not in runtime and tools_data not in runtime
     assert runtime[confirmations] == {"dynamodb:PutItem", "dynamodb:UpdateItem"}
-    assert runtime[counters] == {"dynamodb:UpdateItem"}
+    assert runtime[counters] == {"dynamodb:GetItem", "dynamodb:UpdateItem"}
     for role in ("reads", "block"):
         for statement in overlay_statements(f"{prefix}-{role}", role, overlay):
             actions = statement["Action"]
@@ -608,7 +612,7 @@ def test_only_the_block_writes_the_sandbox_and_it_never_reads_is_fraud(
                     condition["StringEquals"]["dynamodb:Select"]
                     == "SPECIFIC_ATTRIBUTES"
                 )
-    iam: Any = boto3.client("iam")
+    iam: Any = caller_iam()
     document = iam.get_role_policy(RoleName=f"{prefix}-block", PolicyName="block")
     statement = next(
         s
@@ -621,6 +625,92 @@ def test_only_the_block_writes_the_sandbox_and_it_never_reads_is_fraud(
         statement["Condition"]["StringEquals"]["dynamodb:Select"]
         == "SPECIFIC_ATTRIBUTES"
     )
+
+
+def listed(value: str | list[str]) -> list[str]:
+    return [value] if isinstance(value, str) else value
+
+
+def test_the_runtime_reads_the_days_cap_and_writes_only_the_counts(
+    outputs: dict[str, Any],
+) -> None:
+    # ADR-0004, Operations, and its amendment of 2026-11-07: an administrator sets the cap, and the Runtime reads it.
+    prefix = outputs["prefix"]
+    counters = outputs["runtime_tables"]["usage_counters"]
+    conditions = {
+        str(s["Action"]): s["Condition"]
+        for s in overlay_statements(f"{prefix}-runtime", "runtime", counters)
+    }
+
+    read = conditions["dynamodb:GetItem"]
+    write = conditions["dynamodb:UpdateItem"]
+    assert listed(read["ForAllValues:StringEquals"]["dynamodb:LeadingKeys"]) == ["cap"]
+    assert read["StringEquals"]["dynamodb:Select"] == "SPECIFIC_ATTRIBUTES"
+    assert set(listed(write["ForAllValues:StringLike"]["dynamodb:LeadingKeys"])) == {
+        "sign_in#*",
+        "user#*",
+        "day",
+    }
+
+
+def test_the_suites_role_grants_what_the_tests_do_and_reads_no_row_of_the_tools_data(
+    outputs: dict[str, Any],
+) -> None:
+    # ADR-0004, Operations, access controls, and its amendment of 2026-11-07.
+    role = f"{outputs['prefix']}-suites"
+    tables = outputs["runtime_tables"]
+    sandbox = outputs["sandbox_tables"]
+    tools_data = outputs["tools_data"]["table"]
+
+    assert dynamodb_grants(role, "suites") == {
+        sandbox["overlay"]: {
+            "dynamodb:DeleteItem",
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+            "dynamodb:Query",
+        },
+        tables["execution_records"]: {"dynamodb:GetItem", "dynamodb:Query"},
+        tables["checkpoints"]: {"dynamodb:GetItem", "dynamodb:Query", "dynamodb:Scan"},
+        sandbox["confirmations"]: {"dynamodb:GetItem", "dynamodb:UpdateItem"},
+        outputs["handoff"]["cases_table"]: {
+            "dynamodb:DeleteItem",
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+        },
+        tables["usage_counters"]: {"dynamodb:PutItem"},
+        tools_data: {
+            "dynamodb:DescribeTable",
+            "dynamodb:GetItem",
+            "dynamodb:ListImports",
+            "dynamodb:ListTagsOfResource",
+            "dynamodb:Scan",
+        },
+        f"{tools_data}/import/*": {"dynamodb:DescribeImport"},
+    }
+    iam: Any = caller_iam()
+    document = iam.get_role_policy(RoleName=role, PolicyName="suites")["PolicyDocument"]
+    reading = {
+        s["Sid"]: s
+        for s in document["Statement"]
+        if str(s["Resource"]).endswith(f":table/{tools_data}")
+        and {"dynamodb:Scan", "dynamodb:GetItem"}
+        & ({s["Action"]} if isinstance(s["Action"], str) else set(s["Action"]))
+    }
+    assert set(reading) == {"ToolsDataCount", "ToolsDataStamp"}
+    assert reading["ToolsDataCount"]["Condition"]["StringEquals"] == {
+        "dynamodb:Select": "COUNT"
+    }
+    stamp = reading["ToolsDataStamp"]["Condition"]
+    assert stamp["ForAllValues:StringEquals"]["dynamodb:LeadingKeys"] == "META"
+    assert sorted(stamp["ForAllValues:StringEquals"]["dynamodb:Attributes"]) == [
+        "pk",
+        "sk",
+        "stamp",
+    ]
+    (counting,) = [s for s in document["Statement"] if s.get("Sid") == "UsageCounters"]
+    assert counting["Condition"]["ForAllValues:StringLike"] == {
+        "dynamodb:LeadingKeys": "user#*"
+    }
 
 
 # The Runtime (ADR-0004, spike S4)
@@ -668,6 +758,7 @@ def test_every_log_group_of_the_stack_keeps_a_retention(
         outputs["runtime_log_group"].removesuffix("-DEFAULT"),
         "/aws-dynamodb/imports",
         outputs["console"]["access_log_group"],
+        outputs["site"]["access_log_group"],
     ]
     groups = [
         group
@@ -682,6 +773,7 @@ def test_every_log_group_of_the_stack_keeps_a_retention(
         outputs["runtime_log_group"],
         "/aws-dynamodb/imports",
         outputs["console"]["access_log_group"],
+        outputs["site"]["access_log_group"],
         *(f"/aws/lambda/{f}" for f in outputs["console"]["functions"].values()),
     }
     assert [g["logGroupName"] for g in groups if "retentionInDays" not in g] == []

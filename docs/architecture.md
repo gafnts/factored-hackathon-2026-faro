@@ -62,7 +62,7 @@ sequenceDiagram
   A-->>C: 401 RUN_ERROR when the token is missing, expired, or not a customer's (SEC-04)
   A->>E: verified claims (sub, customer_id, origin_jti)
   E->>E: bind the runtime session to sub, derive the thread key from sub, count the turn against the limits, mask card numbers, turn text sent during a control into a resume
-  E-->>C: RUN_ERROR when the sign-in is past 10 turns a minute or the user past 500 a day
+  E-->>C: RUN_ERROR when the sign-in is past 10 turns a minute, the user past 40 a day, or the day past its cap (0 pauses the chat)
   E->>R: turn opened
   E->>G: run
   G->>W: tool call with the token's customer_id and origin_jti
@@ -203,7 +203,7 @@ The handoff is a structured case, not a transcript (CTL-05): the request, each v
 |---|---|---|
 | Cognito and the pre-token trigger | Who the customer is; customers get tokens from the customers' app client only, staff from the staff client only | The browser is not ours |
 | The Runtime's and the Gateway's JWT authorizers | Only a customer's valid token reaches the agent or a tool | The model is fully compromised |
-| The entrypoint | The runtime session belongs to the caller; the thread key derives from the verified `sub`; card numbers are masked before anything reads them; a sign-in's turns are limited | The client sends another customer's IDs |
+| The entrypoint | The runtime session belongs to the caller; the thread key derives from the verified `sub`; card numbers are masked before anything reads them; turns are limited per sign-in, per user, and for the day | The client sends another customer's IDs |
 | Cedar | Every call names the token's `customer_id` and `origin_jti` | The graph routes wrongly |
 | The tools | A read returns the customer's partition and never `is_fraud`; a block needs a confirmed, unexpired confirmation for that card and reason; a handoff's facts must be in the execution record | The graph is wrong |
 | The graph | Which card, when to ask, when to abstain, decline, or hand off; the queue, the retries, and the question limit | The model mislabels or misextracts |

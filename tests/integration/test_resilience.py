@@ -332,7 +332,7 @@ def test_a_sign_in_past_its_rate_is_refused_and_recorded(
     ]
 
 
-def test_a_user_past_the_days_cap_is_refused_and_recorded(
+def test_a_user_past_its_days_limit_is_refused_and_recorded(
     outputs: dict[str, Any], users: dict[str, User], sign_in: SignIn
 ) -> None:
     access = sign_in(users["capped"], "customer")["access"]
@@ -436,6 +436,7 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
             attempt=1,
             outcome="spend_limit",
         ),
+        "CapRefusals": line("request_refused", "visitor", turn_id, code="global_limit"),
     }
     quiet = {
         "RuntimeErrors": line(
@@ -458,6 +459,7 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
             planned=True,
             last=True,
         ),
+        "CapRefusals": line("request_refused", "demo", turn_id, code="paused"),
     }
 
     written = lines_of(outputs, turn_id, since)
@@ -501,8 +503,25 @@ def test_the_alarms_read_the_lines_the_runtime_writes(
         "action-not-verified",
         "reply-fallback-share",
         "tool-errors",
+        "cap-reached",
     )
     assert set(expected) <= set(named)
     assert all(
         named[n]["AlarmActions"] == [outputs["alarms"]["topic_arn"]] for n in expected
     )
+    # The alarms on the agent's own failures read invited users' and visitors' turns (ADR-0004's amendment of
+    # 2026-11-07).
+    live = {
+        "action-not-verified": "BlocksNotVerified",
+        "tool-errors": "ToolCallsFailed",
+        "reply-fallback-share": "ReplyChecks",
+        "cap-reached": "CapRefusals",
+    }
+    for name, metric in live.items():
+        read = {
+            d["Value"]
+            for m in named[name]["Metrics"]
+            if m.get("MetricStat", {}).get("Metric", {}).get("MetricName") == metric
+            for d in m["MetricStat"]["Metric"]["Dimensions"]
+        }
+        assert read == {"demo", "visitor"}, name

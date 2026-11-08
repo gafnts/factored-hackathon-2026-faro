@@ -1,7 +1,7 @@
 """
-The judges' users: the personas created by their customers' names with the customer group, the staff with theirs,
-credentials and briefings on disk and never printed, and a rotation that goes through reset (ADR-0007, Judges' access;
-SEC-03).
+The judges' users: the personas created by their customers' names with the customer group and the invited label, the
+staff with theirs and on the staff allowlist, credentials and briefings on disk and never printed, and a rotation that
+goes through reset (ADR-0007, Judges' access; ADR-0004's amendment of 2026-11-07; SEC-03).
 """
 
 import json
@@ -12,6 +12,7 @@ import pytest
 from botocore.exceptions import ClientError
 
 from faro import judges
+from faro.allowlist import Allowlist
 from faro.dataset.lock import read_lock
 from faro.personas import HOOKS, Persona
 
@@ -47,6 +48,29 @@ class FakeCognito:
     def admin_delete_user(self, **kwargs: object) -> None:
         self.calls.append(("delete", kwargs))
 
+    def admin_get_user(self, **kwargs: object) -> dict[str, object]:
+        return {
+            "UserAttributes": [{"Name": "sub", "Value": f"sub-{kwargs['Username']}"}]
+        }
+
+
+class FakeSSM:
+    def __init__(self, entries: dict[str, str] | None = None) -> None:
+        self.entries = dict(entries or {})
+
+    def put_parameter(self, **kwargs: object) -> None:
+        self.entries[str(kwargs["Name"])] = str(kwargs["Value"])
+
+    def delete_parameter(self, **kwargs: object) -> None:
+        if self.entries.pop(str(kwargs["Name"]), None) is None:
+            raise ClientError(
+                {"Error": {"Code": "ParameterNotFound", "Message": ""}},
+                "DeleteParameter",
+            )
+
+
+ALLOWLIST = "/banking-agent-local/staff/"
+
 
 # Development IDs only: 2, 8, and 9 are held out.
 DEVELOPMENT = (1, 3, 4, 5, 6, 7, 10, 11)
@@ -67,7 +91,11 @@ def test_create_makes_each_persona_by_name_and_the_staff_with_their_groups() -> 
     groups = {
         (c["Username"], c["GroupName"]) for kind, c in cognito.calls if kind == "group"
     }
-    assert groups == {(p.username, "customer") for p in CHOSEN.values()} | {
+    assert groups == {
+        (p.username, group)
+        for p in CHOSEN.values()
+        for group in ("customer", "invited")
+    } | {
         ("agente", "human_agent"),
         ("equipo-ia", "ai_team"),
     }
@@ -83,6 +111,19 @@ def test_create_makes_each_persona_by_name_and_the_staff_with_their_groups() -> 
     assert attributes["agente"] == []
     passwords = [c for kind, c in cognito.calls if kind == "password"]
     assert all(c["Permanent"] is True for c in passwords)
+
+
+def test_the_staff_go_on_the_allowlist_by_their_sub_and_no_customer_does() -> None:
+    cognito, ssm = FakeCognito(), FakeSSM()
+
+    judges.create(
+        cognito, "pool", CHOSEN, allowlist=Allowlist(cognito, ssm, "pool", ALLOWLIST)
+    )
+
+    assert ssm.entries == {
+        f"{ALLOWLIST}sub-agente": "agente",
+        f"{ALLOWLIST}sub-equipo-ia": "equipo-ia",
+    }
 
 
 def test_every_user_carries_its_briefing() -> None:
@@ -115,14 +156,29 @@ def test_an_existing_user_without_credentials_refuses_the_run_and_names_delete()
         judges.create(cognito, "pool", CHOSEN)
 
 
-def test_an_existing_user_with_credentials_is_kept_and_not_remade() -> None:
-    cognito = FakeCognito(existing={"agente"})
+def test_an_existing_user_with_credentials_is_kept_and_not_remade_but_relabeled() -> (
+    None
+):
+    persona = CHOSEN["quiet"].username
+    cognito, ssm = FakeCognito(existing={"agente", persona}), FakeSSM()
+    allowlist = Allowlist(cognito, ssm, "pool", ALLOWLIST)
 
-    created = judges.create(cognito, "pool", CHOSEN, recorded={"agente"})
+    created = judges.create(
+        cognito, "pool", CHOSEN, recorded={"agente", persona}, allowlist=allowlist
+    )
 
     assert "agente" not in created
     assert "equipo-ia" in created
-    assert all(c["Username"] != "agente" for _, c in cognito.calls)
+    kept = [
+        (kind, c) for kind, c in cognito.calls if c["Username"] in {"agente", persona}
+    ]
+    assert {kind for kind, _ in kept} == {"group"}
+    assert {(c["Username"], c["GroupName"]) for _, c in kept} == {
+        ("agente", "human_agent"),
+        (persona, "customer"),
+        (persona, "invited"),
+    }
+    assert ssm.entries[f"{ALLOWLIST}sub-agente"] == "agente"
 
 
 def test_a_run_that_stops_partway_keeps_what_it_made_and_resumes(
@@ -146,16 +202,16 @@ def test_a_run_that_stops_partway_keeps_what_it_made_and_resumes(
     first.admin_add_user_to_group = add_to_group  # type: ignore[method-assign]
 
     with pytest.raises(ClientError):
-        judges.run(args, first)
+        judges.run(args, first, FakeSSM())
 
     made = {str(c["Username"]) for kind, c in first.calls if kind == "group"}
     assert set(judges.read_users(path)) == made
     assert judges.note_path(tmp_path, "local").is_file()
 
     with pytest.raises(judges.JudgesError, match="delete"):
-        judges.run(args, FakeCognito(existing=made | {failing}))
+        judges.run(args, FakeCognito(existing=made | {failing}), FakeSSM())
 
-    said = judges.run(args, FakeCognito(existing=made))
+    said = judges.run(args, FakeCognito(existing=made), FakeSSM())
 
     assert set(judges.read_users(path)) == {p.username for p in CHOSEN.values()} | set(
         judges.STAFF
@@ -211,7 +267,12 @@ def test_the_single_user_commands_reach_their_admin_calls() -> None:
 
 def write_stack_and_personas(tmp_path: Path) -> Path:
     stack = tmp_path / "local.outputs.json"
-    stack.write_text(json.dumps({"user_pool_id": {"value": "pool"}}), encoding="utf-8")
+    stack.write_text(
+        json.dumps(
+            {"user_pool_id": {"value": "pool"}, "staff_allowlist": {"value": ALLOWLIST}}
+        ),
+        encoding="utf-8",
+    )
     snapshot = read_lock(Path("dataset.lock")).snapshot_id
     (tmp_path / "personas").mkdir()
     (tmp_path / "personas" / f"{snapshot}.json").write_text(
@@ -238,7 +299,7 @@ def test_run_prints_no_password_username_or_customer_id(tmp_path: Path) -> None:
     args = judges.parse(["create", "--stack", str(stack), "--data-dir", str(tmp_path)])
     cognito = FakeCognito()
 
-    said = judges.run(args, cognito)
+    said = judges.run(args, cognito, FakeSSM())
 
     body = json.loads(
         judges.credentials_path(tmp_path, "local").read_text(encoding="utf-8")
@@ -280,6 +341,7 @@ def test_delete_retires_the_user_from_the_pool_the_file_and_the_note(
         json.dumps(
             {
                 "user_pool_id": {"value": "pool"},
+                "staff_allowlist": {"value": ALLOWLIST},
                 "site": {"value": {"url": "https://example.test"}},
             }
         ),
@@ -295,6 +357,7 @@ def test_delete_retires_the_user_from_the_pool_the_file_and_the_note(
         },
     )
     cognito = FakeCognito()
+    ssm = FakeSSM({f"{ALLOWLIST}sub-agente": "agente"})
     args = judges.parse(
         [
             "delete",
@@ -307,9 +370,10 @@ def test_delete_retires_the_user_from_the_pool_the_file_and_the_note(
         ]
     )
 
-    said = judges.run(args, cognito)
+    said = judges.run(args, cognito, ssm)
 
     assert [kind for kind, _ in cognito.calls] == ["delete"]
+    assert ssm.entries == {f"{ALLOWLIST}sub-agente": "agente"}
     assert cognito.calls[0][1]["Username"] == "team.quiet"
     assert "team.quiet" not in said
     body = json.loads(path.read_text(encoding="utf-8"))
@@ -317,6 +381,40 @@ def test_delete_retires_the_user_from_the_pool_the_file_and_the_note(
     note = judges.note_path(tmp_path, "local").read_text(encoding="utf-8")
     assert "team.quiet" not in note
     assert "## agente" in note
+
+
+def test_deleting_a_staff_user_takes_it_off_the_allowlist(tmp_path: Path) -> None:
+    stack = write_stack_and_personas(tmp_path)
+    ssm = FakeSSM({f"{ALLOWLIST}sub-agente": "agente"})
+    args = judges.parse(
+        [
+            "delete",
+            "--stack",
+            str(stack),
+            "--user",
+            "agente",
+            "--data-dir",
+            str(tmp_path),
+        ]
+    )
+
+    judges.run(args, FakeCognito(), ssm)
+
+    assert ssm.entries == {}
+
+
+def test_a_stack_without_the_allowlist_is_refused_before_any_user_is_made(
+    tmp_path: Path,
+) -> None:
+    stack = tmp_path / "local.outputs.json"
+    stack.write_text(json.dumps({"user_pool_id": {"value": "pool"}}), encoding="utf-8")
+    args = judges.parse(["create", "--stack", str(stack), "--data-dir", str(tmp_path)])
+    cognito = FakeCognito()
+
+    with pytest.raises(judges.JudgesError, match="staff_allowlist"):
+        judges.run(args, cognito, FakeSSM())
+
+    assert cognito.calls == []
 
 
 def test_a_command_on_one_user_needs_the_user() -> None:

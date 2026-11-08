@@ -25,7 +25,7 @@ import {
   runtimeFetch,
   warmUp,
 } from "../runtime";
-import { type Problem, TEXTS } from "../texts";
+import { type Problem, problemText, TEXTS } from "../texts";
 import { Controls, type Shown, ShownControls } from "./control";
 import { Reply } from "./reply";
 
@@ -86,7 +86,7 @@ function Alert({
 }) {
   return (
     <p role="alert" className="text-lamp">
-      {TEXTS[language].chat.problems[problem]}
+      {problemText(language, problem)}
     </p>
   );
 }

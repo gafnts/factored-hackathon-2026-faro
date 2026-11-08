@@ -151,6 +151,16 @@ async def answer(
     return fill(text, facts).strip(), []
 
 
+def unless_out_of_service(scope: Scope, name: str) -> str:
+    """
+    unavailable asks the customer to try again in a few minutes, which a cause that fails every turn won't keep
+    (ADR-0004's amendment of 2026-11-07).
+    """
+    if name == "unavailable" and scope.models.out_of_service:
+        return "out_of_service"
+    return name
+
+
 async def conclude(state: State) -> Update:
     """
     Ends the request being served: its part of the turn's reply, from the fixed texts and the answer its nodes left, and
@@ -162,8 +172,9 @@ async def conclude(state: State) -> Update:
     label = state.get("label")
     names: list[str] = []
     parts: list[str] = []
-    for name, facts in state.get("say", []):
-        if name != WRITE:
+    for given, facts in state.get("say", []):
+        if given != WRITE:
+            name = unless_out_of_service(scope, given)
             names.append(name)
             parts.append(render(name, language, facts))
             continue
@@ -178,6 +189,7 @@ async def conclude(state: State) -> Update:
         parts.append(text)
     if case in ENDINGS:
         name = small_talk(state) if case == "no_request" else case
+        name = unless_out_of_service(scope, name)
         names.append(name)
         parts.append(FIXED[name][language])
         outcome = ending(state, case)

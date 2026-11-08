@@ -1,7 +1,8 @@
 .DEFAULT_GOAL := help
 
 ENV ?= local
-TF      := terraform -chdir=infra
+# A working directory per environment, so a target for one never runs through the other's backend.
+TF      := TF_DATA_DIR=.terraform/$(ENV) terraform -chdir=infra
 VARS    := -var-file=envs/$(ENV).tfvars
 BACKEND := -backend-config=envs/$(ENV).backend.tfbackend
 PLAN    := build/$(ENV).tfplan
@@ -20,7 +21,7 @@ DATASET_BACKEND := -backend-config=backend.tfbackend
 
 .PHONY: help install tflint-init \
 	check advisories lint format type tf-format \
-	test integration browser smoke probe judges smoke-user \
+	test integration browser suites smoke probe judges smoke-user staff cap label-users \
 	build web web-dev site upload \
 	bootstrap backend doctor provision teardown \
 	data snapshot personas tiny-export pipeline export contracts analysis \
@@ -93,6 +94,8 @@ browser: _check-profile outputs ## Play the chat and the console in Chromium aga
 	uv run playwright install chromium
 	STACK_OUTPUTS=$(OUTPUTS) uv run pytest -m browser -v --tb=short
 
+suites: browser integration ## Run both against ENV, the full check of a promotion that changes the app
+
 # CI sets SMOKE_* from the deploy's outputs and the environment's secret; here they come from ENV's outputs and
 # data/smoke/. One retry, for a fault upstream of us.
 smoke: $(if $(SMOKE_SITE),,_check-profile outputs) ## Sign ENV's smoke user in and ask about its cards, as after a deploy
@@ -114,6 +117,16 @@ judges: _check-profile outputs ## Manage the judges' users in ENV's pool (WHAT=,
 
 smoke-user: _check-profile outputs ## Create or reset ENV's smoke user, the check's customer
 	uv run python -m faro.smoke_user --stack $(OUTPUTS)
+
+staff: _check-profile outputs ## Put a staff user on ENV's staff allowlist, or take one off (WHO=, WHAT=remove)
+	uv run python -m faro.staff $(or $(WHAT),add) --stack $(OUTPUTS) $(if $(WHO),--user $(WHO))
+
+cap: _check-profile outputs ## Print ENV's cap on the day's turns and today's count, or set it (TURNS=, 0 pauses)
+	uv run python -m faro.cap --stack $(OUTPUTS) $(if $(TURNS),--turns $(TURNS))
+
+# Once per environment, for the users made before the labels and the allowlist; it goes before the guest entry.
+label-users: _check-profile outputs ## Label ENV's invited customers, move the smoke user, list the staff (DRY=1)
+	uv run python -m faro.staff label-users --stack $(OUTPUTS) $(if $(DRY),--dry-run)
 
 
 ##@ Build
@@ -350,16 +363,19 @@ _check-profile:
 	@if [ "$(ENV)" = "local" ] && [ -z "$(AWS_PROFILE)" ]; then \
 		echo "AWS_PROFILE is unset, so this would run as your default profile. Run 'direnv allow',"; \
 		echo "or 'export AWS_PROFILE=banking-agent-local'."; exit 1; fi
+	@if [ "$(ENV)" = "prototype" ] && [ "$(AWS_PROFILE)" = "banking-agent-local" ]; then \
+		echo "banking-agent-local can't reach prototype. Run it with an administrator's profile: AWS_PROFILE=default."; \
+		exit 1; fi
 
 # The backend pointer persists across runs, so `make init ENV=prototype` then `make destroy` would hit
 # prototype's state.
 _check-backend:
-	@if [ ! -f infra/.terraform/terraform.tfstate ]; then \
-		echo "Terraform not initialized. Run 'make init ENV=$(ENV)' first."; exit 1; fi
-	@current=$$(grep -o '"key": *"[^"]*"' infra/.terraform/terraform.tfstate | head -1 | sed 's/.*"\([^"]*\)"$$/\1/'); \
+	@if [ ! -f infra/.terraform/$(ENV)/terraform.tfstate ]; then \
+		echo "Terraform not initialized for $(ENV). Run 'make init ENV=$(ENV)' first."; exit 1; fi
+	@current=$$(grep -o '"key": *"[^"]*"' infra/.terraform/$(ENV)/terraform.tfstate | head -1 | sed 's/.*"\([^"]*\)"$$/\1/'); \
 	expected="service/$(ENV)/terraform.tfstate"; \
 	if [ "$$current" != "$$expected" ]; then \
 		echo "Backend mismatch: configured key is '$$current' but ENV=$(ENV) expects '$$expected'."; \
-		echo "Run 'make init ENV=<env>' to reconfigure the backend before continuing."; \
+		echo "Run 'make init ENV=$(ENV)' to reconfigure the backend before continuing."; \
 		exit 1; \
 	fi

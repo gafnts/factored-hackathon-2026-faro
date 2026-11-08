@@ -352,7 +352,11 @@ class Entrypoint:
         # The warm-up runs no graph, so it isn't counted (decision 20).
         if services.usage is not None and not isinstance(parsed, Warmup):
             limited = await asyncio.to_thread(
-                services.usage.count, claims.origin_jti, claims.sub, started
+                services.usage.count,
+                claims.origin_jti,
+                claims.sub,
+                claims.source,
+                started,
             )
             if limited is not None:
                 yield await refused(limited)

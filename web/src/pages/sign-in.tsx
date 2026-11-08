@@ -1,4 +1,4 @@
-import { type SubmitEvent, useState } from "react";
+import { type SubmitEvent, useRef, useState } from "react";
 
 import type { SignInOutcome } from "../auth";
 import type { Language } from "../contracts/chat";
@@ -87,6 +87,49 @@ function Form({
         </button>
       </form>
     </section>
+  );
+}
+
+// What we keep of a visit, said before anyone enters (ADR-0007, Sign-in): the customers' sign-in's footer, in the
+// notice's place, a glass bar like the one at the top. Entering means accepting it, so its one button opens the full
+// list. Only the team signs in to the console, which keeps the notice.
+export function Terms({ language }: { language: Language }) {
+  const texts = TEXTS[language].signIn.terms;
+  const dialog = useRef<HTMLDialogElement>(null);
+  return (
+    <footer className="animate-fade border-t border-white/10 glass-thin px-4 py-3 text-xs text-bone sm:px-6 sm:text-sm">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+        <p className="text-pretty">{texts.banner}</p>
+        <button
+          type="button"
+          onClick={() => dialog.current?.showModal()}
+          className="shrink-0 self-start underline underline-offset-4 hover:text-sea sm:self-auto"
+        >
+          {texts.more}
+        </button>
+      </div>
+      <dialog
+        ref={dialog}
+        aria-labelledby="terms"
+        className="m-auto w-[calc(2*var(--span)*var(--cell)+1px)] max-w-[calc(100%-2rem)] border border-white/10 glass px-8 py-8 text-bone [--span:5] backdrop:bg-night/70 sm:[--span:4]"
+      >
+        <h2 id="terms" className="text-2xl font-semibold tracking-tight">
+          {texts.title}
+        </h2>
+        <ul className="mt-6 flex flex-col gap-3 text-sm text-bone-muted">
+          {texts.lines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          onClick={() => dialog.current?.close()}
+          className="mt-8 h-11 w-full border border-white/10 font-medium hover:bg-white/5"
+        >
+          {texts.close}
+        </button>
+      </dialog>
+    </footer>
   );
 }
 
