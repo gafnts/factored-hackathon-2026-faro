@@ -10,10 +10,19 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 - A limit of three runtime sessions per sign-in. The chat keeps one, and each holds a microVM of about 1 GB until its 15-minute idle timeout whether or not a turn runs in it, so a client that drew new session IDs could keep thousands idle on one token while no limit on turns saw it. A new session's binding and its count go in one transaction; a fourth gets `session_refused`, and the entrypoint ends it at once through the caller's own token, reading the Runtime's ARN from a Parameter Store entry Terraform writes once the Runtime exists ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-08, [#207]).
 - An alarm, `sessions-refused`, for ten or more runtime sessions refused in five minutes, past their sign-in's limit or because another user holds them. It counts every source, since an honest chat meets neither; the integration suite refuses two on purpose and stays under it ([#207]).
+- The guest entry: anyone can enter Faro with one click, as one of the bank's synthetic customers. The customers' sign-in leads with its button, and the form waits behind "Tengo usuario y contraseña". Each click makes a user of its own in the `customer` and `visitor` groups, as one of 24 development customers chosen by a committed rule, signs it in through the customers' client, and hands the tab its tokens; it reads nothing from the request, and the staff client refuses its users. It is `POST /api/guest` on the console API, with no authorizer, a throttle of its own, a reserved concurrency of 2, and a CloudFront behavior of its own, since the one for `/api` passes reads alone ([ADR-0007](docs/adr/0007-role-gated-web-app.md)'s amendment of 2026-11-08, [#208]).
+- A cap of 100 guests a UTC day on the cap's item, beside the turns: past it, or while the chat is paused, the guest entry makes no user and the sign-in says so, the day's end in the visitor's own time. `make cap GUESTS=` sets it, and a stack whose cap was written before it needs it once ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-08, [#208]).
+- `make guest-list`, which chooses the guest entry's customers from the snapshot, four from each country by one active card or two or more, each able to play the opening's three suggestions, and writes their IDs and synthetic names to a Parameter Store entry of the stack; the repository holds the rule alone. Each environment needs it once before its guest entry works ([#208]).
+- The welcome: a guest's opening names the customer they entered as and each card's type and last four digits, which the guest entry reads through the Gateway with the visitor's own token; no status, since a block changes it during the visit ([#208]).
+- A cleanup that deletes visitors' users every hour, a day after each was made; a visitor's records and cases keep their retention ([#208]).
+- Two alarms from the guest entry's line per click, which names its outcome alone: `guests-full`, when the day's guests are reached, and `guest-entry-failing`, when a click fails, since a visitor who can't enter has no other way to tell us ([#208]).
 
 ### Changed
 
 - `session_refused`'s message, and the chat contract's description of it, name the sign-in's limit beside another user's session; the chat's text for it is unchanged ([#207]).
+- The deploy's check also enters as a guest: it reads the visitor's cards through the Gateway, requires the welcome to name each one, and deletes the visitor with its own token, so the check still holds no AWS credentials; while the chat is paused it expects the paused answer ([ADR-0009](docs/adr/0009-release-checked-deploys.md)'s amendment of 2026-11-08, [#208]).
+- The suites' role may read the guest entry's log and run the cleanup once, for the tests that check them ([#208]).
+- The README's first lines say how to enter ([#208]).
 
 ## [1.12.0] - 2026-11-07 (Promotion 18)
 
@@ -273,6 +282,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#202]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/202
 [#203]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/203
 [#207]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/207
+[#208]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/208
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
