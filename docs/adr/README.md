@@ -12,7 +12,7 @@ The decisions someone could question later, each with its context, the alternati
 | [0006](0006-batch-medallion-pipeline.md) | Batch medallion pipeline in dbt-duckdb, exported per snapshot to the tools' store | Accepted 2026-09-29; amended through 2026-09-30 |
 | [0007](0007-role-gated-web-app.md) | Role-gated web app on one CloudFront origin, with a polled handoff console | Accepted 2026-09-29; amended through 2026-11-08 |
 | [0008](0008-pin-toolchain-by-layer.md) | Pin the toolchain by layer, with mise for the dev environment | Accepted 2026-10-31; amended 2026-10-31 |
-| [0009](0009-release-checked-deploys.md) | Release only checked deploys of credential-free builds | Accepted 2026-10-31 |
+| [0009](0009-release-checked-deploys.md) | Release only checked deploys of credential-free builds | Accepted 2026-10-31; amended through 2026-11-08 |
 | [0010](0010-gate-merges-on-advisories.md) | Gate every merge on known advisories in the lockfiles | Accepted 2026-10-31; amended 2026-10-31 |
 | [0011](0011-pre-registered-studies.md) | Pre-registered evaluation studies over wording sources | Accepted 2026-11-02; amended 2026-11-02 |
 
