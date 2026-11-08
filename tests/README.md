@@ -39,7 +39,7 @@ Each row is an integration test against a deployed stack, with real tokens; none
 | Type a full card number | It is masked to its last four digits before anything stores or logs it | [test_agent.py](integration/test_agent.py): `test_a_typed_card_number_is_masked_and_never_logged` |
 | Look for the fraud flag or a full card number in the tools' answers | No read carries `is_fraud`, a full card number, or the fields the policy withholds (the customer's status, the balance, the limit) | [test_stack.py](integration/test_stack.py): `test_no_output_carries_what_the_customer_mustnt_see` |
 | Put markup in a case's text | The console shows it as text | [test_browser.py](integration/test_browser.py): `test_the_console_shows_what_a_case_holds_as_text_never_as_markup` |
-| Flood the chat | Past 10 turns a minute per sign-in or 500 a day per user, a turn is refused before it opens, and recorded | [test_resilience.py](integration/test_resilience.py): `test_a_sign_in_past_its_rate_is_refused_and_recorded`, `test_a_user_past_the_days_cap_is_refused_and_recorded` |
+| Flood the chat | Past 10 turns a minute per sign-in or 40 a day per user, a turn is refused before it opens, and recorded | [test_resilience.py](integration/test_resilience.py): `test_a_sign_in_past_its_rate_is_refused_and_recorded`, `test_a_user_past_its_days_limit_is_refused_and_recorded` |
 
 ## Covered elsewhere
 

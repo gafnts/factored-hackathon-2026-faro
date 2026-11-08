@@ -19,7 +19,7 @@ from typing import Any, Protocol
 from botocore.exceptions import ClientError
 
 TURNS_PER_MINUTE = 10
-TURNS_PER_DAY = 500
+TURNS_PER_DAY = 40
 CAPPED = ("demo", "visitor")
 CAP_KEY = {"counter": {"S": "cap"}, "window": {"S": "current"}}
 DAY = "day"

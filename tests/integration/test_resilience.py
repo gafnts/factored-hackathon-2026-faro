@@ -332,7 +332,7 @@ def test_a_sign_in_past_its_rate_is_refused_and_recorded(
     ]
 
 
-def test_a_user_past_the_days_cap_is_refused_and_recorded(
+def test_a_user_past_its_days_limit_is_refused_and_recorded(
     outputs: dict[str, Any], users: dict[str, User], sign_in: SignIn
 ) -> None:
     access = sign_in(users["capped"], "customer")["access"]

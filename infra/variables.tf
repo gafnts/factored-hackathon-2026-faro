@@ -54,9 +54,9 @@ variable "turns_per_minute" {
 }
 
 variable "turns_per_day" {
-  description = "A user's turns a UTC day before the entrypoint refuses one; well above a day of grading (decision 21)"
+  description = "A user's turns a UTC day before the entrypoint refuses one; about a twentieth of the cap, so one visitor who keeps going stops well before the day does (decision 21)"
   type        = number
-  default     = 500
+  default     = 40
 }
 
 # 5 USD a day, a tenth of the model's monthly limit, at the freeze's 95th percentile of 0.645 cents a turn.
