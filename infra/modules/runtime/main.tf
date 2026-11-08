@@ -308,14 +308,15 @@ data "aws_iam_policy_document" "runtime" {
     actions   = ["dynamodb:PutItem", "dynamodb:UpdateItem"]
     resources = [var.confirmations_table.arn]
   }
-  # Counts a turn on a condition, and reads no count back; the cap is an administrator's to set (decision 21).
+  # Counts a turn, or a sign-in's new runtime session, on a condition, and reads no count back; the cap is an
+  # administrator's to set (decision 21).
   statement {
     actions   = ["dynamodb:UpdateItem"]
     resources = [aws_dynamodb_table.usage_counters.arn]
     condition {
       test     = "ForAllValues:StringEquals"
       variable = "dynamodb:Attributes"
-      values   = ["counter", "window", "turns", "expires_at"]
+      values   = ["counter", "window", "turns", "sessions", "expires_at"]
     }
     condition {
       test     = "ForAllValues:StringLike"

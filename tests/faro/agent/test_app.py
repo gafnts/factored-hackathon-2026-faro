@@ -631,6 +631,35 @@ def test_another_users_runtime_session_is_refused_and_recorded(
     )
 
 
+def test_a_sign_ins_fourth_runtime_session_is_refused_and_its_first_still_served(
+    harness: Harness,
+) -> None:
+    who = customer()
+    warmup = run_body(None, forwardedProps={"warmup": True})
+    sessions = [session_id() for _ in range(4)]
+    for session in sessions[:3]:
+        assert harness.post(warmup, who.token(), session)[-1]["type"] == "RUN_FINISHED"
+
+    events = harness.post(warmup, who.token(), sessions[3])
+
+    assert events == [
+        {
+            "type": "RUN_ERROR",
+            "message": ERRORS["session_refused"],
+            "code": "session_refused",
+        }
+    ]
+    assert sessions[3] not in harness.bindings.bound
+    refused = harness.records.of(who.origin_jti)[-1]
+    assert (refused["code"], refused["runtime_session_id"]) == (
+        "session_refused",
+        sessions[3],
+    )
+    assert harness.post(run_body(), who.token(), sessions[0])[-1]["type"] == (
+        "RUN_FINISHED"
+    )
+
+
 def test_a_request_without_a_runtime_session_is_refused(harness: Harness) -> None:
     who = customer()
 

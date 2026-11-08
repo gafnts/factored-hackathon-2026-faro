@@ -1,6 +1,6 @@
 """
 The Runtime's entrypoint (ADR-0004, A turn, end to end, step 3, and its amendments). Before the graph runs, it reads the
-token's claims, binds the runtime session to its user, checks the request against the chat's contract, counts a message
+token's claims, binds the runtime session to its user and counts it against the sign-in's sessions, checks the request against the chat's contract, counts a message
 or a resume against decision 21's limits, replaces the
 thread ID with a key derived from the user, masks the new message, takes a control's answer only when it answers the
 thread's pending control, turns a message typed while one is pending into a resume, opens the turn's execution record,
@@ -67,7 +67,7 @@ from faro.agent.request import (
 )
 from faro.agent.retries import RETRIES, Retries
 from faro.agent.scope import SCOPE, Scope
-from faro.agent.sessions import Bindings, DynamoBindings
+from faro.agent.sessions import Binding, Bindings, DynamoBindings
 from faro.agent.usage import DynamoUsage, Limits, Usage
 from faro.contracts import NAMES, version
 from faro.policy import POLICY_VERSION
@@ -164,7 +164,11 @@ def services() -> Services:
     return Services(
         settings=settings,
         graph=build(saver),
-        bindings=DynamoBindings(client, os.environ["SESSION_BINDINGS_TABLE"]),
+        bindings=DynamoBindings(
+            client,
+            os.environ["SESSION_BINDINGS_TABLE"],
+            os.environ["USAGE_COUNTERS_TABLE"],
+        ),
         records=DynamoRecords(records),
         fetch_key=fetch_model_key,
         models=anthropic_factory,
@@ -331,9 +335,16 @@ class Entrypoint:
                 errors,
             )
 
-        if not session_id or not await asyncio.to_thread(
-            services.bindings.bind, session_id, claims.sub, started
-        ):
+        binding: Binding | None = None
+        if session_id:
+            binding = await asyncio.to_thread(
+                services.bindings.bind,
+                session_id,
+                claims.sub,
+                claims.origin_jti,
+                started,
+            )
+        if not session_id or binding != "bound":
             yield await refused("session_refused")
             return
         request = run_input.model_dump(by_alias=True, exclude_none=True, mode="json")

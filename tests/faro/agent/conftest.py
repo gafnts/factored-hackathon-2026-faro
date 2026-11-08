@@ -44,6 +44,7 @@ from faro.agent.models import (
     TransactionChoice,
 )
 from faro.agent.retries import Retries
+from faro.agent.sessions import MemoryBindings
 from faro.agent.texts import fill, render, values
 from faro.tools import handoff
 from faro.tools.cases import MemoryCases, MemoryFlags
@@ -363,14 +364,6 @@ class FileHandoffLambda:
             "Payload": io.BytesIO(json.dumps(output).encode()),
             "ResponseMetadata": metadata,
         }
-
-
-class MemoryBindings:
-    def __init__(self) -> None:
-        self.bound: dict[str, str] = {}
-
-    def bind(self, session_id: str, sub: str, at: datetime) -> bool:
-        return self.bound.setdefault(session_id, sub) == sub
 
 
 @dataclass
