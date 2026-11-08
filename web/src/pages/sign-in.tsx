@@ -301,8 +301,8 @@ export function Terms({ language }: { language: Language }) {
   const texts = TEXTS[language].signIn.terms;
   const dialog = useRef<HTMLDialogElement>(null);
   return (
-    <footer className="animate-fade border-t border-white/10 glass-thin px-4 py-3 text-xs text-bone sm:px-6 sm:text-sm">
-      <p className="text-pretty">
+    <footer className="animate-fade border-t border-white/10 glass-thin px-4 pt-2.5 pb-3.5 text-xs text-bone sm:px-6 sm:text-sm">
+      <p className="text-pretty sm:text-right">
         {texts.banner}{" "}
         <button
           type="button"
