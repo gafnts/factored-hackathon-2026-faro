@@ -157,7 +157,7 @@ class Tab:
             self.page.get_by_role("button", name=self.texts["with_account"]).click()
         self.page.get_by_label(self.texts["username"]).fill(user.username)
         self.page.get_by_label(self.texts["password"]).fill(user.password)
-        self.page.get_by_role("button", name=self.texts["submit"]).click()
+        self.page.get_by_role("button", name=self.texts["submit"], exact=True).click()
 
     def ask(self, outputs: dict[str, Any], text: str) -> str:
         message = self.page.get_by_label(self.texts["message"])
