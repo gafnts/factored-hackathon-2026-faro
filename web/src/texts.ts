@@ -205,7 +205,7 @@ export const TEXTS: Record<Language, Texts> = {
         title: "Condiciones",
         lines: [
           "LATAM Bank y sus clientes son ficticios. No escriba datos reales.",
-          "Las conversaciones se guardan hasta por 12 meses y pueden ser leídas para evaluar y mejorar el agente.",
+          "Las conversaciones se guardan hasta por 12 meses y pueden ser leídas para evaluar y mejorar al agente.",
           "Anthropic, el proveedor del modelo, procesa sus mensajes.",
           "Nadie da seguimiento a los casos que Faro registra.",
           "Su dirección IP se guarda hasta por 90 días.",
