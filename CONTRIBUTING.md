@@ -93,7 +93,7 @@ The operations that can hurt are hard to trigger by mistake:
 | Deploying from an unreviewed branch | The prototype deploy role only trusts jobs in the `prototype` GitHub Environment, which only `main` can use |
 | Write credentials on pull requests | PR plans run under a read-only role, without taking the state lock; the plan's comment is posted by a job with no AWS credentials |
 | Build code running with a deploy role | The build job, which runs `make build` and the web app's install and build, holds no credentials; the plan and apply jobs download what it made and run only Terraform, the AWS CLI, jq, and git ([ADR-0009](docs/adr/0009-release-checked-deploys.md)) |
-| A deploy that runs something other than its build, or breaks the chat | `make verify` compares what each Lambda and the Runtime run with the build's zips, and `make smoke` asks about the smoke user's cards; either failing turns the run red, and a red run gets no release |
+| A deploy that runs something other than its build, or breaks the chat or the guest entry | `make verify` compares what each Lambda and the Runtime run with the build's zips, and `make smoke` asks about the smoke user's cards and enters as a guest; either failing turns the run red, and a red run gets no release |
 | A release tag that moves | Releases are immutable once published, and a ruleset lets only administrators create, move, or delete a `v*` tag |
 | CI changing its own permissions | `infra/iam/` is applied by hand with admin credentials; the deploy roles are denied IAM changes to themselves, and every role they create must carry a permissions boundary that excludes IAM |
 | One environment touching another's state | Each role is denied every other prefix in the state bucket (including the IAM and dataset roots'), and any change to the bucket itself; the roles they create are denied the bucket entirely |
@@ -401,7 +401,7 @@ make verify             # Check that the Lambdas and the Runtime run the zips in
 make integration        # Test the stack (SLOW=1 waits out a token, 15 min)
 make browser            # Play the chat and the console in Chromium
 make suites             # Both, browser first, as a promotion's full check
-make smoke              # Ask about the smoke user's cards, as the check after a deploy does
+make smoke              # Ask about the smoke user's cards and enter as a guest, as the check after a deploy does
 make probe              # Time the Runtime and check what it stores and traces
 make judges             # Manage the judges' users, kept in data/judges/
 make smoke-user         # Create or reset the check's customer, kept in data/smoke/

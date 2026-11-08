@@ -98,7 +98,7 @@ suites: browser integration ## Run both against ENV, the full check of a promoti
 
 # CI sets SMOKE_* from the deploy's outputs and the environment's secret; here they come from ENV's outputs and
 # data/smoke/. One retry, for a fault upstream of us.
-smoke: $(if $(SMOKE_SITE),,_check-profile outputs) ## Sign ENV's smoke user in and ask about its cards, as after a deploy
+smoke: $(if $(SMOKE_SITE),,_check-profile outputs) ## Ask about ENV's smoke user's cards, then enter as a guest and read its welcome, as after a deploy
 	uv run playwright install chromium
 	@export SMOKE_SITE="$${SMOKE_SITE:-$$(jq -r .site.value.url $(OUTPUTS))}" \
 		SMOKE_GATEWAY_URL="$${SMOKE_GATEWAY_URL:-$$(jq -r .gateway_url.value $(OUTPUTS))}" \
