@@ -22,6 +22,7 @@ TURNS_PER_MINUTE = 10
 TURNS_PER_DAY = 500
 CAPPED = ("demo", "visitor")
 CAP_KEY = {"counter": {"S": "cap"}, "window": {"S": "current"}}
+DAY = "day"
 # Named in this order when several are reached, so the cap's alarm counts every turn it refuses, and a minute's wait is
 # offered only when it would help.
 REFUSALS = ("global_limit", "daily_limit", "rate_limited")
@@ -75,7 +76,7 @@ class Limits:
         return (
             *windows,
             Window(
-                "day",
+                DAY,
                 day.strftime("%Y-%m-%d"),
                 cap,
                 day + timedelta(days=1),
