@@ -67,7 +67,13 @@ from faro.agent.request import (
 )
 from faro.agent.retries import RETRIES, Retries
 from faro.agent.scope import SCOPE, Scope
-from faro.agent.sessions import Binding, Bindings, DynamoBindings
+from faro.agent.sessions import (
+    Binding,
+    Bindings,
+    DynamoBindings,
+    Ending,
+    RuntimeEnding,
+)
 from faro.agent.usage import DynamoUsage, Limits, Usage
 from faro.contracts import NAMES, version
 from faro.policy import POLICY_VERSION
@@ -126,6 +132,9 @@ class Services:
     retries: Retries = RETRIES
     # Decision 21's counters; None counts nothing, as in the in-process player, whose turns take milliseconds.
     usage: Usage | None = None
+    # Ends a runtime session refused at its sign-in's limit; None ends nothing, as in the in-process player, which has no
+    # microVM to end.
+    ending: Ending | None = None
 
 
 def workload_token(headers: Mapping[str, str]) -> str | None:
@@ -177,6 +186,11 @@ def services() -> Services:
         filing=Filing(
             settings.file_handoff_function,
             boto3.client("lambda", region_name=region, config=LAMBDA_CONFIG),
+        ),
+        ending=RuntimeEnding(
+            boto3.client("ssm", region_name=region),
+            os.environ["RUNTIME_ARN_PARAMETER"],
+            region,
         ),
         usage=DynamoUsage(
             client,
@@ -346,6 +360,8 @@ class Entrypoint:
             )
         if not session_id or binding != "bound":
             yield await refused("session_refused")
+            if session_id and binding == "full" and services.ending is not None:
+                services.ending.end_later(token_of(authorization), session_id)
             return
         request = run_input.model_dump(by_alias=True, exclude_none=True, mode="json")
         try:

@@ -367,6 +367,14 @@ class FileHandoffLambda:
 
 
 @dataclass
+class RecordedEnding:
+    ended: list[tuple[str, str]] = field(default_factory=list)
+
+    def end_later(self, token: str, session_id: str) -> None:
+        self.ended.append((token, session_id))
+
+
+@dataclass
 class Script:
     requests: list[str] = field(default_factory=lambda: ["card_status"])
     has_request: bool = True
@@ -409,6 +417,7 @@ class Harness:
         self.script = Script()
         self.records = MemoryRecords()
         self.bindings = MemoryBindings()
+        self.ending = RecordedEnding()
         self.saver = InMemorySaver()
         self.graph = build(self.saver)
         self.bank = Bank()
@@ -446,6 +455,7 @@ class Harness:
             filing=Filing(SETTINGS.file_handoff_function, self.lambda_client, now),
             now=now,
             retries=Retries(sleep=self.slept),
+            ending=self.ending,
         )
         self.waits: list[float] = []
         monkeypatch.setattr(entrypoint, "services", lambda: self.services)

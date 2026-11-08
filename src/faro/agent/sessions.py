@@ -7,13 +7,17 @@ binding and the sign-in's count go in one transaction: a session past the limit 
 always counted. A binding lasts as long as its runtime session can, and one that has expired can be bound again.
 """
 
+import asyncio
+import logging
 import random
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Literal, Protocol
+from urllib.parse import quote
 
+import httpx
 from botocore.exceptions import ClientError
 
 from faro.agent.records import wall_time
@@ -29,6 +33,12 @@ BACKOFF_S = 0.05
 
 # The session is the caller's; another user's; or new, and past the sign-in's limit.
 Binding = Literal["bound", "held", "full"]
+
+SESSION_HEADER = "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id"
+STOP_ATTEMPTS = 4
+STOP_TIMEOUT_S = 5.0
+
+logger = logging.getLogger(__name__)
 
 
 class Bindings(Protocol):
@@ -139,3 +149,86 @@ class MemoryBindings:
         self.bound[session_id] = sub
         self.opened[sign_in] = self.opened.get(sign_in, 0) + 1
         return "bound"
+
+
+class Ending(Protocol):
+    def end_later(self, token: str, session_id: str) -> None:
+        """
+        Ends a runtime session after the request that asks for it has answered.
+        """
+        ...
+
+
+class RuntimeEnding:
+    """
+    Ends a runtime session refused at its sign-in's limit, so the microVM its request started doesn't wait out the idle
+    timeout (ADR-0004, Ending a runtime session). StopRuntimeSession takes the caller's own token, as AgentCore takes it
+    for a runtime behind a JWT authorizer, and its URL names the runtime's ARN, which the Runtime's environment can't
+    hold, since Terraform knows it only once the runtime exists; Terraform writes it to a parameter after, read once a
+    process. AgentCore answers 409 while one of the session's requests runs, and the refusal is one, so the call waits
+    before each attempt and tries again on a conflict.
+    """
+
+    def __init__(
+        self,
+        ssm: Any,
+        parameter: str,
+        region: str,
+        http: httpx.AsyncClient | None = None,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    ) -> None:
+        self.ssm = ssm
+        self.parameter = parameter
+        self.region = region
+        self.http = http or httpx.AsyncClient()
+        self.sleep = sleep
+        self.url: str | None = None
+        # Held until done, since the loop keeps only a weak reference to a task.
+        self.tasks: set[asyncio.Task[str | None]] = set()
+
+    async def stop_url(self) -> str:
+        if self.url is None:
+            found = await asyncio.to_thread(self.ssm.get_parameter, Name=self.parameter)
+            arn = quote(found["Parameter"]["Value"], safe="")
+            self.url = (
+                f"https://bedrock-agentcore.{self.region}.amazonaws.com/runtimes/{arn}"
+                "/stopruntimesession?qualifier=DEFAULT"
+            )
+        return self.url
+
+    async def end(self, token: str, session_id: str) -> str | None:
+        """
+        `stopped`, or `not_found` when the session had already ended; None, logged, when it couldn't be ended.
+        """
+        try:
+            url = await self.stop_url()
+            for attempt in range(STOP_ATTEMPTS):
+                await self.sleep(0.5 * 2**attempt)
+                response = await self.http.post(
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/json",
+                        SESSION_HEADER: session_id,
+                    },
+                    timeout=STOP_TIMEOUT_S,
+                )
+                if response.status_code == 200:
+                    return "stopped"
+                if response.status_code == 404:
+                    return "not_found"
+                if response.status_code != 409:
+                    break
+            raise RuntimeError(
+                f"StopRuntimeSession answered http {response.status_code}"
+            )
+        except Exception:
+            logger.exception(
+                "couldn't end a runtime session refused at its sign-in's limit"
+            )
+            return None
+
+    def end_later(self, token: str, session_id: str) -> None:
+        task = asyncio.get_running_loop().create_task(self.end(token, session_id))
+        self.tasks.add(task)
+        task.add_done_callback(self.tasks.discard)

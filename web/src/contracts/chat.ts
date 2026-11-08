@@ -261,7 +261,7 @@ export interface RunError {
   timestamp?: Timestamp;
   message: string;
   /**
-   * invalid_request: the request failed this contract. session_refused: the runtime session belongs to another user. no_customer: the token carries no customer_id, or isn't a customer's (POL-07). rate_limited, daily_limit: decision 21's limits per sign-in and per user. global_limit: the cap on the day's turns of invited users and visitors. paused: the cap is 0, so no invited user's or visitor's turn runs. internal: anything else, recorded.
+   * invalid_request: the request failed this contract. session_refused: the runtime session belongs to another user, or is a new one past its sign-in's limit of three. no_customer: the token carries no customer_id, or isn't a customer's (POL-07). rate_limited, daily_limit: decision 21's limits per sign-in and per user. global_limit: the cap on the day's turns of invited users and visitors. paused: the cap is 0, so no invited user's or visitor's turn runs. internal: anything else, recorded.
    */
   code:
     | "invalid_request"

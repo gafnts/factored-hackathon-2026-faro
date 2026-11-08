@@ -19,6 +19,7 @@ from moto import mock_aws
 from faro.agent import app as entrypoint
 from faro.agent.app import WORKLOAD_TOKEN_HEADERS
 from faro.agent.events import ERRORS
+from faro.agent.sessions import DynamoBindings, RuntimeEnding
 from faro.agent.texts import FIXED
 from faro.agent.usage import DynamoUsage, Limits
 from faro.contracts import validator
@@ -618,6 +619,7 @@ def test_another_users_runtime_session_is_refused_and_recorded(
     ]
     assert harness.checkpoint(a, "thread-0001") == before
     assert harness.checkpoint(b, "thread-0001") == {}
+    assert harness.ending.ended == []
     refused = harness.records.of(b.origin_jti)
     assert kinds(refused) == ["request_refused"]
     assert (
@@ -650,6 +652,7 @@ def test_a_sign_ins_fourth_runtime_session_is_refused_and_its_first_still_served
         }
     ]
     assert sessions[3] not in harness.bindings.bound
+    assert harness.ending.ended == [(who.token(), sessions[3])]
     refused = harness.records.of(who.origin_jti)[-1]
     assert (refused["code"], refused["runtime_session_id"]) == (
         "session_refused",
@@ -859,6 +862,7 @@ def test_the_services_are_built_from_the_runtimes_environment(
         "CONFIRMATIONS_TABLE": "confirmations",
         "FILE_HANDOFF_FUNCTION": SETTINGS.file_handoff_function,
         "USAGE_COUNTERS_TABLE": "counters",
+        "RUNTIME_ARN_PARAMETER": "/faro-local/runtime/arn",
         "TURNS_PER_MINUTE": "10",
         "TURNS_PER_DAY": "500",
         "AWS_REGION": "us-east-1",
@@ -877,6 +881,13 @@ def test_the_services_are_built_from_the_runtimes_environment(
     assert built.filing.function == SETTINGS.file_handoff_function
     assert isinstance(built.usage, DynamoUsage)
     assert (built.usage.table, built.usage.limits) == ("counters", Limits(10, 500))
+    assert isinstance(built.bindings, DynamoBindings)
+    assert (built.bindings.table, built.bindings.counters) == ("bindings", "counters")
+    assert isinstance(built.ending, RuntimeEnding)
+    assert (built.ending.parameter, built.ending.region) == (
+        "/faro-local/runtime/arn",
+        "us-east-1",
+    )
     assert set(built.graph.nodes) >= {
         "route",
         "list_cards",

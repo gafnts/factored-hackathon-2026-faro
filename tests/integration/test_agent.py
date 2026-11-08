@@ -2,7 +2,7 @@
 The entrypoint and the first graph on the deployed stack: a persona signed in through Cognito asks about their cards
 and gets an answer built from list_cards through the Gateway, with the turn's execution record written; a typed card
 number is masked before anything stores or logs it; another customer's thread and runtime session get nothing; a
-request beyond the chat's contract changes nothing; and a sign-in keeps its origin_jti across a refresh (ADR-0004, A
+sign-in's fourth runtime session is refused and ended; a request beyond the chat's contract changes nothing; and a sign-in keeps its origin_jti across a refresh (ADR-0004, A
 turn, end to end; Threads and runtime sessions; To verify on the first deploy; POL-07, POL-11, POL-14, POL-50; SEC-03,
 SEC-04, SEC-05; CTL-04; AI-03, AI-04; SCP-06; OPS-01, OPS-02; EVL-04). Assertions count and compare without printing a
 card, a customer's text, or an ID.
@@ -280,7 +280,7 @@ def test_another_customers_thread_and_runtime_session_get_nothing(
     assert refused == [
         {
             "type": "RUN_ERROR",
-            "message": "The runtime session belongs to another user.",
+            "message": "The runtime session belongs to another user, or is past its sign-in's limit.",
             "code": "session_refused",
         }
     ]
@@ -298,6 +298,58 @@ def test_another_customers_thread_and_runtime_session_get_nothing(
         and e["runtime_session_id"] == a_session
         for e in b_entries
     )
+
+
+def stop(outputs: dict[str, Any], token: str, session: str) -> int:
+    response = httpx.post(
+        outputs["invoke_url"].replace("/invocations?", "/stopruntimesession?"),
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": session,
+        },
+        timeout=30,
+    )
+    return response.status_code
+
+
+# The entrypoint ends a refused session after the refusal has answered, waiting before each of its attempts.
+ENDED_WITHIN_S = 15
+
+
+def test_a_sign_ins_fourth_runtime_session_is_refused_and_ended(
+    outputs: dict[str, Any], users: dict[str, User], sign_in: SignIn
+) -> None:
+    access = sign_in(users["evaluation"], "customer")["access"]
+    sessions = [session_id() for _ in range(4)]
+    try:
+        for session in sessions[:3]:
+            warmed = post(
+                outputs, access, body(None, forwardedProps={"warmup": True}), session
+            )
+            assert warmed[-1]["type"] == "RUN_FINISHED"
+
+        refused = post(
+            outputs, access, body(None, forwardedProps={"warmup": True}), sessions[3]
+        )
+
+        assert [(e["type"], e.get("code")) for e in refused] == [
+            ("RUN_ERROR", "session_refused")
+        ]
+        entries = records(outputs, claims(access)["origin_jti"])
+        assert any(
+            e["kind"] == "request_refused"
+            and e["code"] == "session_refused"
+            and e["runtime_session_id"] == sessions[3]
+            for e in entries
+        )
+        time.sleep(ENDED_WITHIN_S)
+        assert stop(outputs, access, sessions[3]) == 404, (
+            "the refused session still ran"
+        )
+    finally:
+        for session in sessions[:3]:
+            stop(outputs, access, session)
 
 
 def test_a_request_beyond_the_contract_changes_nothing_and_is_recorded(
