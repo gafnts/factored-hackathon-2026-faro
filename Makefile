@@ -124,6 +124,10 @@ staff: _check-profile outputs ## Put a staff user on ENV's staff allowlist, or t
 cap: _check-profile outputs ## Print ENV's cap on the day's turns and today's count, or set it (TURNS=, 0 pauses)
 	uv run python -m faro.cap --stack $(OUTPUTS) $(if $(TURNS),--turns $(TURNS))
 
+# Once per environment, and again after a new snapshot; it reads the snapshot under data/, like make personas.
+guest-list: _check-profile outputs ## Choose the guest entry's customers and write them to ENV's stack (DRY=1)
+	uv run python -m faro.export guests --stack $(OUTPUTS) $(if $(DRY),--dry-run)
+
 # Once per environment, for the users made before the labels and the allowlist; it goes before the guest entry.
 label-users: _check-profile outputs ## Label ENV's invited customers, move the smoke user, list the staff (DRY=1)
 	uv run python -m faro.staff label-users --stack $(OUTPUTS) $(if $(DRY),--dry-run)

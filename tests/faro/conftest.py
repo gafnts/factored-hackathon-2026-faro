@@ -21,6 +21,7 @@ from faro.analysis.catalog import CUSTOMERS, PRODUCTS, TRANSACTIONS
 from faro.analysis.source import connect, table_keys
 from faro.dataset.lock import Lock, LockedFile, make_lock
 from faro.dataset.snapshot import snapshot_dir
+from faro.split import held_out
 
 BUSINESS_DATE = date(2026, 6, 17)
 AS_OF = datetime(2026, 6, 18, 6, 0)
@@ -205,3 +206,123 @@ def tools_data_example() -> list[dict[str, Any]]:
     text = files("faro.contracts").joinpath("examples/tools-data.json").read_text()
     loaded: list[dict[str, Any]] = json.loads(text, parse_float=Decimal)
     return loaded
+
+
+def _guest_files() -> dict[str, str]:
+    """
+    A bank for the guest list's rule: five customers who can play the opening's suggestions in each of its six cells,
+    the busiest first and the last two tied, so a cell of four takes the lower ID; and, in México with one card, a
+    customer that would win each cell but fails one clause of the rule, the held-out one included. Names are
+    placeholders (SEC-03).
+    """
+    ids = (f"CLI-GUEST{n:07d}" for n in range(1, 1000))
+    development = (i for i in ids if not held_out(i))
+    held = next(
+        f"CLI-GUEST{n:07d}" for n in range(1, 1000) if held_out(f"CLI-GUEST{n:07d}")
+    )
+    customers = [
+        "customer_id,first_name,last_name,segment,country,customer_status,registration_date,last_updated"
+    ]
+    products = [
+        "product_id,customer_id,product_type,product_number,product_status,currency,current_balance,credit_limit,"
+        "expiration_date,opening_date,last_updated"
+    ]
+    recent = [_TRANSACTIONS.rstrip("\n")]
+    stale = [_TRANSACTIONS.rstrip("\n")]
+    serial = iter(range(1, 100_000))
+
+    def customer(
+        customer_id: str, country: str, last: str, updated: str = "2025-01-01 10:00:00"
+    ) -> None:
+        customers.append(
+            f"{customer_id},Guest,{last},Basic,{country},Active,2020-01-01 10:00:00,{updated}"
+        )
+
+    def card(
+        customer_id: str, kind: str, status: str = "Active", limit: str = "900.00"
+    ) -> str:
+        product_id = f"PRD-G{next(serial):011d}"
+        products.append(
+            f"{product_id},{customer_id},{kind},4000000000{next(serial):06d},{status},USD,0.00,{limit},"
+            "2030-01-01,2021-01-01,2025-01-01 10:00:00"
+        )
+        return product_id
+
+    def purchases(
+        rows: list[str],
+        day: str,
+        product_id: str,
+        customer_id: str,
+        count: int,
+        status: str,
+    ) -> None:
+        for n in range(count):
+            rows.append(
+                f"TRX-G{next(serial):019d},2026-06-{day} 1{n % 10}:{n:02d}:00,{product_id},{customer_id},Purchase,"
+                f"10.00,10.00,USD,POS,Tienda,Retail,México,{status},{'00' if status == 'Approved' else '05'},"
+                "False,1.00"
+            )
+
+    for country, code in (("México", "MX"), ("Colombia", "CO"), ("Argentina", "AR")):
+        for several in (False, True):
+            for rank, count in enumerate((6, 5, 4, 3, 3)):
+                customer_id = next(development)
+                customer(
+                    customer_id, country, f"{code}{'2' if several else '1'} {rank}"
+                )
+                credit = card(customer_id, "Tarjeta Crédito")
+                if several:
+                    card(customer_id, "Tarjeta Débito", limit="")
+                elif rank == 0:
+                    # A blocked card isn't active, so it doesn't move the customer out of the one-card cell.
+                    card(customer_id, "Tarjeta Débito", status="Blocked", limit="")
+                purchases(recent, "15", credit, customer_id, count, "Approved")
+
+    def outsider(customer_id: str, last: str, **kind: str) -> None:
+        customer(
+            customer_id, "México", last, kind.get("updated", "2025-01-01 10:00:00")
+        )
+        credit = card(customer_id, "Tarjeta Crédito", limit=kind.get("limit", "900.00"))
+        rows, day = (stale, "10") if kind.get("when") == "stale" else (recent, "15")
+        purchases(rows, day, credit, customer_id, 9, kind.get("status", "Approved"))
+
+    outsider(held, "Held out")
+    outsider(next(development), "Stale", when="stale")
+    outsider(next(development), "No limit", limit="")
+    outsider(next(development), "Declined", status="Declined")
+    outsider(next(development), "Updated", updated="2026-06-20 10:00:00")
+    return {
+        "customers.csv": "\n".join(customers) + "\n",
+        "products.csv": "\n".join(products) + "\n",
+        "transactions/year=2026/month=06/day=10/transactions_20260610.csv": "\n".join(
+            stale
+        )
+        + "\n",
+        "transactions/year=2026/month=06/day=15/transactions_20260615.csv": "\n".join(
+            recent
+        )
+        + "\n",
+    }
+
+
+GUEST_FILES = _guest_files()
+
+
+@pytest.fixture
+def guest_bank(tmp_path: Path) -> tuple[Lock, Path]:
+    lock = lock_for(GUEST_FILES)
+    root = snapshot_dir(tmp_path / "data", lock.snapshot_id)
+    for key, body in GUEST_FILES.items():
+        path = root / key
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
+    return lock, root
+
+
+@pytest.fixture
+def guest_con(guest_bank: tuple[Lock, Path]) -> Iterator[duckdb.DuckDBPyConnection]:
+    lock, root = guest_bank
+    tables = (CUSTOMERS, PRODUCTS, TRANSACTIONS)
+    con = connect(root, tables, {t.name: table_keys(lock, t) for t in tables})
+    yield con
+    con.close()

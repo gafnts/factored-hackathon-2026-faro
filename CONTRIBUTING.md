@@ -407,6 +407,7 @@ make judges             # Manage the judges' users, kept in data/judges/
 make smoke-user         # Create or reset the check's customer, kept in data/smoke/
 make staff WHO=<user>   # Put a staff user on the staff allowlist (WHAT=remove takes one off)
 make label-users        # Once per environment: label the users made before the labels (DRY=1)
+make guest-list         # Choose the guest entry's customers and write them to the stack (DRY=1)
 make cap                # Print the day's cap and today's count (TURNS=<n> sets it, 0 pauses)
 make web-dev            # Serve the web app on localhost:5173
 make destroy ENV=local  # Tear down your local resources
@@ -627,7 +628,7 @@ Run `make help` for every target.
 | `TURNS` | Unset | `make cap`: the cap on the day's turns to set; 0 pauses the chat |
 | `BUILT` | Unset | Set to `1` to make `make plan` plan the zips already in `build/` instead of building them |
 | `BUMP` | `minor` | `make cut`: `minor` for a promotion, `patch` for one that only fixes the last release |
-| `DRY` | Unset | Set to `1` to make `make release` print what it would tag and the notes, and create nothing; `make label-users` prints what it would change |
+| `DRY` | Unset | Set to `1` to make `make release` print what it would tag and the notes, and create nothing; `make label-users` prints what it would change, and `make guest-list` the counts it would write |
 | `SMOKE_*` | Read from `build/<env>.outputs.json` and `data/smoke/<env>.json` | `make smoke`; CI sets them from the deploy's outputs and the environment's secret and variable |
 
 The evaluation targets ([Evaluate](#evaluate)) take their own:
