@@ -36,15 +36,19 @@ export interface Texts {
     ended: string;
     signOut: string;
     endsAt: (time: string) => string;
-    // The guest entry, which leads the customers' sign-in; the form opens behind its quiet button (ADR-0007, The guest
-    // entry). Past the day's guests, the time the UTC day ends, in the browser's own.
+    // The customers' sign-in's two ways in, as tabs on its card: the guest entry first, then the form (ADR-0007, The
+    // guest entry).
+    tabs: {
+      label: string;
+      guest: string;
+      account: string;
+    };
+    // The guest entry's tab. Past the day's guests, the time the UTC day ends, in the browser's own.
     guest: {
       title: string;
       lead: string;
       enter: string;
       entering: string;
-      withAccount: string;
-      asGuest: string;
       full: (time: string) => string;
       paused: string;
     };
@@ -179,13 +183,16 @@ export const TEXTS: Record<Language, Texts> = {
       ended: "Su sesión terminó. Inicie sesión de nuevo para continuar.",
       signOut: "Cerrar sesión",
       endsAt: (time) => `Su sesión terminará a las ${time}.`,
+      tabs: {
+        label: "Formas de entrar",
+        guest: "Invitado",
+        account: "Con usuario",
+      },
       guest: {
         title: "Acceso de invitado",
         lead: "Entre como un cliente ficticio y converse con Faro sobre sus tarjetas.",
         enter: "Entrar como invitado",
         entering: "Entrando…",
-        withAccount: "Tengo usuario y contraseña",
-        asGuest: "Entrar como invitado",
         full: (time) =>
           `Por hoy no hay más lugares para invitados. Vuelva a intentarlo ${FROM.es(time)}.`,
         paused: "Faro está en pausa por ahora. Vuelva a intentarlo más tarde.",
@@ -291,13 +298,16 @@ export const TEXTS: Record<Language, Texts> = {
       ended: "Sua sessão terminou. Entre de novo para continuar.",
       signOut: "Sair",
       endsAt: (time) => `Sua sessão terminará às ${time}.`,
+      tabs: {
+        label: "Formas de entrar",
+        guest: "Convidado",
+        account: "Com usuário",
+      },
       guest: {
         title: "Acesso de convidado",
         lead: "Entre como um cliente fictício e converse com o Faro sobre seus cartões.",
         enter: "Entrar como convidado",
         entering: "Entrando…",
-        withAccount: "Tenho usuário e senha",
-        asGuest: "Entrar como convidado",
         full: (time) =>
           `Por hoje não há mais vagas para convidados. Tente novamente ${FROM.pt(time)}.`,
         paused: "O Faro está pausado no momento. Tente novamente mais tarde.",

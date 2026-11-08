@@ -56,7 +56,7 @@ TEXTS = {
         "guest_full": "Por hoy no hay más lugares para invitados.",
         "guest_paused": "Faro está en pausa por ahora. Vuelva a intentarlo más tarde.",
         "cards": "Sus tarjetas",
-        "with_account": "Tengo usuario y contraseña",
+        "account_tab": "Con usuario",
         "username": "Usuario",
         "password": "Contraseña",
         "submit": "Entrar",
@@ -81,7 +81,7 @@ TEXTS = {
         "guest_full": "Por hoje não há mais vagas para convidados.",
         "guest_paused": "O Faro está pausado no momento. Tente novamente mais tarde.",
         "cards": "Seus cartões",
-        "with_account": "Tenho usuário e senha",
+        "account_tab": "Com usuário",
         "username": "Usuário",
         "password": "Senha",
         "submit": "Entrar",
@@ -151,10 +151,10 @@ class Tab:
 
     def sign_in(self, site: str, user: User, path: str = "/chat") -> None:
         self.page.goto(f"{site}{path}")
-        # The customers' sign-in leads with the guest entry, the form behind a quiet button; the console's has the
-        # form alone (ADR-0007, Sign-in).
+        # The customers' sign-in opens on the guest entry's tab, the form on the second; the console's has the form
+        # alone (ADR-0007, Sign-in).
         if path == "/chat":
-            self.page.get_by_role("button", name=self.texts["with_account"]).click()
+            self.page.get_by_role("tab", name=self.texts["account_tab"]).click()
         self.page.get_by_label(self.texts["username"]).fill(user.username)
         self.page.get_by_label(self.texts["password"]).fill(user.password)
         self.page.get_by_role("button", name=self.texts["submit"], exact=True).click()

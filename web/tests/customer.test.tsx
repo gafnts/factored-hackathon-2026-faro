@@ -79,11 +79,11 @@ function signedIn(endsIn = 30 * 60 * 1000) {
   return { sub: "sub", endsAt: Date.now() + endsIn };
 }
 
-// The form waits behind a quiet button, since the guest entry leads (ADR-0007, Sign-in).
+// The form is the second tab, since the guest entry leads (ADR-0007, Sign-in).
 async function signInThroughTheForm() {
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: texts.signIn.guest.withAccount }),
+    await screen.findByRole("tab", { name: texts.signIn.tabs.account }),
   );
   await user.type(
     await screen.findByLabelText(texts.signIn.username),
@@ -295,30 +295,56 @@ test("signing out returns to the guest entry without a message", async () => {
   });
 });
 
-test("the customers' sign-in leads with the guest entry, and the form waits behind a quiet button (ADR-0007, Sign-in)", async () => {
+test("the customers' sign-in opens on the guest entry's tab, with the form as the second (ADR-0007, Sign-in)", async () => {
   render(<Customer language="es" />);
   const user = userEvent.setup();
 
   const enter = await screen.findByRole("button", {
     name: texts.signIn.guest.enter,
   });
+  const guest = screen.getByRole("tab", { name: texts.signIn.tabs.guest });
+  const account = screen.getByRole("tab", { name: texts.signIn.tabs.account });
+  expect(guest).toHaveAttribute("aria-selected", "true");
+  expect(account).toHaveAttribute("aria-selected", "false");
+  expect(screen.getByRole("tabpanel")).toHaveAccessibleName(
+    texts.signIn.tabs.guest,
+  );
   expect(screen.getByText(texts.signIn.guest.lead)).toBeInTheDocument();
   expect(
     screen.queryByLabelText(texts.signIn.username),
   ).not.toBeInTheDocument();
   expect(enter).not.toHaveFocus();
 
-  await user.click(
-    screen.getByRole("button", { name: texts.signIn.guest.withAccount }),
-  );
+  await user.click(account);
+  expect(account).toHaveAttribute("aria-selected", "true");
   expect(screen.getByLabelText(texts.signIn.username)).toHaveFocus();
 
-  await user.click(
-    screen.getByRole("button", { name: texts.signIn.guest.asGuest }),
-  );
+  await user.click(guest);
   expect(
     screen.getByRole("button", { name: texts.signIn.guest.enter }),
   ).toHaveFocus();
+});
+
+test("the arrow keys move between the sign-in's tabs and keep focus on them", async () => {
+  render(<Customer language="es" />);
+  const user = userEvent.setup();
+
+  const guest = await screen.findByRole("tab", {
+    name: texts.signIn.tabs.guest,
+  });
+  guest.focus();
+  await user.keyboard("{ArrowRight}");
+  const account = screen.getByRole("tab", { name: texts.signIn.tabs.account });
+  expect(account).toHaveFocus();
+  expect(account).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByLabelText(texts.signIn.username)).toBeInTheDocument();
+  expect(guest).toHaveAttribute("tabindex", "-1");
+
+  await user.keyboard("{Home}");
+  expect(guest).toHaveFocus();
+  expect(
+    screen.getByRole("button", { name: texts.signIn.guest.enter }),
+  ).toBeInTheDocument();
 });
 
 test("entering as a guest opens the chat in a runtime session of its own", async () => {
