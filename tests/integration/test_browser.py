@@ -67,10 +67,10 @@ TEXTS = {
         "refused": "No pudimos iniciar su sesión.",
         "session_refused": "No pudimos continuar esta conversación.",
         "other_language": "Português",
-        "what_we_keep": "Lo que guardamos",
+        "terms": "Condiciones",
         "conditions": "estas condiciones",
         "accepted": "Al entrar, acepta estas condiciones.",
-        "ip": "Su dirección IP se guarda hasta 90 días.",
+        "ip": "Su dirección IP se guarda hasta por 90 días.",
     },
     "pt": {
         "control": "Confirmar o bloqueio",
@@ -93,7 +93,7 @@ TEXTS = {
         "refused": "Não foi possível entrar.",
         "session_refused": "Não foi possível continuar esta conversa.",
         "other_language": "Español",
-        "what_we_keep": "O que guardamos",
+        "terms": "Condições",
         "conditions": "estas condições",
         "accepted": "Ao entrar, você aceita estas condições.",
         "ip": "Seu endereço IP é guardado por até 90 dias.",
@@ -559,7 +559,7 @@ def test_the_customers_sign_in_says_what_we_keep_and_the_consoles_doesnt(
     footer = customer.page.get_by_role("contentinfo")
     expect(footer).to_contain_text(customer.texts["accepted"])
     footer.get_by_role("button", name=customer.texts["conditions"]).click()
-    dialog = customer.page.get_by_role("dialog", name=customer.texts["what_we_keep"])
+    dialog = customer.page.get_by_role("dialog", name=customer.texts["terms"])
     expect(dialog).to_contain_text(customer.texts["ip"])
     customer.page.keyboard.press("Escape")
     staff.page.goto(f"{site}/cases")

@@ -202,13 +202,13 @@ export const TEXTS: Record<Language, Texts> = {
         banner:
           "Prototipo sobre datos sintéticos. Las conversaciones se guardan hasta por 12 meses y pueden ser leídas. Al entrar, acepta",
         more: "estas condiciones",
-        title: "Lo que guardamos",
+        title: "Condiciones",
         lines: [
-          "LATAM Bank y sus clientes son ficticios. No escriba datos reales, suyos ni de nadie.",
-          "Guardamos sus conversaciones hasta 12 meses y podemos leerlas para evaluar y mejorar el agente.",
+          "LATAM Bank y sus clientes son ficticios. No escriba datos reales.",
+          "Las conversaciones se guardan hasta por 12 meses y pueden ser leídas para evaluar y mejorar el agente.",
           "Anthropic, el proveedor del modelo, procesa sus mensajes.",
           "Nadie da seguimiento a los casos que Faro registra.",
-          "Su dirección IP se guarda hasta 90 días.",
+          "Su dirección IP se guarda hasta por 90 días.",
           "Al entrar, acepta estas condiciones.",
         ],
         close: "Cerrar",
@@ -317,10 +317,10 @@ export const TEXTS: Record<Language, Texts> = {
         banner:
           "Protótipo com dados sintéticos. As conversas são guardadas por até 12 meses e podem ser lidas. Ao entrar, você aceita",
         more: "estas condições",
-        title: "O que guardamos",
+        title: "Condições",
         lines: [
-          "O LATAM Bank e seus clientes são fictícios. Não escreva dados reais, seus ou de ninguém.",
-          "Guardamos suas conversas por até 12 meses e podemos lê-las para avaliar e melhorar o agente.",
+          "O LATAM Bank e seus clientes são fictícios. Não escreva dados reais.",
+          "As conversas são guardadas por até 12 meses e podem ser lidas para avaliar e melhorar o agente.",
           "A Anthropic, fornecedora do modelo, processa suas mensagens.",
           "Ninguém acompanha os casos que o Faro registra.",
           "Seu endereço IP é guardado por até 90 dias.",
