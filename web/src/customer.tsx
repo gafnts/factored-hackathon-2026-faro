@@ -12,7 +12,7 @@ import { type Config, loadConfig } from "./config";
 import type { Language } from "./contracts/chat";
 import { faces } from "./faces";
 import { LogOut, SquarePen } from "./icons";
-import { SignIn } from "./pages/sign-in";
+import { SignIn, Terms } from "./pages/sign-in";
 import { drawRuntimeSession, runtimeSession } from "./session";
 import { RailButton, Shell } from "./shell";
 import { TEXTS } from "./texts";
@@ -124,7 +124,12 @@ export function Customer({ language: starting }: { language: Language }) {
   }
   if (state.kind === "signed-out") {
     return (
-      <Shell language={language} signIn onLanguage={setLanguage}>
+      <Shell
+        language={language}
+        signIn
+        onLanguage={setLanguage}
+        footer={<Terms language={language} />}
+      >
         <SignIn language={language} ended={state.ended} onSignIn={signIn} />
       </Shell>
     );

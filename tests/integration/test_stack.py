@@ -758,6 +758,7 @@ def test_every_log_group_of_the_stack_keeps_a_retention(
         outputs["runtime_log_group"].removesuffix("-DEFAULT"),
         "/aws-dynamodb/imports",
         outputs["console"]["access_log_group"],
+        outputs["site"]["access_log_group"],
     ]
     groups = [
         group
@@ -772,6 +773,7 @@ def test_every_log_group_of_the_stack_keeps_a_retention(
         outputs["runtime_log_group"],
         "/aws-dynamodb/imports",
         outputs["console"]["access_log_group"],
+        outputs["site"]["access_log_group"],
         *(f"/aws/lambda/{f}" for f in outputs["console"]["functions"].values()),
     }
     assert [g["logGroupName"] for g in groups if "retentionInDays" not in g] == []

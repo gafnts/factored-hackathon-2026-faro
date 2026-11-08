@@ -45,6 +45,8 @@ Most contributions need no AWS access at all. Find the row that matches what you
 
 No path depends on the maintainers' AWS account or credentials. Resource names are derived from the account you sign in to, so a second copy of the project never collides with the first.
 
+Found a vulnerability? Don't open an issue or a pull request: report it privately, as [SECURITY.md](SECURITY.md) says.
+
 ---
 
 ## How the project ships

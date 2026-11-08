@@ -11,6 +11,13 @@ globalThis.ResizeObserver = class {
 };
 Element.prototype.scrollTo = () => undefined;
 Element.prototype.scrollIntoView = () => undefined;
+// Nor does it open or close a dialog.
+HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+  this.open = true;
+};
+HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+  this.open = false;
+};
 // Nor does it load fonts.
 Object.defineProperty(document, "fonts", {
   value: Object.assign(new EventTarget(), { load: () => Promise.resolve([]) }),

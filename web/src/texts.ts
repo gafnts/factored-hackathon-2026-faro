@@ -36,6 +36,15 @@ export interface Texts {
     ended: string;
     signOut: string;
     endsAt: (time: string) => string;
+    // What we keep of a visit, in the customers' sign-in's banner and its dialog (ADR-0007, Sign-in; ADR-0004, data
+    // retention). The banner takes the place of the notice, so it says the bank is synthetic too (SEC-02).
+    terms: {
+      banner: string;
+      more: string;
+      title: string;
+      lines: readonly string[];
+      close: string;
+    };
   };
   rail: {
     label: string;
@@ -150,6 +159,21 @@ export const TEXTS: Record<Language, Texts> = {
       ended: "Su sesión terminó. Inicie sesión de nuevo para continuar.",
       signOut: "Cerrar sesión",
       endsAt: (time) => `Su sesión terminará a las ${time}.`,
+      terms: {
+        banner:
+          "Prototipo sobre datos sintéticos: no escriba datos reales. Guardamos sus conversaciones hasta 12 meses y podemos leerlas. Al entrar, acepta estas condiciones.",
+        more: "Lo que guardamos",
+        title: "Lo que guardamos",
+        lines: [
+          "LATAM Bank y sus clientes son ficticios. No escriba datos reales, suyos ni de nadie.",
+          "Guardamos sus conversaciones hasta 12 meses y podemos leerlas para evaluar y mejorar el agente.",
+          "Anthropic, el proveedor del modelo, procesa sus mensajes.",
+          "Nadie da seguimiento a los casos que Faro registra.",
+          "Su dirección IP se guarda hasta 90 días.",
+          "Al entrar, acepta estas condiciones.",
+        ],
+        close: "Cerrar",
+      },
     },
     rail: {
       label: "Menú",
@@ -230,6 +254,21 @@ export const TEXTS: Record<Language, Texts> = {
       ended: "Sua sessão terminou. Entre de novo para continuar.",
       signOut: "Sair",
       endsAt: (time) => `Sua sessão terminará às ${time}.`,
+      terms: {
+        banner:
+          "Protótipo com dados sintéticos: não escreva dados reais. Guardamos suas conversas por até 12 meses e podemos lê-las. Ao entrar, você aceita estas condições.",
+        more: "O que guardamos",
+        title: "O que guardamos",
+        lines: [
+          "O LATAM Bank e seus clientes são fictícios. Não escreva dados reais, seus ou de ninguém.",
+          "Guardamos suas conversas por até 12 meses e podemos lê-las para avaliar e melhorar o agente.",
+          "A Anthropic, fornecedora do modelo, processa suas mensagens.",
+          "Ninguém acompanha os casos que o Faro registra.",
+          "Seu endereço IP é guardado por até 90 dias.",
+          "Ao entrar, você aceita estas condições.",
+        ],
+        close: "Fechar",
+      },
     },
     rail: {
       label: "Menu",

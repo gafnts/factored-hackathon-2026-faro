@@ -170,6 +170,13 @@ data "aws_iam_policy_document" "suites" {
     resources = ["${local.log_group}:*"]
   }
 
+  # The fields the site's access logs keep.
+  statement {
+    sid       = "SiteAccessDelivery"
+    actions   = ["logs:GetDelivery"]
+    resources = [var.site_access_delivery]
+  }
+
   statement {
     sid       = "Spans"
     actions   = ["logs:StartQuery"]

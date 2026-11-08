@@ -62,6 +62,9 @@ TEXTS = {
         "refused": "No pudimos iniciar su sesión.",
         "session_refused": "No pudimos continuar esta conversación.",
         "other_language": "Português",
+        "what_we_keep": "Lo que guardamos",
+        "accepted": "Al entrar, acepta estas condiciones.",
+        "ip": "Su dirección IP se guarda hasta 90 días.",
     },
     "pt": {
         "control": "Confirmar o bloqueio",
@@ -79,6 +82,9 @@ TEXTS = {
         "refused": "Não foi possível entrar.",
         "session_refused": "Não foi possível continuar esta conversa.",
         "other_language": "Español",
+        "what_we_keep": "O que guardamos",
+        "accepted": "Ao entrar, você aceita estas condições.",
+        "ip": "Seu endereço IP é guardado por até 90 dias.",
     },
 }
 # The opening's suggested prompts, one template for every sign-in (ADR-0007, Judges' access).
@@ -108,6 +114,7 @@ CONSOLE = {
     "reference": "Referencia",
     "search": "Buscar",
     "no_access": "Su usuario no tiene acceso a la consola de casos",
+    "notice": "LATAM Bank y sus clientes son ficticios.",
 }
 # Within a poll: 3 seconds, the queue index's lag, and a request's time.
 ARRIVES_MS = 10_000
@@ -520,6 +527,34 @@ def test_the_readmes_journey_cancelled_files_the_charge_as_urgent(
     reads_the_case(agent, filed["reference"], row, "Cancelado por el cliente")
     assert (customer.violations, customer.errors) == ([], 0)
     assert (agent.violations, agent.errors) == ([], 0)
+
+
+@pytest.mark.parametrize("language", ["es", "pt"])
+def test_the_customers_sign_in_says_what_we_keep_and_the_consoles_doesnt(
+    site: str, tab: Callable[[str], Tab], language: str
+) -> None:
+    """
+    Entering means accepting what the banner says, so it shows before anyone enters (ADR-0007, Sign-in; OPS-10).
+    """
+    customer = tab(language)
+    staff = tab("es")
+
+    customer.page.goto(f"{site}/chat")
+    footer = customer.page.get_by_role("contentinfo")
+    expect(footer).to_contain_text(customer.texts["accepted"])
+    footer.get_by_role("button", name=customer.texts["what_we_keep"]).click()
+    dialog = customer.page.get_by_role("dialog", name=customer.texts["what_we_keep"])
+    expect(dialog).to_contain_text(customer.texts["ip"])
+    customer.page.keyboard.press("Escape")
+    staff.page.goto(f"{site}/cases")
+
+    expect(dialog).to_be_hidden()
+    expect(staff.page.get_by_role("contentinfo")).to_contain_text(CONSOLE["notice"])
+    expect(
+        staff.page.get_by_role("button", name=TEXTS["es"]["what_we_keep"])
+    ).to_have_count(0)
+    assert (customer.violations, customer.errors) == ([], 0)
+    assert (staff.violations, staff.errors) == ([], 0)
 
 
 def test_every_sign_in_opens_on_one_template_and_the_bar_switches_the_language(

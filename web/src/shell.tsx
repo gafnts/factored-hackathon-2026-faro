@@ -83,7 +83,8 @@ function LanguageSwitch({
 // right; once signed in, the bar carries Faro's wordmark, the notice centered. The console's bar reads the bank's name
 // and the console's, signed in or not. The rail and the bar are glass over the page, which runs on under them; main's
 // padding keeps the content clear of them, by --rail and --bar. --cell, the grid's module, sets the pages' column
-// widths (the identity guide's Layout). The frame fades in as a page arrives (the identity guide's Motifs).
+// widths (the identity guide's Layout). The frame fades in as a page arrives (the identity guide's Motifs). A page may
+// bring its own footer in the notice's place, as the customers' sign-in does with what we keep.
 export function Shell({
   language,
   label,
@@ -93,6 +94,7 @@ export function Shell({
   running = false,
   onNew,
   onLanguage,
+  footer,
   children,
 }: {
   language: Language;
@@ -103,6 +105,7 @@ export function Shell({
   running?: boolean;
   onNew?: () => void;
   onLanguage?: (language: Language) => void;
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   const texts = TEXTS[language];
@@ -181,15 +184,17 @@ export function Shell({
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-(--bar) pl-(--rail)">
         {children}
       </main>
-      <footer
-        className={`pt-2 pr-4 pb-5 pl-[calc(var(--rail)+1rem)] ${signIn ? "text-right" : "text-center"} text-xs text-balance text-bone-muted sm:pr-6 sm:pl-[calc(var(--rail)+1.5rem)]`}
-      >
-        <p key={signIn ? "sign-in" : "signed-in"} className="animate-fade">
-          {/* Two sentences once signed in: the synthetic-data label (SEC-02) and the session's end. */}
-          <span>{note ? texts.noticeBrief : texts.notice}</span>
-          {note && <span> {note}</span>}
-        </p>
-      </footer>
+      {footer ?? (
+        <footer
+          className={`pt-2 pr-4 pb-5 pl-[calc(var(--rail)+1rem)] ${signIn ? "text-right" : "text-center"} text-xs text-balance text-bone-muted sm:pr-6 sm:pl-[calc(var(--rail)+1.5rem)]`}
+        >
+          <p key={signIn ? "sign-in" : "signed-in"} className="animate-fade">
+            {/* Two sentences once signed in: the synthetic-data label (SEC-02) and the session's end. */}
+            <span>{note ? texts.noticeBrief : texts.notice}</span>
+            {note && <span> {note}</span>}
+          </p>
+        </footer>
+      )}
     </div>
   );
 }
