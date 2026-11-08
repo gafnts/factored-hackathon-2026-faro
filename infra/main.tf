@@ -96,6 +96,7 @@ module "runtime" {
   runtime_zip              = "${local.build}/runtime.zip"
   turns_per_minute         = var.turns_per_minute
   turns_per_day            = var.turns_per_day
+  turns_cap                = var.turns_cap
 }
 
 module "alarms" {

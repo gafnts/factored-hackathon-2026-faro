@@ -197,6 +197,22 @@ resource "aws_dynamodb_table" "usage_counters" {
   }
 }
 
+# Written once, so a fork gets one; make cap sets it afterwards, and a deploy never undoes a pause (decision 21).
+resource "aws_dynamodb_table_item" "cap" {
+  table_name = aws_dynamodb_table.usage_counters.name
+  hash_key   = aws_dynamodb_table.usage_counters.hash_key
+  range_key  = aws_dynamodb_table.usage_counters.range_key
+  item = jsonencode({
+    counter = { S = "cap" }
+    window  = { S = "current" }
+    turns   = { N = tostring(var.turns_cap) }
+  })
+
+  lifecycle {
+    ignore_changes = [item]
+  }
+}
+
 data "aws_iam_policy_document" "runtime_trust" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -292,7 +308,7 @@ data "aws_iam_policy_document" "runtime" {
     actions   = ["dynamodb:PutItem", "dynamodb:UpdateItem"]
     resources = [var.confirmations_table.arn]
   }
-  # Counts a turn on a condition, and reads no count back (decision 21).
+  # Counts a turn on a condition, and reads no count back; the cap is an administrator's to set (decision 21).
   statement {
     actions   = ["dynamodb:UpdateItem"]
     resources = [aws_dynamodb_table.usage_counters.arn]
@@ -302,9 +318,33 @@ data "aws_iam_policy_document" "runtime" {
       values   = ["counter", "window", "turns", "expires_at"]
     }
     condition {
+      test     = "ForAllValues:StringLike"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["sign_in#*", "user#*", "day"]
+    }
+    condition {
       test     = "StringEquals"
       variable = "dynamodb:ReturnValues"
       values   = ["NONE"]
+    }
+  }
+  statement {
+    actions   = ["dynamodb:GetItem"]
+    resources = [aws_dynamodb_table.usage_counters.arn]
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "dynamodb:LeadingKeys"
+      values   = ["cap"]
+    }
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "dynamodb:Attributes"
+      values   = ["counter", "window", "turns"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "dynamodb:Select"
+      values   = ["SPECIFIC_ATTRIBUTES"]
     }
   }
   # Handoffs are filed through file_handoff, so the Runtime writes no case itself.

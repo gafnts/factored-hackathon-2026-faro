@@ -594,7 +594,7 @@ def test_only_the_block_writes_the_sandbox_and_it_never_reads_is_fraud(
     assert filing[overlay] == {"dynamodb:GetItem"}
     assert overlay not in runtime and tools_data not in runtime
     assert runtime[confirmations] == {"dynamodb:PutItem", "dynamodb:UpdateItem"}
-    assert runtime[counters] == {"dynamodb:UpdateItem"}
+    assert runtime[counters] == {"dynamodb:GetItem", "dynamodb:UpdateItem"}
     for role in ("reads", "block"):
         for statement in overlay_statements(f"{prefix}-{role}", role, overlay):
             actions = statement["Action"]
@@ -625,6 +625,32 @@ def test_only_the_block_writes_the_sandbox_and_it_never_reads_is_fraud(
         statement["Condition"]["StringEquals"]["dynamodb:Select"]
         == "SPECIFIC_ATTRIBUTES"
     )
+
+
+def listed(value: str | list[str]) -> list[str]:
+    return [value] if isinstance(value, str) else value
+
+
+def test_the_runtime_reads_the_days_cap_and_writes_only_the_counts(
+    outputs: dict[str, Any],
+) -> None:
+    # ADR-0004, Operations, and its amendment of 2026-11-07: an administrator sets the cap, and the Runtime reads it.
+    prefix = outputs["prefix"]
+    counters = outputs["runtime_tables"]["usage_counters"]
+    conditions = {
+        str(s["Action"]): s["Condition"]
+        for s in overlay_statements(f"{prefix}-runtime", "runtime", counters)
+    }
+
+    read = conditions["dynamodb:GetItem"]
+    write = conditions["dynamodb:UpdateItem"]
+    assert listed(read["ForAllValues:StringEquals"]["dynamodb:LeadingKeys"]) == ["cap"]
+    assert read["StringEquals"]["dynamodb:Select"] == "SPECIFIC_ATTRIBUTES"
+    assert set(listed(write["ForAllValues:StringLike"]["dynamodb:LeadingKeys"])) == {
+        "sign_in#*",
+        "user#*",
+        "day",
+    }
 
 
 def test_the_suites_role_grants_what_the_tests_do_and_reads_no_row_of_the_tools_data(

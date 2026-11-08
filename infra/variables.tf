@@ -58,3 +58,10 @@ variable "turns_per_day" {
   type        = number
   default     = 500
 }
+
+# 5 USD a day, a tenth of the model's monthly limit, at the freeze's 95th percentile of 0.645 cents a turn.
+variable "turns_cap" {
+  description = "Invited users' and visitors' turns a UTC day before the entrypoint refuses one; written once, then set with make cap, 0 pausing (ADR-0004, decision 21)"
+  type        = number
+  default     = 750
+}
