@@ -13,5 +13,6 @@ The site customers and staff use: one static React app on S3 and CloudFront, wit
 | `src/grid.tsx`, `faces.ts`, `icons.tsx`, `styles.css`  | The look: the grid layout, the fonts, the icons, and the styles                                                                                              |
 | `src/trusted-types.ts`, `zod.ts`                       | What the content security policy needs: the Trusted Types policy, and zod parsing without `new Function`                                                     |
 | `tests/`                                               | Vitest, mirroring `src/`; the browser suite is `tests/integration/test_browser.py` at the repository root                                                    |
+| `devices.html`                                         | The device board: the app `make web-dev` serves, at phone, tablet and laptop sizes side by side; never built                                                 |
 
 Versions, hooks, and the day-to-day commands are in [CONTRIBUTING.md](../CONTRIBUTING.md#1-install-the-toolchain).

@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Registered so the rail's width can ease: the rail, the bar's edge and the page's offset all read it. */
+@property --rail {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 @theme {
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
@@ -25,6 +32,13 @@
   --animate-arrive: arrive 800ms cubic-bezier(0.16, 1, 0.3, 1) 100ms backwards;
   --animate-light: fade 1400ms ease-in-out 300ms backwards;
   --animate-message: arrive 500ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  /* A dialog's veil: the page behind blurs and darkens as the dialog arrives, and clears as it leaves. */
+  --animate-veil: veil 500ms ease-out backwards;
+  --animate-unveil: veil 250ms ease-in reverse forwards;
+  --animate-leave: leave 250ms ease-in forwards;
+  /* A menu unfolds from its button, by --rise, and folds away faster. */
+  --animate-unfold: unfold 220ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  --animate-fold: leave 140ms ease-in forwards;
 
   @keyframes sweep {
     from {
@@ -45,6 +59,26 @@
     from {
       opacity: 0;
       transform: translateY(12px);
+    }
+  }
+
+  @keyframes veil {
+    from {
+      background-color: transparent;
+      backdrop-filter: blur(0);
+    }
+  }
+
+  @keyframes unfold {
+    from {
+      opacity: 0;
+      transform: translateY(var(--rise, 6px));
+    }
+  }
+
+  @keyframes leave {
+    to {
+      opacity: 0;
     }
   }
 }

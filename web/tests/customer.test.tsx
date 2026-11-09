@@ -1,4 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -38,18 +44,15 @@ vi.mock(import("../src/chat/chat"), async () => {
       session,
       onSignInEnded,
       onRunning,
-      welcome,
     }: {
       session: string;
       onSignInEnded: () => void;
       onRunning?: (running: boolean) => void;
-      welcome?: { name: string } | null;
     }) => {
       const [mount] = useState(() => (chats.mounted += 1));
       return (
         <div>
           <p>chat in {session}</p>
-          {welcome && <p>welcome for {welcome.name}</p>}
           <p>conversation {mount}</p>
           <button type="button" onClick={onSignInEnded}>
             runtime turned the token away
@@ -79,11 +82,11 @@ function signedIn(endsIn = 30 * 60 * 1000) {
   return { sub: "sub", endsAt: Date.now() + endsIn };
 }
 
-// The form waits behind a quiet button, since the guest entry leads (ADR-0007, Sign-in).
+// The form is the second tab, since the guest entry leads (ADR-0007, Sign-in).
 async function signInThroughTheForm() {
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: texts.signIn.guest.withAccount }),
+    await screen.findByRole("tab", { name: texts.signIn.tabs.account }),
   );
   await user.type(
     await screen.findByLabelText(texts.signIn.username),
@@ -132,7 +135,9 @@ test("the sign-in says what we keep in the notice's place, and its dialog lists 
   render(<Customer language="es" />);
 
   const footer = await screen.findByRole("contentinfo");
-  expect(footer).toHaveTextContent(texts.signIn.terms.banner);
+  expect(footer).toHaveTextContent(
+    `${texts.signIn.terms.synthetic} ${texts.signIn.terms.accept}`,
+  );
   expect(screen.queryByText(texts.notice)).not.toBeInTheDocument();
   const dialog = screen.getByRole("dialog", { hidden: true });
   expect(dialog).not.toHaveAttribute("open");
@@ -143,6 +148,7 @@ test("the sign-in says what we keep in the notice's place, and its dialog lists 
   );
 
   expect(dialog).toHaveAttribute("open");
+  expect(dialog).toHaveFocus();
   expect(dialog).toHaveAccessibleName(texts.signIn.terms.title);
   const lines = within(dialog).getAllByRole("listitem");
   expect(lines.map((line) => line.textContent)).toEqual(
@@ -152,6 +158,35 @@ test("the sign-in says what we keep in the notice's place, and its dialog lists 
     within(dialog).getByRole("button", { name: texts.signIn.terms.close }),
   );
   expect(dialog).not.toHaveAttribute("open");
+});
+
+test("a click on the dialog's backdrop closes it, and a click inside it doesn't", async () => {
+  render(<Customer language="es" />);
+  const footer = await screen.findByRole("contentinfo");
+  await userEvent
+    .setup()
+    .click(
+      within(footer).getByRole("button", { name: texts.signIn.terms.more }),
+    );
+  const dialog = screen.getByRole("dialog");
+  vi.spyOn(dialog, "getBoundingClientRect").mockReturnValue({
+    left: 100,
+    right: 300,
+    top: 100,
+    bottom: 300,
+  } as DOMRect);
+
+  fireEvent.click(dialog, { clientX: 150, clientY: 150 });
+  fireEvent.click(within(dialog).getAllByRole("listitem")[0] as Element, {
+    clientX: 20,
+    clientY: 20,
+  });
+  expect(dialog).toHaveAttribute("open");
+
+  fireEvent.click(dialog, { clientX: 20, clientY: 20 });
+  await waitFor(() => {
+    expect(dialog).not.toHaveAttribute("open");
+  });
 });
 
 test("the bar's switch sets the page's language, starting from the browser's", async () => {
@@ -279,12 +314,14 @@ test("the Runtime turning the token away ends the sign-in", async () => {
 test("signing out returns to the guest entry without a message", async () => {
   vi.mocked(currentSignIn).mockResolvedValue(signedIn());
   render(<Customer language="pt" />);
+  const user = userEvent.setup();
 
-  await userEvent
-    .setup()
-    .click(
-      await screen.findByRole("button", { name: TEXTS.pt.signIn.signOut }),
-    );
+  await user.click(
+    await screen.findByRole("button", { name: TEXTS.pt.account.label }),
+  );
+  await user.click(
+    screen.getByRole("button", { name: TEXTS.pt.signIn.signOut }),
+  );
 
   expect(
     await screen.findByRole("button", { name: TEXTS.pt.signIn.guest.enter }),
@@ -295,30 +332,56 @@ test("signing out returns to the guest entry without a message", async () => {
   });
 });
 
-test("the customers' sign-in leads with the guest entry, and the form waits behind a quiet button (ADR-0007, Sign-in)", async () => {
+test("the customers' sign-in opens on the guest entry's tab, with the form as the second (ADR-0007, Sign-in)", async () => {
   render(<Customer language="es" />);
   const user = userEvent.setup();
 
   const enter = await screen.findByRole("button", {
     name: texts.signIn.guest.enter,
   });
+  const guest = screen.getByRole("tab", { name: texts.signIn.tabs.guest });
+  const account = screen.getByRole("tab", { name: texts.signIn.tabs.account });
+  expect(guest).toHaveAttribute("aria-selected", "true");
+  expect(account).toHaveAttribute("aria-selected", "false");
+  expect(screen.getByRole("tabpanel")).toHaveAccessibleName(
+    texts.signIn.tabs.guest,
+  );
   expect(screen.getByText(texts.signIn.guest.lead)).toBeInTheDocument();
   expect(
     screen.queryByLabelText(texts.signIn.username),
   ).not.toBeInTheDocument();
   expect(enter).not.toHaveFocus();
 
-  await user.click(
-    screen.getByRole("button", { name: texts.signIn.guest.withAccount }),
-  );
+  await user.click(account);
+  expect(account).toHaveAttribute("aria-selected", "true");
   expect(screen.getByLabelText(texts.signIn.username)).toHaveFocus();
 
-  await user.click(
-    screen.getByRole("button", { name: texts.signIn.guest.asGuest }),
-  );
+  await user.click(guest);
   expect(
     screen.getByRole("button", { name: texts.signIn.guest.enter }),
   ).toHaveFocus();
+});
+
+test("the arrow keys move between the sign-in's tabs and keep focus on them", async () => {
+  render(<Customer language="es" />);
+  const user = userEvent.setup();
+
+  const guest = await screen.findByRole("tab", {
+    name: texts.signIn.tabs.guest,
+  });
+  guest.focus();
+  await user.keyboard("{ArrowRight}");
+  const account = screen.getByRole("tab", { name: texts.signIn.tabs.account });
+  expect(account).toHaveFocus();
+  expect(account).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByLabelText(texts.signIn.username)).toBeInTheDocument();
+  expect(guest).toHaveAttribute("tabindex", "-1");
+
+  await user.keyboard("{Home}");
+  expect(guest).toHaveFocus();
+  expect(
+    screen.getByRole("button", { name: texts.signIn.guest.enter }),
+  ).toBeInTheDocument();
 });
 
 test("entering as a guest opens the chat in a runtime session of its own", async () => {
@@ -378,18 +441,72 @@ test("a guest entry that leaves no readable token can't be reached", async () =>
   );
 });
 
-test("a reload keeps a guest's welcome, and an invited customer has none", async () => {
+test("the rail names who a guest entered as, through a reload, and an invited customer is the account alone", async () => {
   vi.mocked(currentSignIn).mockResolvedValue(signedIn());
   keepWelcome({ name: "Team Customer", cards: null });
   const { unmount } = render(<Customer language="es" />);
 
   expect(
-    await screen.findByText("welcome for Team Customer"),
+    await screen.findByRole("button", {
+      name: `${texts.account.label}: Team Customer`,
+    }),
   ).toBeInTheDocument();
   unmount();
   window.sessionStorage.clear();
   render(<Customer language="es" />);
 
-  expect(await screen.findByText(/^chat in/)).toBeInTheDocument();
-  expect(screen.queryByText(/^welcome for/)).not.toBeInTheDocument();
+  const account = await screen.findByRole("button", {
+    name: texts.account.label,
+  });
+  expect(screen.queryByText("Team Customer")).not.toBeInTheDocument();
+  await userEvent.setup().click(account);
+  expect(
+    screen.queryByRole("list", { name: texts.account.cards }),
+  ).not.toBeInTheDocument();
+});
+
+test("the account's menu lists a guest's cards with no status, and folds away on Escape or a click elsewhere", async () => {
+  vi.mocked(currentSignIn).mockResolvedValue(signedIn());
+  keepWelcome({
+    name: "Team Customer",
+    cards: [
+      { product_type: "Tarjeta Crédito", last_four: "4821" },
+      { product_type: "Tarjeta Débito", last_four: "1177" },
+    ],
+  });
+  render(<Customer language="es" />);
+  const user = userEvent.setup();
+  const account = await screen.findByRole("button", {
+    name: `${texts.account.label}: Team Customer`,
+  });
+  expect(account).toHaveAttribute("aria-expanded", "false");
+  expect(
+    screen.queryByRole("list", { name: texts.account.cards }),
+  ).not.toBeInTheDocument();
+
+  await user.click(account);
+  expect(account).toHaveAttribute("aria-expanded", "true");
+  const cards = within(
+    screen.getByRole("list", { name: texts.account.cards }),
+  ).getAllByRole("listitem");
+  expect(cards.map((card) => card.textContent)).toEqual([
+    "Crédito •••• terminada en 4821",
+    "Débito •••• terminada en 1177",
+  ]);
+
+  await user.keyboard("{Escape}");
+  await waitFor(() => {
+    expect(
+      screen.queryByRole("button", { name: texts.signIn.signOut }),
+    ).not.toBeInTheDocument();
+  });
+  expect(account).toHaveFocus();
+
+  await user.click(account);
+  await user.click(screen.getByText(/^chat in/));
+  await waitFor(() => {
+    expect(
+      screen.queryByRole("button", { name: texts.signIn.signOut }),
+    ).not.toBeInTheDocument();
+  });
 });

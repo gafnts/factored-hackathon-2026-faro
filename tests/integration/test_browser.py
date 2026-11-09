@@ -1,14 +1,15 @@
 """
 The chat and the console in a real browser, against the deployed site (ADR-0004, To verify on the first deploy: the
 chat in a real browser; ADR-0007): a persona signs in through the form with SRP, asks about their cards, and reads a
-reply sent whole, with the turn in the sign-in's execution record; a persona blocks a card with the confirm control,
+reply sent whole, with the turn in the sign-in's execution record; on a phone nothing scrolls sideways, the notice's
+conditions are a whole tap target, and the newest reply ends above the composer; a persona blocks a card with the confirm control,
 which a typed yes doesn't confirm, and is offered the replacement with the handoff control; the README's journey runs in
 two tabs, from a charge the customer doesn't recognize to the case's reference, while a human agent sees the case reach
 dispute intake within a poll, urgent when the block is cancelled, and reads it with each fact next to its call; the
 console shows a case's markup as text; a new conversation is a thread of its own on the same runtime session;
 another customer's ID, a staff user in the chat, a customer or the AI team in the console, and another sign-in's
 runtime session get nothing; and signing out revokes the sign-in's refresh token
-(SEC-04, SEC-05, POL-09 to POL-11, POL-27, POL-36 to POL-39, POL-45, POL-47, CTL-02, CTL-05, EVL-04, OPS-02).
+(SEC-04, SEC-05, POL-09 to POL-11, POL-27, POL-36 to POL-39, POL-45, POL-47, CTL-02, CTL-05, EVL-04, OPS-02, OPS-12).
 Assertions count and compare without printing a reply, a token, or an ID, and nothing the page shows is saved: no
 trace, screenshot, or video.
 """
@@ -33,6 +34,7 @@ from playwright.sync_api import (
     Locator,
     Page,
     Request,
+    ViewportSize,
     expect,
     sync_playwright,
 )
@@ -55,8 +57,9 @@ TEXTS = {
         "guest": "Entrar como invitado",
         "guest_full": "Por hoy no hay más lugares para invitados.",
         "guest_paused": "Faro está en pausa por ahora. Vuelva a intentarlo más tarde.",
+        "account": "Su cuenta",
         "cards": "Sus tarjetas",
-        "with_account": "Tengo usuario y contraseña",
+        "account_tab": "Con usuario",
         "username": "Usuario",
         "password": "Contraseña",
         "submit": "Entrar",
@@ -67,9 +70,10 @@ TEXTS = {
         "refused": "No pudimos iniciar su sesión.",
         "session_refused": "No pudimos continuar esta conversación.",
         "other_language": "Português",
-        "what_we_keep": "Lo que guardamos",
+        "terms": "Condiciones",
+        "conditions": "estas condiciones",
         "accepted": "Al entrar, acepta estas condiciones.",
-        "ip": "Su dirección IP se guarda hasta 90 días.",
+        "ip": "Su dirección IP se guarda hasta por 90 días.",
     },
     "pt": {
         "control": "Confirmar o bloqueio",
@@ -80,8 +84,9 @@ TEXTS = {
         "guest": "Entrar como convidado",
         "guest_full": "Por hoje não há mais vagas para convidados.",
         "guest_paused": "O Faro está pausado no momento. Tente novamente mais tarde.",
+        "account": "Sua conta",
         "cards": "Seus cartões",
-        "with_account": "Tenho usuário e senha",
+        "account_tab": "Com usuário",
         "username": "Usuário",
         "password": "Senha",
         "submit": "Entrar",
@@ -92,7 +97,8 @@ TEXTS = {
         "refused": "Não foi possível entrar.",
         "session_refused": "Não foi possível continuar esta conversa.",
         "other_language": "Español",
-        "what_we_keep": "O que guardamos",
+        "terms": "Condições",
+        "conditions": "estas condições",
         "accepted": "Ao entrar, você aceita estas condições.",
         "ip": "Seu endereço IP é guardado por até 90 dias.",
     },
@@ -128,6 +134,29 @@ CONSOLE = {
 }
 # Within a poll: 3 seconds, the queue index's lag, and a request's time.
 ARRIVES_MS = 10_000
+# An iPhone's page in Safari with its toolbar shown, the height the phone's layout is drawn for.
+PHONE: ViewportSize = {"width": 393, "height": 660}
+# The scrolling boxes from an element up to the page that are wider than their view.
+SIDEWAYS = """selector => {
+  const wide = [];
+  for (let e = document.querySelector(selector); e; e = e.parentElement) {
+    const scrolls = e === document.documentElement || ["auto", "scroll"].includes(getComputedStyle(e).overflowX);
+    if (scrolls && e.scrollWidth > e.clientWidth + 1) wide.push(e.tagName);
+  }
+  return wide;
+}"""
+# Once the newest reply has risen into place: its distance above the composer, and whether the conversation overflows
+# its view, so that the view had to follow it down.
+SETTLED = """() => {
+  const reply = [...document.querySelectorAll('[data-author="faro"]')].at(-1);
+  const composer = document.querySelector("form:has(textarea)");
+  let view = reply.parentElement;
+  while (view && !["auto", "scroll"].includes(getComputedStyle(view).overflowY)) view = view.parentElement;
+  return reply.getAnimations().length === 0 && {
+    gap: Math.round(composer.getBoundingClientRect().top - reply.getBoundingClientRect().bottom),
+    overflows: view.scrollHeight > view.clientHeight + 1,
+  };
+}"""
 
 
 @dataclass
@@ -151,12 +180,12 @@ class Tab:
 
     def sign_in(self, site: str, user: User, path: str = "/chat") -> None:
         self.page.goto(f"{site}{path}")
-        # The customers' sign-in leads with the guest entry, the form behind a quiet button; the console's has the
-        # form alone (ADR-0007, Sign-in).
+        # The customers' sign-in opens on the guest entry's tab, the form on the second; the console's has the form
+        # alone (ADR-0007, Sign-in).
         if path == "/chat":
-            self.page.get_by_role("button", name=self.texts["with_account"]).click()
-        self.page.get_by_label(self.texts["username"]).fill(user.username)
-        self.page.get_by_label(self.texts["password"]).fill(user.password)
+            self.page.get_by_role("tab", name=self.texts["account_tab"]).click()
+        self.page.get_by_label(self.texts["username"], exact=True).fill(user.username)
+        self.page.get_by_label(self.texts["password"], exact=True).fill(user.password)
         self.page.get_by_role("button", name=self.texts["submit"], exact=True).click()
 
     def ask(self, outputs: dict[str, Any], text: str) -> str:
@@ -197,6 +226,16 @@ class Tab:
 
 def kind(request: Request) -> str:
     return "warm-up" if '"warmup"' in (request.post_data or "") else "message"
+
+
+def sign_out(page: Page, texts: dict[str, str]) -> None:
+    """
+    The sign-out waits behind the account at the rail's foot, named for a guest and plain for an invited customer.
+    """
+    page.get_by_role(
+        "button", name=re.compile(f"^{re.escape(texts['account'])}")
+    ).click()
+    page.get_by_role("button", name=texts["sign_out"]).click()
 
 
 def ends(entries: list[dict[str, Any]]) -> list[str]:
@@ -556,8 +595,8 @@ def test_the_customers_sign_in_says_what_we_keep_and_the_consoles_doesnt(
     customer.page.goto(f"{site}/chat")
     footer = customer.page.get_by_role("contentinfo")
     expect(footer).to_contain_text(customer.texts["accepted"])
-    footer.get_by_role("button", name=customer.texts["what_we_keep"]).click()
-    dialog = customer.page.get_by_role("dialog", name=customer.texts["what_we_keep"])
+    footer.get_by_role("button", name=customer.texts["conditions"]).click()
+    dialog = customer.page.get_by_role("dialog", name=customer.texts["terms"])
     expect(dialog).to_contain_text(customer.texts["ip"])
     customer.page.keyboard.press("Escape")
     staff.page.goto(f"{site}/cases")
@@ -565,7 +604,7 @@ def test_the_customers_sign_in_says_what_we_keep_and_the_consoles_doesnt(
     expect(dialog).to_be_hidden()
     expect(staff.page.get_by_role("contentinfo")).to_contain_text(CONSOLE["notice"])
     expect(
-        staff.page.get_by_role("button", name=TEXTS["es"]["what_we_keep"])
+        staff.page.get_by_role("button", name=TEXTS["es"]["conditions"])
     ).to_have_count(0)
     assert (customer.violations, customer.errors) == ([], 0)
     assert (staff.violations, staff.errors) == ([], 0)
@@ -630,6 +669,34 @@ def test_a_persona_signs_in_and_reads_a_reply_sent_whole(
     own = {e["input"]["customer_id"] for e in listed} == {persona_ids["declines"]}
     assert own, "list_cards read another customer's ID"
     assert re.fullmatch(r"[0-9a-f]{40}", entries[0]["versions"]["app"])
+    assert (customer.violations, customer.errors) == ([], 0)
+
+
+def test_on_a_phone_the_pages_fit_and_the_newest_reply_ends_above_the_composer(
+    outputs: dict[str, Any],
+    users: dict[str, User],
+    site: str,
+    tab: Callable[[str], Tab],
+) -> None:
+    customer = tab("es")
+    customer.page.set_viewport_size(PHONE)
+    customer.page.goto(f"{site}/chat")
+    conditions = customer.page.get_by_role("button", name=customer.texts["conditions"])
+    box = conditions.bounding_box()
+    assert box is not None
+    assert box["height"] >= 44, "the conditions should be a whole tap target"
+    assert customer.page.evaluate(SIDEWAYS, '[role="tabpanel"]') == []
+
+    customer.sign_in(site, users["customer"])
+    customer.ask(outputs, "¿Cuáles son mis tarjetas y en qué estado están?")
+    customer.ask(outputs, "¿Cuánto crédito tengo disponible?")
+
+    settled = customer.page.wait_for_function(SETTLED).json_value()
+    assert settled["overflows"], "two turns should overflow a phone's view"
+    assert settled["gap"] >= 0, (
+        f"the newest reply ends {-settled['gap']} px under the composer"
+    )
+    assert customer.page.evaluate(SIDEWAYS, '[data-author="faro"]') == []
     assert (customer.violations, customer.errors) == ([], 0)
 
 
@@ -880,7 +947,7 @@ def test_signing_out_revokes_the_sign_in(
     refresh = customer.stored(".refreshToken")
     assert refresh is not None
 
-    customer.page.get_by_role("button", name=customer.texts["sign_out"]).click()
+    sign_out(customer.page, customer.texts)
 
     expect(
         customer.page.get_by_role("button", name=customer.texts["guest"])
@@ -897,31 +964,42 @@ def test_signing_out_revokes_the_sign_in(
     assert customer.violations == []
 
 
-def test_a_stranger_enters_as_a_guest_and_is_welcomed_by_name_and_cards(
+def test_a_stranger_enters_as_a_guest_and_is_named_in_the_rail(
     outputs: dict[str, Any], site: str, tab: Callable[[str], Tab]
 ) -> None:
     """
-    One click makes a visitor of a development customer, signed in like any customer, and the opening names who they
-    entered as and each card list_cards reads with their own token, with no status (ADR-0007, The guest entry; SEC-04).
+    One click makes a visitor of a development customer, signed in like any customer: the rail names who they entered
+    as, and its menu lists each card list_cards reads with their own token, with no status (ADR-0007, The guest entry;
+    SEC-04).
     """
     visitor = tab("pt")
     visitor.page.goto(f"{site}/chat")
 
-    visitor.page.get_by_role("button", name=visitor.texts["guest"]).click()
+    with visitor.page.expect_response("**/api/guest") as answer:
+        visitor.page.get_by_role("button", name=visitor.texts["guest"]).click()
 
+    name = answer.value.json()["welcome"]["name"]
     expect(visitor.page.get_by_label(visitor.texts["message"])).to_be_visible()
     access = visitor.stored(".accessToken")
     assert access, "the guest entry stored no access token"
     try:
         assert set(claims(access)["cognito:groups"]) == {"customer", "visitor"}
         listed = tool_output(call(outputs, access, "list_cards", arguments(access)))
+        account = visitor.page.get_by_role(
+            "button", name=re.compile(f"^{re.escape(visitor.texts['account'])}")
+        )
+        unnamed = int(
+            account.get_attribute("aria-label") != f"{visitor.texts['account']}: {name}"
+        )
+        assert unnamed == 0, "the rail doesn't name who the visitor entered as"
+        account.click()
         cards = visitor.page.get_by_role(
             "list", name=visitor.texts["cards"]
         ).get_by_role("listitem")
         expect(cards).to_have_count(len(listed["cards"]))
         shown = " ".join(cards.all_inner_texts())
         missing = sum(1 for card in listed["cards"] if card["last_four"] not in shown)
-        assert missing == 0, f"the welcome leaves out {missing} cards"
+        assert missing == 0, f"the menu leaves out {missing} cards"
         for status in ("Active", "Blocked", "Ativo", "Bloqueado"):
             assert status not in shown
     finally:

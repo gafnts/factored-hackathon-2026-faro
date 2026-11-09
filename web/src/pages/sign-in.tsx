@@ -1,7 +1,10 @@
 import {
+  type KeyboardEvent,
   type ReactNode,
   type SubmitEvent,
   useEffect,
+  useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -14,7 +17,7 @@ import { dayEnds, TEXTS } from "../texts";
 // Whole cells either side of the grid's center, so the card's edges fall on the lines its cleared block hides.
 function Card({ children }: { children: ReactNode }) {
   return (
-    <section className="ml-[max(0px,calc(50%-var(--span)*var(--cell)))] w-[calc(2*var(--span)*var(--cell)+1px)] max-w-full border border-white/10 glass px-8 py-8 [--span:5] sm:[--span:4]">
+    <section className="ml-[max(0px,calc(50%-var(--span)*var(--cell)))] w-[calc(2*var(--span)*var(--cell)+1px)] max-w-full border border-white/10 glass [--span:5] sm:[--span:4]">
       {children}
     </section>
   );
@@ -29,30 +32,124 @@ function Alert({ children }: { children: ReactNode }) {
   );
 }
 
-function Switch({ label, onClick }: { label: string; onClick: () => void }) {
+type Way = "guest" | "account";
+
+const OTHER: Record<Way, Way> = { guest: "account", account: "guest" };
+
+// The two ways in as tabs on the card's top edge, split on the grid's center line, so each spans whole cells, their
+// labels on the panel's left edge. The chosen one opens into the card under a line of sea, which slides to it; the
+// other sits behind a hairline. A click moves focus into the panel, as the switch it replaced did; the arrow keys move
+// between the tabs.
+function Tabs({
+  language,
+  way,
+  panel,
+  onWay,
+}: {
+  language: Language;
+  way: Way;
+  panel: string;
+  onWay: (way: Way, focus: boolean) => void;
+}) {
+  const texts = TEXTS[language].signIn.tabs;
+  const tabs = useRef<Record<Way, HTMLButtonElement | null>>({
+    guest: null,
+    account: null,
+  });
+  const ways: readonly Way[] = ["guest", "account"];
+
+  function key(event: KeyboardEvent<HTMLButtonElement>) {
+    const next: Way | undefined = {
+      ArrowLeft: OTHER[way],
+      ArrowRight: OTHER[way],
+      Home: "guest" as const,
+      End: "account" as const,
+    }[event.key];
+    if (!next) return;
+    event.preventDefault();
+    onWay(next, false);
+    tabs.current[next]?.focus();
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="self-center text-sm text-bone-muted underline underline-offset-4 hover:text-sea"
+    <div
+      role="tablist"
+      aria-label={texts.label}
+      className="relative grid grid-cols-[calc(var(--span)*var(--cell)-1px)_1fr]"
     >
-      {label}
-    </button>
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute top-0 left-0 h-0.5 w-[calc(var(--span)*var(--cell)-1px)] bg-sea transition-transform duration-300 ease-out motion-reduce:transition-none ${way === "account" ? "translate-x-[calc(var(--span)*var(--cell))]" : ""}`}
+      />
+      {ways.map((option) => {
+        const chosen = option === way;
+        return (
+          <button
+            key={option}
+            ref={(element) => {
+              tabs.current[option] = element;
+            }}
+            type="button"
+            role="tab"
+            id={`${panel}-${option}`}
+            aria-selected={chosen}
+            aria-controls={panel}
+            tabIndex={chosen ? 0 : -1}
+            onKeyDown={key}
+            onClick={() => {
+              if (!chosen) onWay(option, true);
+            }}
+            className={`h-11 border-b border-white/10 px-6 text-left text-sm font-medium transition-colors duration-300 sm:px-8 ${option === "account" ? "border-l" : ""} ${chosen ? "border-b-transparent text-bone" : "bg-night/40 text-bone-muted hover:text-bone"}`}
+          >
+            {texts[option]}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
+// The card eases to its panel's height, so the page re-centers gradually rather than jumping when the way in changes.
+function Eased({ children }: { children: ReactNode }) {
+  const inner = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const element = inner.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      setHeight(element.offsetHeight);
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <div
+      style={height === null ? undefined : { height }}
+      className="overflow-hidden transition-[height] duration-300 ease-out motion-reduce:transition-none"
+    >
+      <div ref={inner}>{children}</div>
+    </div>
+  );
+}
+
+// The form's title shows on the console's sign-in, where the form is alone; under the tabs it names the panel for
+// screen readers only.
 function Form({
   language,
   ended,
   focus,
+  titled,
   onSignIn,
-  toGuest,
 }: {
   language: Language;
   ended: boolean;
   focus: boolean;
+  titled: boolean;
   onSignIn: (username: string, password: string) => Promise<SignInOutcome>;
-  toGuest: (() => void) | null;
 }) {
   const texts = TEXTS[language].signIn;
   const [pending, setPending] = useState(false);
@@ -88,13 +185,17 @@ function Form({
           : null;
 
   return (
-    <Card>
-      <h1 className="text-2xl font-semibold tracking-[-0.025em]">
+    <>
+      <h1
+        className={
+          titled ? "text-2xl font-semibold tracking-[-0.025em]" : "sr-only"
+        }
+      >
         {texts.title}
       </h1>
       <form
         method="post"
-        className="mt-6 flex flex-col gap-4"
+        className={`flex flex-col gap-4 ${titled ? "mt-6" : ""}`}
         onSubmit={(event) => void submit(event)}
       >
         <label className="flex flex-col gap-1">
@@ -125,26 +226,23 @@ function Form({
         >
           {pending ? texts.submitting : texts.submit}
         </button>
-        {toGuest && <Switch label={texts.guest.asGuest} onClick={toGuest} />}
       </form>
-    </Card>
+    </>
   );
 }
 
-// Nearly everyone who arrives is a stranger, so the button leads and the form waits behind a quiet one. A refusal
-// holds the button until the page loads again, since the day's guests and the pause don't lift in minutes.
+// Nearly everyone who arrives is a stranger, so the guest entry is the first tab. A refusal holds the button until the
+// page loads again, since the day's guests and the pause don't lift in minutes.
 function Guest({
   language,
   ended,
   focus,
   onGuest,
-  onForm,
 }: {
   language: Language;
   ended: boolean;
   focus: boolean;
   onGuest: () => Promise<GuestOutcome>;
-  onForm: () => void;
 }) {
   const texts = TEXTS[language].signIn;
   const [pending, setPending] = useState(false);
@@ -177,11 +275,9 @@ function Guest({
   const closed = outcome === "full" || outcome === "paused";
 
   return (
-    <Card>
-      <h1 className="text-2xl font-semibold tracking-[-0.025em]">
-        {texts.guest.title}
-      </h1>
-      <p className="mt-3 text-pretty text-bone-muted">{texts.guest.lead}</p>
+    <>
+      <h1 className="sr-only">{texts.guest.title}</h1>
+      <p className="text-pretty">{texts.guest.lead}</p>
       <div className="mt-6 flex flex-col gap-4">
         {message && <Alert>{message}</Alert>}
         <button
@@ -193,34 +289,69 @@ function Guest({
         >
           {pending ? texts.guest.entering : texts.guest.enter}
         </button>
-        <Switch label={texts.guest.withAccount} onClick={onForm} />
       </div>
-    </Card>
+    </>
   );
 }
 
-// What we keep of a visit, said before anyone enters (ADR-0007, Sign-in): the customers' sign-in's footer, in the
-// notice's place, a glass bar like the one at the top. Entering means accepting it, so its one button opens the full
-// list. Only the team signs in to the console, which keeps the notice.
+// What we keep of a visit, a click before anyone enters (ADR-0007, Sign-in): the customers' sign-in's footer, in the
+// notice's place, a glass bar like the one at the top, says that entering means accepting it, and its last words open
+// the full list. Only the team signs in to the console, which keeps the notice.
 export function Terms({ language }: { language: Language }) {
   const texts = TEXTS[language].signIn.terms;
   const dialog = useRef<HTMLDialogElement>(null);
+
+  // The dialog leaves as its veil clears, so it closes once those animations end.
+  function close() {
+    const element = dialog.current;
+    if (!element || element.dataset.closing !== undefined) return;
+    element.dataset.closing = "";
+    void Promise.allSettled(
+      element.getAnimations().map((animation) => animation.finished),
+    ).then(() => {
+      element.close();
+      delete element.dataset.closing;
+    });
+  }
+
   return (
-    <footer className="animate-fade border-t border-white/10 glass-thin px-4 py-3 text-xs text-bone sm:px-6 sm:text-sm">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-        <p className="text-pretty">{texts.banner}</p>
+    <footer className="animate-fade border-t border-white/10 glass-thin px-4 pt-2.5 pb-3.5 text-xs text-bone sm:px-6 sm:text-sm">
+      {/* On a phone, each sentence holds a line of its own. */}
+      <p className="text-pretty sm:text-right">
+        <span className="max-sm:block">{texts.synthetic}</span> {texts.accept}{" "}
         <button
           type="button"
-          onClick={() => dialog.current?.showModal()}
-          className="shrink-0 self-start underline underline-offset-4 hover:text-sea sm:self-auto"
+          onClick={() => {
+            // Focus the dialog itself, not its first button, so nothing looks pressed and a reader starts at the title.
+            dialog.current?.showModal();
+            dialog.current?.focus();
+          }}
+          // A phone's tap finds a 44 px target, its padding taken back by the margin so the line doesn't move.
+          className="underline underline-offset-4 hover:text-sea max-sm:-my-3.5 max-sm:py-3.5"
         >
           {texts.more}
         </button>
-      </div>
+        .
+      </p>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- a click on the backdrop reaches the dialog itself, outside its box: the mouse's way out, where Escape and the button are the keyboard's */}
       <dialog
         ref={dialog}
+        tabIndex={-1}
         aria-labelledby="terms"
-        className="m-auto w-[calc(2*var(--span)*var(--cell)+1px)] max-w-[calc(100%-2rem)] border border-white/10 glass px-8 py-8 text-bone [--span:5] backdrop:bg-night/70 sm:[--span:4]"
+        onCancel={(event) => {
+          event.preventDefault();
+          close();
+        }}
+        onClick={(event) => {
+          const box = event.currentTarget.getBoundingClientRect();
+          const outside =
+            event.clientX < box.left ||
+            event.clientX > box.right ||
+            event.clientY < box.top ||
+            event.clientY > box.bottom;
+          if (event.target === event.currentTarget && outside) close();
+        }}
+        className="m-auto w-[calc(2*var(--span)*var(--cell)+1px)] max-w-[calc(100%-2rem)] animate-message border border-white/10 glass p-6 text-bone [--span:5] backdrop:animate-veil backdrop:bg-night/70 backdrop:backdrop-blur-md focus-visible:outline-none data-closing:animate-leave data-closing:backdrop:animate-unveil motion-reduce:animate-fade sm:p-8 sm:[--span:4]"
       >
         <h2 id="terms" className="text-2xl font-semibold tracking-tight">
           {texts.title}
@@ -232,7 +363,7 @@ export function Terms({ language }: { language: Language }) {
         </ul>
         <button
           type="button"
-          onClick={() => dialog.current?.close()}
+          onClick={close}
           className="mt-8 h-11 w-full border border-white/10 font-medium hover:bg-white/5"
         >
           {texts.close}
@@ -243,8 +374,8 @@ export function Terms({ language }: { language: Language }) {
 }
 
 // The customer's sign-in and the console's alike, inside the shell: the banner's grid, with the wordmark over the card
-// in its cleared block (the identity guide's Surfaces). The customers' leads with the guest entry; the console, which
-// only the team signs in to, has the form alone.
+// in its cleared block (the identity guide's Surfaces). The customers' opens on the guest entry, with the form as the
+// second tab; the console, which only the team signs in to, has the form alone.
 export function SignIn({
   language,
   ended,
@@ -256,42 +387,69 @@ export function SignIn({
   onSignIn: (username: string, password: string) => Promise<SignInOutcome>;
   onGuest?: () => Promise<GuestOutcome>;
 }) {
-  // Focus moves with a switch, never on the page's arrival.
-  const [mode, setMode] = useState<{ form: boolean; switched: boolean }>({
-    form: !onGuest,
-    switched: false,
-  });
+  const panel = useId();
+  // Focus moves with a click on a tab, never on the page's arrival; a panel fades in only when the way in changes.
+  const [mode, setMode] = useState<{
+    way: Way;
+    focus: boolean;
+    moved: boolean;
+  }>({ way: onGuest ? "guest" : "account", focus: false, moved: false });
   return (
     <Grid layout="sign-in">
       <div className="flex flex-1 flex-col justify-center px-4 py-6">
         <p className="mx-auto w-full max-w-sm pb-6 text-center font-display text-6xl font-semibold tracking-[-0.07em]">
           Faro
         </p>
-        {onGuest && !mode.form ? (
-          <Guest
-            language={language}
-            ended={ended}
-            focus={mode.switched}
-            onGuest={onGuest}
-            onForm={() => {
-              setMode({ form: true, switched: true });
-            }}
-          />
-        ) : (
-          <Form
-            language={language}
-            ended={ended}
-            focus={mode.switched}
-            onSignIn={onSignIn}
-            toGuest={
-              onGuest
-                ? () => {
-                    setMode({ form: false, switched: true });
-                  }
-                : null
-            }
-          />
-        )}
+        <Card>
+          {onGuest ? (
+            <>
+              <Tabs
+                language={language}
+                way={mode.way}
+                panel={panel}
+                onWay={(way, focus) => {
+                  setMode({ way, focus, moved: true });
+                }}
+              />
+              <Eased>
+                <div
+                  key={mode.way}
+                  role="tabpanel"
+                  id={panel}
+                  aria-labelledby={`${panel}-${mode.way}`}
+                  className={`p-6 sm:p-8 ${mode.moved ? "animate-fade" : ""}`}
+                >
+                  {mode.way === "guest" ? (
+                    <Guest
+                      language={language}
+                      ended={ended}
+                      focus={mode.focus}
+                      onGuest={onGuest}
+                    />
+                  ) : (
+                    <Form
+                      language={language}
+                      ended={ended}
+                      focus={mode.focus}
+                      titled={false}
+                      onSignIn={onSignIn}
+                    />
+                  )}
+                </div>
+              </Eased>
+            </>
+          ) : (
+            <div className="p-6 sm:p-8">
+              <Form
+                language={language}
+                ended={ended}
+                focus={false}
+                titled
+                onSignIn={onSignIn}
+              />
+            </div>
+          )}
+        </Card>
       </div>
     </Grid>
   );

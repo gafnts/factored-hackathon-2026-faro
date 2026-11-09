@@ -5,7 +5,8 @@ import { PanelLeft } from "./icons";
 import { TEXTS } from "./texts";
 
 // One button per action, whatever the width: a label beside the icon in the open rail, a label for screen readers
-// otherwise, so a test or a reader finds each action once.
+// otherwise, so a test or a reader finds each action once. In the rail the label stays and fades: in once the rail has
+// mostly opened, out at once as it closes, clipped by the button meanwhile.
 export function RailButton({
   icon,
   label,
@@ -26,11 +27,11 @@ export function RailButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`flex h-10 items-center gap-3 px-2.5 text-bone-muted transition-colors hover:bg-white/5 hover:text-bone disabled:opacity-40 disabled:hover:bg-transparent ${className}`}
+      className={`flex h-10 items-center gap-3 overflow-hidden px-2.5 text-bone-muted transition-colors hover:bg-white/5 hover:text-bone disabled:opacity-40 disabled:hover:bg-transparent ${className}`}
     >
       {icon}
       <span
-        className={expanded ? "sr-only sm:not-sr-only sm:truncate" : "sr-only"}
+        className={`sr-only motion-reduce:transition-none sm:not-sr-only sm:truncate sm:transition-opacity ${expanded ? "sm:opacity-100 sm:delay-100 sm:duration-200" : "sm:opacity-0 sm:duration-100"}`}
       >
         {label}
       </span>
@@ -39,8 +40,9 @@ export function RailButton({
 }
 
 // The language switch, flush right in the bar (ADR-0007, Routes): mono capitals, each option named in its own
-// language, the chosen one in full color and the other muted. It only sets the page's own text; the agent's replies
-// follow the conversation (POL-50).
+// language, the chosen one in full color over a line of sea on the bar's edge, which slides to it as the sign-in's tabs'
+// does. Each option is the bar's height, so a phone's tap finds it. It only sets the page's own text; the agent's
+// replies follow the conversation (POL-50).
 function LanguageSwitch({
   language,
   onLanguage,
@@ -53,7 +55,7 @@ function LanguageSwitch({
     <div
       role="group"
       aria-label={texts.label}
-      className="ml-auto flex shrink-0 items-center"
+      className="relative ml-auto flex shrink-0 self-stretch"
     >
       {(["es", "pt"] as const).map((option) => (
         <button
@@ -65,15 +67,22 @@ function LanguageSwitch({
           onClick={() => {
             onLanguage(option);
           }}
-          className={`flex h-8 items-center px-2.5 font-mono text-xs tracking-[0.08em] transition-colors ${
+          // The tracking's trailing space, given back on the left, so the letters sit centered.
+          className={`flex w-10 items-center justify-center pl-[0.08em] font-mono text-xs tracking-[0.08em] transition-colors duration-300 ${
             option === language
               ? "text-bone"
-              : "text-bone-muted hover:bg-white/5 hover:text-bone"
+              : "text-bone-muted hover:text-bone"
           }`}
         >
           {option.toUpperCase()}
         </button>
       ))}
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute bottom-0 left-0 h-0.5 w-10 bg-sea transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
+          language === "pt" ? "translate-x-10" : ""
+        }`}
+      />
     </div>
   );
 }
@@ -118,7 +127,7 @@ export function Shell({
   return (
     <div
       lang={language}
-      className={`relative flex h-dvh flex-col [--bar:3.5rem] [--cell:32px] [--rail:0px] sm:[--cell:51px] ${width}`}
+      className={`relative flex h-dvh flex-col transition-[--rail] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] [--bar:3.5rem] [--cell:32px] [--rail:0px] motion-reduce:transition-none sm:[--cell:51px] ${width}`}
     >
       {rail && (
         <nav

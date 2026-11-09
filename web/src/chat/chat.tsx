@@ -16,7 +16,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Language } from "../contracts/chat";
-import type { Welcome } from "../contracts/guest";
 import { Grid } from "../grid";
 import { ArrowUp } from "../icons";
 import {
@@ -127,65 +126,18 @@ function Composer({
   );
 }
 
-// A guest's welcome, over the question: who they entered as, in the suggestions' numbers' voice, and each card as a
-// small frame, so a visitor knows what to ask about (ADR-0007, The guest entry).
-function Greeting({
-  language,
-  welcome,
-}: {
-  language: Language;
-  welcome: Welcome;
-}) {
-  const texts = TEXTS[language].chat.welcome;
-  return (
-    <div className="flex flex-col items-center gap-3 text-center">
-      <p className="font-mono text-xs tracking-[0.08em] text-sea uppercase">
-        {texts.as(welcome.name)}
-      </p>
-      {welcome.cards && welcome.cards.length > 0 && (
-        <ul
-          aria-label={texts.cards}
-          className="flex flex-wrap justify-center gap-2"
-        >
-          {welcome.cards.map((card) => (
-            <li
-              key={`${card.product_type}-${card.last_four}`}
-              className="border border-white/10 glass px-2.5 py-1 font-mono text-xs text-bone-muted"
-            >
-              {texts.type[card.product_type]}{" "}
-              <span aria-hidden="true">••••</span>
-              <span className="sr-only">{texts.ending}</span> {card.last_four}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 // The empty chat, after assistant-ui's Gemini example (MIT): the question over the composer, the glow beneath it, and
 // the numbered suggestions, in the banner's cleared block. Twelve cells wide, so the composer's edges and the
 // suggestions' dividers fall on the grid's lines; the conversation keeps the same column. One template for every
 // sign-in (ADR-0007, Judges' access): the bar's switch sets the page's language.
-function Opening({
-  language,
-  divert,
-  welcome,
-}: {
-  language: Language;
-  divert: Divert;
-  welcome: Welcome | null;
-}) {
+function Opening({ language, divert }: { language: Language; divert: Divert }) {
   const texts = TEXTS[language].chat;
   return (
     <Grid layout="chat">
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-8 px-4 py-6 sm:mx-0 sm:ml-[max(1.5rem,calc(50%-6*var(--cell)))] sm:w-[calc(12*var(--cell)+1px)] sm:max-w-[calc(100%-3rem)] sm:px-0">
-        <div className="flex flex-col items-center gap-4">
-          {welcome && <Greeting language={language} welcome={welcome} />}
-          <h1 className="text-center text-4xl font-semibold tracking-[-0.035em] text-balance sm:text-5xl">
-            {texts.question}
-          </h1>
-        </div>
+        <h1 className="text-center text-4xl font-semibold tracking-[-0.035em] text-balance sm:text-5xl">
+          {texts.question}
+        </h1>
         <div className="relative">
           <div
             aria-hidden="true"
@@ -220,14 +172,21 @@ function Opening({
 function Thread({
   language,
   problem,
-  welcome,
 }: {
   language: Language;
   problem: Problem | null;
-  welcome: Welcome | null;
 }) {
   const texts = TEXTS[language].chat;
-  const running = useAuiState((state) => state.thread.isRunning);
+  // The sweep leaves as the reply's text lands, not as the run ends a moment later, so the conversation doesn't drop
+  // by the sweep's height under a reply that has just arrived.
+  const working = useAuiState((state) => {
+    if (!state.thread.isRunning) return false;
+    const last = state.thread.messages.at(-1);
+    return !(
+      last?.role === "assistant" &&
+      last.content.some((part) => part.type === "text" && part.text !== "")
+    );
+  });
   const pending = useAgUiInterrupts().length > 0;
   const steerAway = useAgUiSteerAway();
   const aui = useAui();
@@ -246,7 +205,7 @@ function Thread({
   return (
     <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col">
       <AuiIf condition={(state) => state.thread.isEmpty}>
-        <Opening language={language} divert={divert} welcome={welcome} />
+        <Opening language={language} divert={divert} />
       </AuiIf>
       <AuiIf condition={(state) => !state.thread.isEmpty}>
         {/* Up under the shell's bar, so the conversation scrolls beneath its glass. */}
@@ -257,7 +216,7 @@ function Thread({
                 message.role === "user" ? <UserMessage /> : <AssistantMessage />
               }
             </ThreadPrimitive.Messages>
-            {running && <Working label={texts.working} />}
+            {working && <Working label={texts.working} />}
           </div>
           <ThreadPrimitive.ViewportFooter className="sticky bottom-0 bg-linear-to-t from-night from-60% to-transparent pt-6 pb-8">
             <div className="mx-auto w-full max-w-3xl px-4 sm:max-w-[calc(12*var(--cell)+1px+3rem)] sm:px-6">
@@ -302,7 +261,6 @@ export function Chat({
   onSignInEnded,
   onRunning,
   fetcher: given,
-  welcome = null,
 }: {
   url: string;
   session: string;
@@ -310,7 +268,6 @@ export function Chat({
   onSignInEnded: () => void;
   onRunning?: (running: boolean) => void;
   fetcher?: Fetch;
-  welcome?: Welcome | null;
 }) {
   const [threadId] = useState(() => crypto.randomUUID());
   const fetcher = useMemo(
@@ -362,7 +319,7 @@ export function Chat({
     <AssistantRuntimeProvider runtime={runtime}>
       {onRunning && <Running onChange={onRunning} />}
       <ShownControls value={shown}>
-        <Thread language={language} problem={problem} welcome={welcome} />
+        <Thread language={language} problem={problem} />
       </ShownControls>
     </AssistantRuntimeProvider>
   );

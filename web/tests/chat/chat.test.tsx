@@ -1,9 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { Chat } from "../../src/chat/chat";
-import type { Welcome } from "../../src/contracts/guest";
 import { TEXTS } from "../../src/texts";
 import { errors, type Event, example, sse } from "../contract";
 
@@ -93,18 +92,13 @@ function runtime(
   return calls;
 }
 
-function chat(
-  language: "es" | "pt" = "pt",
-  onSignInEnded = vi.fn(),
-  welcome: Welcome | null = null,
-) {
+function chat(language: "es" | "pt" = "pt", onSignInEnded = vi.fn()) {
   render(
     <Chat
       url={URL}
       session={SESSION}
       language={language}
       onSignInEnded={onSignInEnded}
-      welcome={welcome}
     />,
   );
   return onSignInEnded;
@@ -171,6 +165,40 @@ describe("a turn", () => {
       ).toBe(SESSION);
     }
     expect(warmup?.body.threadId).toBe(message?.body.threadId);
+  });
+
+  test("takes the working line away as the reply lands, before the run ends, so nothing drops under the reply", async () => {
+    let end: (() => void) | undefined;
+    runtime((request) => {
+      const events = turn(request, "Quais cartões eu tenho?");
+      const encoder = new TextEncoder();
+      const line = (event: Event) =>
+        encoder.encode(`data: ${JSON.stringify(event)}\n\n`);
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (const event of events.slice(0, -1))
+            controller.enqueue(line(event));
+          end = () => {
+            const finished = events.at(-1);
+            if (finished) controller.enqueue(line(finished));
+            controller.close();
+          };
+        },
+      });
+      return new Response(body, {
+        headers: { "Content-Type": "text/event-stream" },
+      });
+    });
+    chat();
+
+    await send("Quais cartões eu tenho?");
+
+    expect(await screen.findByText(REPLY.delta)).toBeInTheDocument();
+    expect(end).toBeDefined();
+    await waitFor(() => {
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+    end?.();
   });
 
   test("waits for the warm-up to answer, since a runtime session still starting turns a message away", async () => {
@@ -337,53 +365,4 @@ test("opens on Faro's question, with three numbered prompts that send themselves
     screen.queryByRole("heading", { name: texts.question }),
   ).not.toBeInTheDocument();
   expect(screen.getByLabelText(texts.placeholder)).toBeInTheDocument();
-});
-
-test.each([
-  [
-    "es",
-    "Hoy usted es Team Customer",
-    ["Crédito terminada en 4821", "Débito terminada en 1177"],
-  ],
-  [
-    "pt",
-    "Hoje você é Team Customer",
-    ["Crédito final 4821", "Débito final 1177"],
-  ],
-] as const)(
-  "a guest's opening in %s names who they entered as and their cards, with no status (ADR-0007, The guest entry)",
-  (language, greeting, cards) => {
-    runtime(() => sse([]));
-    chat(language, vi.fn(), {
-      name: "Team Customer",
-      cards: [
-        { product_type: "Tarjeta Crédito", last_four: "4821" },
-        { product_type: "Tarjeta Débito", last_four: "1177" },
-      ],
-    });
-
-    expect(screen.getByText(greeting)).toBeInTheDocument();
-    const list = screen.getByRole("list", {
-      name: TEXTS[language].chat.welcome.cards,
-    });
-    const items = within(list).getAllByRole("listitem");
-    expect(
-      items.map((item) =>
-        item.textContent.replace("••••", " ").replace(/\s+/g, " "),
-      ),
-    ).toEqual(cards);
-    expect(
-      screen.getByRole("heading", { name: TEXTS[language].chat.question }),
-    ).toBeInTheDocument();
-  },
-);
-
-test("a guest whose cards couldn't be read is named alone, and an invited customer isn't named", () => {
-  runtime(() => sse([]));
-  chat("es", vi.fn(), { name: "Team Customer", cards: null });
-
-  expect(screen.getByText("Hoy usted es Team Customer")).toBeInTheDocument();
-  expect(
-    screen.queryByRole("list", { name: TEXTS.es.chat.welcome.cards }),
-  ).not.toBeInTheDocument();
 });

@@ -36,22 +36,28 @@ export interface Texts {
     ended: string;
     signOut: string;
     endsAt: (time: string) => string;
-    // The guest entry, which leads the customers' sign-in; the form opens behind its quiet button (ADR-0007, The guest
-    // entry). Past the day's guests, the time the UTC day ends, in the browser's own.
+    // The customers' sign-in's two ways in, as tabs on its card: the guest entry first, then the form (ADR-0007, The
+    // guest entry).
+    tabs: {
+      label: string;
+      guest: string;
+      account: string;
+    };
+    // The guest entry's tab. Past the day's guests, the time the UTC day ends, in the browser's own.
     guest: {
       title: string;
       lead: string;
       enter: string;
       entering: string;
-      withAccount: string;
-      asGuest: string;
       full: (time: string) => string;
       paused: string;
     };
     // What we keep of a visit, in the customers' sign-in's banner and its dialog (ADR-0007, Sign-in; ADR-0004, data
-    // retention). The banner takes the place of the notice, so it says the bank is synthetic too (SEC-02).
+    // retention). The banner takes the place of the notice, so it says the data is synthetic too (SEC-02); its last
+    // words, more, open the dialog.
     terms: {
-      banner: string;
+      synthetic: string;
+      accept: string;
       more: string;
       title: string;
       lines: readonly string[];
@@ -70,15 +76,16 @@ export interface Texts {
     es: string;
     pt: string;
   };
+  // The rail's foot: who a guest entered as, and behind it their cards, by type and last four digits and never their
+  // status, so they know what to ask about (ADR-0007, The guest entry), and the sign-out.
+  account: {
+    label: string;
+    fictional: string;
+    cards: string;
+    type: Record<ProductType, string>;
+    ending: string;
+  };
   chat: {
-    // A guest's opening names who they entered as and their cards, so they know what to try (ADR-0007, The guest
-    // entry); the cards' type and digits, never their status.
-    welcome: {
-      as: (name: string) => string;
-      cards: string;
-      type: Record<ProductType, string>;
-      ending: string;
-    };
     question: string;
     // Each one a path that works today: the cards, a block, a charge the customer doesn't recognize. Judges send
     // these words as messages, so the split's guards scan this file for a held-out family's words (ADR-0005).
@@ -179,28 +186,31 @@ export const TEXTS: Record<Language, Texts> = {
       ended: "Su sesión terminó. Inicie sesión de nuevo para continuar.",
       signOut: "Cerrar sesión",
       endsAt: (time) => `Su sesión terminará a las ${time}.`,
+      tabs: {
+        label: "Formas de entrar",
+        guest: "Invitado",
+        account: "Con usuario",
+      },
       guest: {
-        title: "Pruebe Faro",
-        lead: "Entre como un cliente ficticio de LATAM Bank y pregúntele a Faro por sus tarjetas.",
+        title: "Acceso de invitado",
+        lead: "Entre como un cliente ficticio y converse con Faro sobre sus tarjetas.",
         enter: "Entrar como invitado",
         entering: "Entrando…",
-        withAccount: "Tengo usuario y contraseña",
-        asGuest: "Entrar como invitado",
         full: (time) =>
           `Por hoy no hay más lugares para invitados. Vuelva a intentarlo ${FROM.es(time)}.`,
         paused: "Faro está en pausa por ahora. Vuelva a intentarlo más tarde.",
       },
       terms: {
-        banner:
-          "Prototipo sobre datos sintéticos: no escriba datos reales. Guardamos sus conversaciones hasta 12 meses y podemos leerlas. Al entrar, acepta estas condiciones.",
-        more: "Lo que guardamos",
-        title: "Lo que guardamos",
+        synthetic: "Prototipo sobre datos sintéticos.",
+        accept: "Al entrar, acepta",
+        more: "estas condiciones",
+        title: "Condiciones",
         lines: [
-          "LATAM Bank y sus clientes son ficticios. No escriba datos reales, suyos ni de nadie.",
-          "Guardamos sus conversaciones hasta 12 meses y podemos leerlas para evaluar y mejorar el agente.",
+          "LATAM Bank y sus clientes son ficticios. No escriba datos reales.",
+          "Las conversaciones se guardan hasta por 12 meses y pueden ser leídas para evaluar y mejorar al agente.",
           "Anthropic, el proveedor del modelo, procesa sus mensajes.",
           "Nadie da seguimiento a los casos que Faro registra.",
-          "Su dirección IP se guarda hasta 90 días.",
+          "Su dirección IP se guarda hasta por 90 días.",
           "Al entrar, acepta estas condiciones.",
         ],
         close: "Cerrar",
@@ -212,18 +222,19 @@ export const TEXTS: Record<Language, Texts> = {
       close: "Cerrar el menú",
       newChat: "Nueva conversación",
     },
+    account: {
+      label: "Su cuenta",
+      fictional: "Cliente ficticio",
+      cards: "Sus tarjetas",
+      type: { "Tarjeta Crédito": "Crédito", "Tarjeta Débito": "Débito" },
+      ending: "terminada en",
+    },
     language: {
       label: "Idioma",
       es: "Español",
       pt: "Português",
     },
     chat: {
-      welcome: {
-        as: (name) => `Hoy usted es ${name}`,
-        cards: "Sus tarjetas",
-        type: { "Tarjeta Crédito": "Crédito", "Tarjeta Débito": "Débito" },
-        ending: "terminada en",
-      },
       question: "¿En qué le puedo ayudar?",
       suggestions: [
         "Muéstreme el estado de mis tarjetas",
@@ -291,25 +302,28 @@ export const TEXTS: Record<Language, Texts> = {
       ended: "Sua sessão terminou. Entre de novo para continuar.",
       signOut: "Sair",
       endsAt: (time) => `Sua sessão terminará às ${time}.`,
+      tabs: {
+        label: "Formas de entrar",
+        guest: "Convidado",
+        account: "Com usuário",
+      },
       guest: {
-        title: "Experimente o Faro",
-        lead: "Entre como um cliente fictício do LATAM Bank e pergunte ao Faro sobre seus cartões.",
+        title: "Acesso de convidado",
+        lead: "Entre como um cliente fictício e converse com o Faro sobre seus cartões.",
         enter: "Entrar como convidado",
         entering: "Entrando…",
-        withAccount: "Tenho usuário e senha",
-        asGuest: "Entrar como convidado",
         full: (time) =>
           `Por hoje não há mais vagas para convidados. Tente novamente ${FROM.pt(time)}.`,
         paused: "O Faro está pausado no momento. Tente novamente mais tarde.",
       },
       terms: {
-        banner:
-          "Protótipo com dados sintéticos: não escreva dados reais. Guardamos suas conversas por até 12 meses e podemos lê-las. Ao entrar, você aceita estas condições.",
-        more: "O que guardamos",
-        title: "O que guardamos",
+        synthetic: "Protótipo com dados sintéticos.",
+        accept: "Ao entrar, você aceita",
+        more: "estas condições",
+        title: "Condições",
         lines: [
-          "O LATAM Bank e seus clientes são fictícios. Não escreva dados reais, seus ou de ninguém.",
-          "Guardamos suas conversas por até 12 meses e podemos lê-las para avaliar e melhorar o agente.",
+          "O LATAM Bank e seus clientes são fictícios. Não escreva dados reais.",
+          "As conversas são guardadas por até 12 meses e podem ser lidas para avaliar e melhorar o agente.",
           "A Anthropic, fornecedora do modelo, processa suas mensagens.",
           "Ninguém acompanha os casos que o Faro registra.",
           "Seu endereço IP é guardado por até 90 dias.",
@@ -324,18 +338,19 @@ export const TEXTS: Record<Language, Texts> = {
       close: "Fechar o menu",
       newChat: "Nova conversa",
     },
+    account: {
+      label: "Sua conta",
+      fictional: "Cliente fictício",
+      cards: "Seus cartões",
+      type: { "Tarjeta Crédito": "Crédito", "Tarjeta Débito": "Débito" },
+      ending: "final",
+    },
     language: {
       label: "Idioma",
       es: "Español",
       pt: "Português",
     },
     chat: {
-      welcome: {
-        as: (name) => `Hoje você é ${name}`,
-        cards: "Seus cartões",
-        type: { "Tarjeta Crédito": "Crédito", "Tarjeta Débito": "Débito" },
-        ending: "final",
-      },
       question: "Como posso ajudar?",
       suggestions: [
         "Mostre o status dos meus cartões",
