@@ -326,7 +326,8 @@ export function Terms({ language }: { language: Language }) {
             dialog.current?.showModal();
             dialog.current?.focus();
           }}
-          className="underline underline-offset-4 hover:text-sea"
+          // A phone's tap finds a 44 px target, its padding taken back by the margin so the line doesn't move.
+          className="underline underline-offset-4 hover:text-sea max-sm:-my-3.5 max-sm:py-3.5"
         >
           {texts.more}
         </button>
