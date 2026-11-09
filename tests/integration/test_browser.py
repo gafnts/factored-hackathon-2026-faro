@@ -1,14 +1,15 @@
 """
 The chat and the console in a real browser, against the deployed site (ADR-0004, To verify on the first deploy: the
 chat in a real browser; ADR-0007): a persona signs in through the form with SRP, asks about their cards, and reads a
-reply sent whole, with the turn in the sign-in's execution record; a persona blocks a card with the confirm control,
+reply sent whole, with the turn in the sign-in's execution record; on a phone nothing scrolls sideways, the notice's
+conditions are a whole tap target, and the newest reply ends above the composer; a persona blocks a card with the confirm control,
 which a typed yes doesn't confirm, and is offered the replacement with the handoff control; the README's journey runs in
 two tabs, from a charge the customer doesn't recognize to the case's reference, while a human agent sees the case reach
 dispute intake within a poll, urgent when the block is cancelled, and reads it with each fact next to its call; the
 console shows a case's markup as text; a new conversation is a thread of its own on the same runtime session;
 another customer's ID, a staff user in the chat, a customer or the AI team in the console, and another sign-in's
 runtime session get nothing; and signing out revokes the sign-in's refresh token
-(SEC-04, SEC-05, POL-09 to POL-11, POL-27, POL-36 to POL-39, POL-45, POL-47, CTL-02, CTL-05, EVL-04, OPS-02).
+(SEC-04, SEC-05, POL-09 to POL-11, POL-27, POL-36 to POL-39, POL-45, POL-47, CTL-02, CTL-05, EVL-04, OPS-02, OPS-12).
 Assertions count and compare without printing a reply, a token, or an ID, and nothing the page shows is saved: no
 trace, screenshot, or video.
 """
@@ -33,6 +34,7 @@ from playwright.sync_api import (
     Locator,
     Page,
     Request,
+    ViewportSize,
     expect,
     sync_playwright,
 )
@@ -132,6 +134,29 @@ CONSOLE = {
 }
 # Within a poll: 3 seconds, the queue index's lag, and a request's time.
 ARRIVES_MS = 10_000
+# An iPhone's page in Safari with its toolbar shown, the height the phone's layout is drawn for.
+PHONE: ViewportSize = {"width": 393, "height": 660}
+# The scrolling boxes from an element up to the page that are wider than their view.
+SIDEWAYS = """selector => {
+  const wide = [];
+  for (let e = document.querySelector(selector); e; e = e.parentElement) {
+    const scrolls = e === document.documentElement || ["auto", "scroll"].includes(getComputedStyle(e).overflowX);
+    if (scrolls && e.scrollWidth > e.clientWidth + 1) wide.push(e.tagName);
+  }
+  return wide;
+}"""
+# Once the newest reply has risen into place: its distance above the composer, and whether the conversation overflows
+# its view, so that the view had to follow it down.
+SETTLED = """() => {
+  const reply = [...document.querySelectorAll('[data-author="faro"]')].at(-1);
+  const composer = document.querySelector("form:has(textarea)");
+  let view = reply.parentElement;
+  while (view && !["auto", "scroll"].includes(getComputedStyle(view).overflowY)) view = view.parentElement;
+  return reply.getAnimations().length === 0 && {
+    gap: Math.round(composer.getBoundingClientRect().top - reply.getBoundingClientRect().bottom),
+    overflows: view.scrollHeight > view.clientHeight + 1,
+  };
+}"""
 
 
 @dataclass
@@ -644,6 +669,34 @@ def test_a_persona_signs_in_and_reads_a_reply_sent_whole(
     own = {e["input"]["customer_id"] for e in listed} == {persona_ids["declines"]}
     assert own, "list_cards read another customer's ID"
     assert re.fullmatch(r"[0-9a-f]{40}", entries[0]["versions"]["app"])
+    assert (customer.violations, customer.errors) == ([], 0)
+
+
+def test_on_a_phone_the_pages_fit_and_the_newest_reply_ends_above_the_composer(
+    outputs: dict[str, Any],
+    users: dict[str, User],
+    site: str,
+    tab: Callable[[str], Tab],
+) -> None:
+    customer = tab("es")
+    customer.page.set_viewport_size(PHONE)
+    customer.page.goto(f"{site}/chat")
+    conditions = customer.page.get_by_role("button", name=customer.texts["conditions"])
+    box = conditions.bounding_box()
+    assert box is not None
+    assert box["height"] >= 44, "the conditions should be a whole tap target"
+    assert customer.page.evaluate(SIDEWAYS, '[role="tabpanel"]') == []
+
+    customer.sign_in(site, users["customer"])
+    customer.ask(outputs, "¿Cuáles son mis tarjetas y en qué estado están?")
+    customer.ask(outputs, "¿Cuánto crédito tengo disponible?")
+
+    settled = customer.page.wait_for_function(SETTLED).json_value()
+    assert settled["overflows"], "two turns should overflow a phone's view"
+    assert settled["gap"] >= 0, (
+        f"the newest reply ends {-settled['gap']} px under the composer"
+    )
+    assert customer.page.evaluate(SIDEWAYS, '[data-author="faro"]') == []
     assert (customer.violations, customer.errors) == ([], 0)
 
 
