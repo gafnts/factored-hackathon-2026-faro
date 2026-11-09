@@ -16,6 +16,8 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - The welcome: the rail names the customer a guest entered as, and its menu lists each card's type and last four digits beside the sign-out, which the guest entry reads through the Gateway with the visitor's own token; no status, since a block changes it during the visit ([#208]).
 - A cleanup that deletes visitors' users every hour, a day after each was made; a visitor's records and cases keep their retention ([#208]).
 - Two alarms from the guest entry's line per click, which names its outcome alone: `guests-full`, when the day's guests are reached, and `guest-entry-failing`, when a click fails, since a visitor who can't enter has no other way to tell us ([#208]).
+- The device board, `web/devices.html`: with `make web-dev` running, the app at phone, tablet and laptop sizes side by side, each frame the viewport a browser leaves the page with its toolbar shown. Vite builds `index.html` alone, so the board never ships.
+- A browser test at an iPhone's size in Safari: neither the sign-in nor the chat scrolls sideways, the conditions' link is a whole tap target, and the newest reply of a conversation longer than the screen ends above the composer.
 
 ### Changed
 
@@ -23,8 +25,16 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - The deploy's check also enters as a guest: it reads the visitor's cards through the Gateway, requires the welcome to name each one, and deletes the visitor with its own token, so the check still holds no AWS credentials; while the chat is paused it expects the paused answer ([ADR-0009](docs/adr/0009-release-checked-deploys.md)'s amendment of 2026-11-08, [#208]).
 - The suites' role may read the guest entry's log and run the cleanup once, for the tests that check them ([#208]).
 - The README's first lines say how to enter ([#208]).
-- The bar at the foot of the customers' sign-in says only that the data is synthetic and that entering accepts these conditions, whose words open the full list. The warning not to type real data and how long conversations are kept moved to the list.
+- The bar at the foot of the customers' sign-in says only that the data is synthetic and that entering accepts these conditions, whose words open the full list. The warning not to type real data and how long conversations are kept moved to the list. On a phone its two sentences take a line each, and the conditions' words are a 44 px tap target.
+- The conditions' dialog speaks in the bar's impersonal voice. It arrives as the page behind it blurs and darkens, and leaves faster as the page clears; a click on the backdrop closes it, as Escape and its button do, and it opens on its title with nothing pressed.
+- The rail's sign-out moved into a menu behind the account at the rail's foot, which names a guest and is the account alone for an invited customer.
+- The rail eases open and closed, its labels fading in once it has mostly opened, and a line of sea slides under the bar's chosen language.
+- On phones and tablets the grid's lit cells keep to the screen: beside the block where the page holds them, above and below it where the page is narrower (a phone's sign-in, an upright tablet, or a page the open rail narrows), and off where neither fits, fading as the rail opens and closes. A phone's sign-in card is tighter, so the cells fit the page a phone's Safari leaves. The grid's lines are a little brighter.
 - The test and build tools: globals 17.14.0 in the web app's tooling ([#210]).
+
+### Fixed
+
+- The working line leaves as a reply lands rather than when the run ends a moment later, so the conversation no longer drops by the line's height under a reply that has just arrived; while Faro works, the line sits where the reply will appear.
 
 ## [1.12.0] - 2026-11-07 (Promotion 18)
 
