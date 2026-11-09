@@ -159,8 +159,8 @@ class Tab:
         # alone (ADR-0007, Sign-in).
         if path == "/chat":
             self.page.get_by_role("tab", name=self.texts["account_tab"]).click()
-        self.page.get_by_label(self.texts["username"]).fill(user.username)
-        self.page.get_by_label(self.texts["password"]).fill(user.password)
+        self.page.get_by_label(self.texts["username"], exact=True).fill(user.username)
+        self.page.get_by_label(self.texts["password"], exact=True).fill(user.password)
         self.page.get_by_role("button", name=self.texts["submit"], exact=True).click()
 
     def ask(self, outputs: dict[str, Any], text: str) -> str:

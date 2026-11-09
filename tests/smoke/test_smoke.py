@@ -54,8 +54,8 @@ def message(request: Request) -> bool:
 def test_the_smoke_user_reads_its_cards_in_the_chat(page: Page) -> None:
     page.goto(f"{setting('SITE')}/chat")
     page.get_by_role("tab", name=TEXT["account_tab"]).click()
-    page.get_by_label(TEXT["username"]).fill(setting("USERNAME"))
-    page.get_by_label(TEXT["password"]).fill(setting("PASSWORD"))
+    page.get_by_label(TEXT["username"], exact=True).fill(setting("USERNAME"))
+    page.get_by_label(TEXT["password"], exact=True).fill(setting("PASSWORD"))
     page.get_by_role("button", name=TEXT["submit"], exact=True).click()
     box = page.get_by_label(TEXT["message"])
     expect(box).to_be_visible()
