@@ -126,7 +126,9 @@
       ];
 
       const params = new URLSearchParams(location.search);
-      const path = params.get("path") ?? "/chat";
+      // Only a path on this site: one naming another site, or a script, gives way to /chat.
+      const asked = params.get("path") ?? "/chat";
+      const path = /^\/(?![\/\\])/.test(asked) ? asked : "/chat";
       document.querySelector("#path [name=path]").value = path;
 
       function render() {
@@ -150,7 +152,7 @@
             screen.style.height = `${height * s}px`;
             const frame = document.createElement("iframe");
             frame.title = name;
-            frame.src = path;
+            frame.src = `${location.origin}${path}`;
             frame.width = width;
             frame.height = height;
             frame.style.transform = `scale(${s})`;
