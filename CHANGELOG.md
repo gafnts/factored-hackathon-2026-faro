@@ -23,6 +23,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - The deploy's check also enters as a guest: it reads the visitor's cards through the Gateway, requires the welcome to name each one, and deletes the visitor with its own token, so the check still holds no AWS credentials; while the chat is paused it expects the paused answer ([ADR-0009](docs/adr/0009-release-checked-deploys.md)'s amendment of 2026-11-08, [#208]).
 - The suites' role may read the guest entry's log and run the cleanup once, for the tests that check them ([#208]).
 - The README's first lines say how to enter ([#208]).
+- The test and build tools: globals 17.14.0 in the web app's tooling ([#210]).
 
 ## [1.12.0] - 2026-11-07 (Promotion 18)
 
@@ -283,6 +284,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#203]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/203
 [#207]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/207
 [#208]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/208
+[#210]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/210
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
