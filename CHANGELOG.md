@@ -6,6 +6,10 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+### Security
+
+- opentelemetry-api's denial of service through slow `traceparent` parsing ([GHSA-mf5v-w3w3-f6cg], moderate) is accepted until 2026-12-15: the slow path needs a newline inside the header's value, which the Runtime's HTTP parser refuses, and no fixed version fits ADOT 0.22.0, the latest, which requires the API at exactly 1.45.1 ([ADR-0010](docs/adr/0010-gate-merges-on-advisories.md)).
+
 ### Added
 
 - A limit of three runtime sessions per sign-in. The chat keeps one, and each holds a microVM of about 1 GB until its 15-minute idle timeout whether or not a turn runs in it, so a client that drew new session IDs could keep thousands idle on one token while no limit on turns saw it. A new session's binding and its count go in one transaction; a fourth gets `session_refused`, and the entrypoint ends it at once through the caller's own token, reading the Runtime's ARN from a Parameter Store entry Terraform writes once the Runtime exists ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-08, [#207]).
@@ -305,3 +309,4 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [GHSA-xhq7-xmqj-769h]: https://github.com/advisories/GHSA-xhq7-xmqj-769h
 [GHSA-333x-w4r6-6crp]: https://github.com/advisories/GHSA-333x-w4r6-6crp
 [GHSA-g3hv-75wg-m249]: https://github.com/advisories/GHSA-g3hv-75wg-m249
+[GHSA-mf5v-w3w3-f6cg]: https://github.com/advisories/GHSA-mf5v-w3w3-f6cg
