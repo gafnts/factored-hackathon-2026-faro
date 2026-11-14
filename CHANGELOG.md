@@ -35,6 +35,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - The rail eases open and closed, its labels fading in once it has mostly opened, and a line of sea slides under the bar's chosen language ([#211]).
 - On phones and tablets the grid's lit cells keep to the screen: beside the block where the page holds them, above and below it where the page is narrower (a phone's sign-in, an upright tablet, or a page the open rail narrows), and off where neither fits, fading as the rail opens and closes. A phone's sign-in card is tighter, so the cells fit the page a phone's Safari leaves. The grid's lines are a little brighter ([#211]).
 - The test and build tools: globals 17.14.0 in the web app's tooling ([#210]).
+- A promotion's plan comment opens with the plan's totals and every action, leaves out the lines Terraform prints while it refreshes, and, when the plan is longer than a comment, says where it's cut and which run keeps the whole file. Before, it was the plan's first 60,000 bytes, and Promotion 18's lost its `Plan:` line. The comment job shapes it with a script of ours and installs nothing ([ADR-0009](docs/adr/0009-release-checked-deploys.md)'s amendment of 2026-11-14).
 
 ### Fixed
 
