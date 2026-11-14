@@ -2,6 +2,8 @@
 A promotion's plan comment always shows the totals and every action, and says where the whole plan is when it's cut.
 """
 
+import ast
+import sys
 from pathlib import Path
 
 import pytest
@@ -151,3 +153,21 @@ def test_the_command_prints_the_comment_for_the_plan_it_is_given(
         [str(path), "--environment=prototype", "--result=success", f"--run-url={RUN}"]
     )
     assert capsys.readouterr().out == comment(PLAN, "prototype", False, RUN)
+
+
+def test_the_script_imports_the_standard_library_alone() -> None:
+    source = Path(plan_comment.__file__).read_text(encoding="utf-8")
+    imports = [
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Import | ast.ImportFrom)
+    ]
+    assert not [node for node in imports if getattr(node, "level", 0)]
+    names = {
+        (node.module or "" if isinstance(node, ast.ImportFrom) else alias.name).split(
+            "."
+        )[0]
+        for node in imports
+        for alias in node.names
+    }
+    assert names <= sys.stdlib_module_names

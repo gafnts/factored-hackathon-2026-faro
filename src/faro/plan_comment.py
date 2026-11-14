@@ -2,6 +2,9 @@
 A promotion's plan as the comment its reviewers read (ADR-0009): the totals and every action first, then the plan
 without the lines Terraform prints while it refreshes. A comment ends at 65,536 characters, so a plan that doesn't fit
 is cut where a line ends, and the comment says so and names the run that keeps the whole file.
+
+The comment job runs this file with nothing installed, beside a token that writes to pull requests, so it imports
+the standard library alone.
 """
 
 import argparse
