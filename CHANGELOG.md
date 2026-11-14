@@ -8,7 +8,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ### Security
 
-- opentelemetry-api's denial of service through slow `traceparent` parsing ([GHSA-mf5v-w3w3-f6cg], moderate) is accepted until 2026-12-15: the slow path needs a newline inside the header's value, which the Runtime's HTTP parser refuses, and no fixed version fits ADOT 0.22.0, the latest, which requires the API at exactly 1.45.1 ([ADR-0010](docs/adr/0010-gate-merges-on-advisories.md)).
+- opentelemetry-api's denial of service through slow `traceparent` parsing ([GHSA-mf5v-w3w3-f6cg], moderate) is accepted until 2026-12-15: the slow path needs a newline inside the header's value, which the Runtime's HTTP parser refuses, and no fixed version fits ADOT 0.22.0, the latest, which requires the API at exactly 1.45.1 ([ADR-0010](docs/adr/0010-gate-merges-on-advisories.md), [#213]).
 
 ### Added
 
@@ -301,6 +301,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#208]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/208
 [#210]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/210
 [#211]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/211
+[#213]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/213
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
