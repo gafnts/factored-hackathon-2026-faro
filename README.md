@@ -24,7 +24,7 @@
 > [!NOTE]
 > **Try it.** Open [faro.gabriel.com.gt](https://faro.gabriel.com.gt/chat) and press *Entrar como invitado* (*Entrar como convidado* in Portuguese): you enter as one of the bank's synthetic customers, with no account and nothing to give. The page says what we keep of a visit before you enter ([ADR-0007](docs/adr/0007-role-gated-web-app.md#the-guest-entry)).
 >
-> **For the judges.** The prototype runs at [faro.gabriel.com.gt](https://faro.gabriel.com.gt). The credentials for its customer personas and the human agent reached the organizers with the submission and are in no file here. The [slides](docs/slides.pdf) are in this repository and the [video pitch](https://www.youtube.com/watch?v=3lSxTLhZ7FY) is unlisted on YouTube. Anyone else can deploy their own copy: see [Self-hosting](#self-hosting).
+> **First place.** Faro won the Factored AI &amp; Data Hackathon 2026. The [slides](docs/slides.pdf) present it, and anyone can deploy their own copy: see [Self-hosting](#self-hosting).
 
 ---
 
@@ -38,14 +38,14 @@ A LATAM Bank customer spots a charge on their credit card that they didn't make,
   <a href="https://faro.gabriel.com.gt"><img src="docs/images/chat.png" alt="The chat: the charge found, the block confirmed with the button, the reference given" width="100%"></a>
 </p>
 
-In the [console](https://faro.gabriel.com.gt/cases), a human agent sees the case within seconds: the request, every verified fact next to the tool call that read it, the confirmed block, and the customer's own words kept apart from the facts. Nothing to read back, nothing to ask twice. Had the customer cancelled the block, the card would still be live with a charge they don't recognize, so the same case would have arrived marked urgent, for a person to act on first.
+In the console, a human agent sees the case within seconds: the request, every verified fact next to the tool call that read it, the confirmed block, and the customer's own words kept apart from the facts. Nothing to read back, nothing to ask twice. Had the customer cancelled the block, the card would still be live with a charge they don't recognize, so the same case would have arrived marked urgent, for a person to act on first.
 
 <p align="center">
-  <a href="https://faro.gabriel.com.gt/cases"><img src="docs/images/cases.png" alt="The console: the case with its evidence, seconds after the chat filed it" width="100%"></a>
+  <img src="docs/images/cases.png" alt="The console: the case with its evidence, seconds after the chat filed it" width="100%">
 </p>
 
 > [!IMPORTANT]
-> LATAM Bank and every customer in it are synthetic, from the organizers' dataset. This journey runs end to end on the prototype, and the browser suite replays it as a test, in Portuguese, against each deployed stack before we promote it ([ADR-0007](docs/adr/0007-role-gated-web-app.md#judges-access)).
+> LATAM Bank and every customer in it are synthetic, from the organizers' dataset. This journey runs end to end on the prototype, and the browser suite replays it as a test, in Portuguese, against each deployed stack ([tests](tests/README.md)).
 
 ### Why Faro exists
 
