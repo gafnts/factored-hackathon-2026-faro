@@ -30,4 +30,4 @@ The first four take twenty minutes. The rest is the appendix: the full reasoning
 | [policy/](policy/) | The [card support policy](policy/card-support.md): what Faro answers, does, and refuses, one ID per rule |
 | [prerequisites.md](prerequisites.md) | What the hackathon's organizers evaluated, with the stable requirement IDs our documents cite |
 | [product/](product/) | The [product brief](product/brief.md) and the [identity guide](product/identity.md) |
-| [slides.pdf](slides.pdf) | The submission's deck |
+| [slides.pdf](slides.pdf) | The pitch as presented at the award ceremony, on 2026-10-23; its figures are that day's |

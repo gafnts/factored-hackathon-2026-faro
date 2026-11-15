@@ -22,9 +22,7 @@
 </p>
 
 > [!NOTE]
-> **Try it.** Open [faro.gabriel.com.gt](https://faro.gabriel.com.gt/chat) and press *Entrar como invitado* (*Entrar como convidado* in Portuguese): you enter as one of the bank's synthetic customers, with no account and nothing to give. The page says what we keep of a visit before you enter ([ADR-0007](docs/adr/0007-role-gated-web-app.md#the-guest-entry)).
->
-> **First place.** Faro won the Factored AI &amp; Data Hackathon 2026. The [slides](docs/slides.pdf) present it, and anyone can deploy their own copy: see [Self-hosting](#self-hosting).
+> **Faro won first place** at the Factored AI &amp; Data Hackathon 2026, with [this pitch](docs/slides.pdf). Now anyone can try it: open [faro.gabriel.com.gt](https://faro.gabriel.com.gt/chat) and press *Entrar como invitado* to enter as one of the bank's synthetic customers, with no account.
 
 ---
 

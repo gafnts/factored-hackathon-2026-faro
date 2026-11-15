@@ -113,8 +113,8 @@ Light at dusk: a warm lamp against a cold sea. The palette runs from the lamp's 
 
 | Mode | Ground | For |
 |---|---|---|
-| **Night** | Black, with the banner's grid | The site's pages (the customer's sign-in and chat, the human agent's sign-in and console), the slides' covers |
-| **Paper** | A warm light gray | Work read at length off the site: the evaluation report and the slides' content |
+| **Night** | Black, with the banner's grid | The site's pages (the customer's sign-in and chat, the human agent's sign-in and console), and the slides |
+| **Paper** | A warm light gray | Work read at length off the site: the evaluation report |
 
 A customer reporting a stolen card needs a calm page, not a dramatic one. On Paper the light ground gives that calm; on Night restraint does: one accent, the navigation lights' green and red only on a status beside its word, no motion but the arrival, the sweep, the beacon, the line that marks a chosen tab or language, and the rail's easing, and the grid only where nothing is being read. The console is Night so the site reads as one product, but staff read it for long stretches, so past its sign-in it takes less of the banner: no grid or glow, and solid panels rather than glass.
 
@@ -146,7 +146,7 @@ Every text color meets WCAG AA (4.5:1) on its mode's ground and on its raised su
 
 Text on glass meets the same ratios over the brightest thing that can sit behind it; a lit cell would drop `bone-muted` to 4.0:1, so none sits behind text or glass. Measured on the built pages, the lowest ratios are the composer's placeholder over the glow, 5.9:1, the rail's icons over a scrolling conversation, 5.3:1, and `bone-muted` and `lamp` on the console's lit open row, 4.7:1.
 
-The horizon, for the slides' covers, never behind text:
+The horizon, for the slides' closing page, never behind text:
 
 ```css
 background: radial-gradient(circle at 110% 115%,
@@ -181,7 +181,7 @@ The mark isn't drawn yet; until it is, the wordmark stands alone, as in the bann
 
 ### Motifs
 
-- **Numbered labels.** Mono capitals, numbered: `No. 1 RESOLVE`, `No. 2 ASK OR DECLINE`, `No. 3 HAND OFF`, the organizers' three paths (SCP-03 to SCP-05). They order the slides, the [product brief](brief.md#what-faro-does), and the suggestions under the empty chat's composer (`01` to `03`).
+- **Numbered labels.** Mono capitals, numbered: `No. 1 RESOLVE`, `No. 2 ASK OR DECLINE`, `No. 3 HAND OFF`, the organizers' three paths (SCP-03 to SCP-05). They name the paths on the slides, and order the [product brief](brief.md#what-faro-does) and the suggestions under the empty chat's composer (`01` to `03`).
 - **The grid.** The banner's: hairlines, a block cleared at the center for the wordmark, the empty chat's question and composer, or the sign-in form, and a few cells lit in `sea` with a `glow` bloom in the outer columns; a page too narrow for them (a phone's sign-in, a tablet's upright, or one the open rail narrows) lights the rows above and below the block instead, and one too short for those lights none, the cells fading out and in as the rail opens and closes. It sits behind the two sign-ins and the empty chat, still but for the beacon, and leaves once a conversation starts or the console opens. Its hairlines run on under the rail and the bar; its lit cells keep clear of them, of text, and of glass, and a phone's empty chat has none.
 - **The glow.** The lit cells' two colors as one soft light behind the empty chat's composer, and nowhere else; the question above it keeps AA at its edge (Palette), and it goes with the grid.
 - **Glass.** Smoked glass for what floats over the grid or the glow and carries something: the composer, the suggestions, the controls, the sign-in cards, and the missing page's card. `night-raised` at 80%, a 24 px backdrop blur, and a hairline of white at 10%; the rail, the bar, and the customers' sign-in's foot are thinner, at 55%, with a hairline on their inner edge. Replies sit on the ground, never on glass, the cards and transactions they list included: each card in a hairline frame like the confirm control's, and a list of transactions, or several cards' credit, in one frame, with a hairline between rows; the console's panels float over nothing, so they are solid `night-raised`. Under `prefers-reduced-transparency` the glass turns solid.
@@ -199,6 +199,6 @@ The mark isn't drawn yet; until it is, the wordmark stands alone, as in the bann
 | `/cases` | Night | The console's bar, as on its sign-in; the rail with the sign-out; the queues and the case on solid panels; Geist Mono for references, reason codes, rule IDs, tool calls, and labels; urgent cases in `lamp` and verified actions in `sea`, each with its word |
 | A missing page | Night | The bar with the wordmark, and one card on glass, as the sign-in form's, holding only *Error 404* as a label in `sea`, *Página no encontrada*, and *Volver al inicio*, which leads to the chat |
 | The evaluation report | Paper | `docs/evaluation/`, labeled as an offline measurement in its header (EVL-13) |
-| Slides | Night covers, Paper content | The banner, the three numbered paths, and the demo in the chat's own colors |
+| Slides | Night | The banner's grid on the cover, the three numbered paths, the diagrams in the site's colors, and the horizon on the closing page |
 
 LATAM Bank's name is set in Geist Medium, in `ink` or `bone`, with no mark: the bank is the organizers' fiction, and we don't invent a brand for it. The console is the bank's tool, so its bar reads *LATAM Bank | Consola de casos* before the sign-in and after: the console's name in Geist, in `bone-muted`, after a hairline. Every tab, the customer's and the console's, is titled *LATAM Bank • Faro*: the bank's name first, as on its sign-in. Every page says it is a prototype over synthetic data (SEC-02, [ADR-0007](../adr/0007-role-gated-web-app.md#routes)).
