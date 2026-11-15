@@ -77,7 +77,7 @@ The stack: AgentCore Runtime and Gateway, LangGraph, Cognito, Cedar, DynamoDB, C
 
 ## Evaluation
 
-Offline: scripted conversations played against the deployed stack and graded by code against an oracle, our own code that applies the policy to the frozen bank and shares nothing with Faro's tools. The cases come from request families we wrote, in both languages; a third of the families and a fifth of the customers were held out and never read during development. Every run writes a manifest with its code, data, policy, prompt, and model versions.
+Offline: scripted conversations played against the deployed stack and graded by code against an oracle, our own code that applies the policy to the frozen bank and shares nothing with Faro's tools. The cases come from request families, in both languages. A fifth of the customers, and wording kept out of development, are held out, and the reported numbers come from them. Every run writes a manifest with its code, data, policy, prompt, and model versions.
 
 <p align="center">
   <img src="docs/images/evaluation.png" alt="The evaluation" width="100%">
