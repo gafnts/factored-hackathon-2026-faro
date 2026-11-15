@@ -38,10 +38,10 @@ A LATAM Bank customer spots a charge on their credit card that they didn't make,
   <a href="https://faro.gabriel.com.gt"><img src="docs/images/chat.png" alt="The chat: the charge found, the block confirmed with the button, the reference given" width="100%"></a>
 </p>
 
-In the console, a human agent sees the case within seconds: the request, every verified fact next to the tool call that read it, the confirmed block, and the customer's own words kept apart from the facts. Nothing to read back, nothing to ask twice. Had the customer cancelled the block, the card would still be live with a charge they don't recognize, so the same case would have arrived marked urgent, for a person to act on first.
+In the [console](https://faro.gabriel.com.gt/cases), a human agent sees the case within seconds: the request, every verified fact next to the tool call that read it, the confirmed block, and the customer's own words kept apart from the facts. Nothing to read back, nothing to ask twice. Had the customer cancelled the block, the card would still be live with a charge they don't recognize, so the same case would have arrived marked urgent, for a person to act on first.
 
 <p align="center">
-  <img src="docs/images/cases.png" alt="The console: the case with its evidence, seconds after the chat filed it" width="100%">
+  <a href="https://faro.gabriel.com.gt/cases"><img src="docs/images/cases.png" alt="The console: the case with its evidence, seconds after the chat filed it" width="100%"></a>
 </p>
 
 > [!IMPORTANT]
