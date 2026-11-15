@@ -1,6 +1,6 @@
 # Contributing
 
-This guide takes you from a fresh clone to a working setup for whichever part of the project you're touching. The repo holds the Python package, the web app, and the Terraform infrastructure for Faro, which runs on AWS in two environments: `local`, for iterating from a laptop, and `prototype`, the hosted environment behind the hackathon submission.
+This guide takes you from a fresh clone to a working setup for whichever part of the project you're touching. The repo holds the Python package, the web app, and the Terraform infrastructure for Faro, which runs on AWS in two environments: `local`, for iterating from a laptop, and `prototype`, the hosted environment anyone can open at [faro.gabriel.com.gt](https://faro.gabriel.com.gt).
 
 Setup commands are idempotent, so re-running one after a failure is always safe, and `make doctor` tells you at any point which steps are done and which are left.
 
@@ -43,7 +43,7 @@ Most contributions need no AWS access at all. Find the row that matches what you
 | Run the whole stack in your own AWS account | Admin access to an AWS account, and your own fork of this repository | [Steps 1 and 3](#3-deploy-your-own-copy), plus step 2 when you need the data |
 | Check our reported numbers | The toolchain to start; a copy of the dataset and your own stack for the later checks | [Reproduce the results](#reproduce-the-results) |
 
-No path depends on the maintainers' AWS account or credentials. Resource names are derived from the account you sign in to, so a second copy of the project never collides with the first.
+No path depends on our AWS account or credentials. Resource names are derived from the account you sign in to, so a second copy of the project never collides with the first.
 
 Found a vulnerability? Don't open an issue or a pull request: report it privately, as [SECURITY.md](SECURITY.md) says.
 
@@ -56,7 +56,7 @@ Found a vulnerability? Don't open an issue or a pull request: report it privatel
 | Environment | Deployed by | When | Purpose |
 |---|---|---|---|
 | `local` | You, from your laptop | When you run `make apply` | Iterating on infrastructure |
-| `prototype` | GitHub Actions | On every promotion, a merge to `main` | The hosted prototype linked from the submission |
+| `prototype` | GitHub Actions | On every promotion, a merge to `main` | The hosted prototype, open to visitors |
 
 Both live in the same AWS account. Each has its own Terraform state file, its own deploy role, and its own `Environment=<env>` tag, and a deploy role is denied any resource tagged for the other environment. `prototype` runs on synthetic data and mock banking tools, and is deliberately not called production.
 
@@ -356,7 +356,7 @@ CI runs the quality gates, and the PR merges once they pass. Nothing deploys fro
 A few habits keep PRs quick to review:
 
 - Write commit subjects in the imperative mood, as the history does ("Add IAM bootstrap module for deploy roles").
-- Cite the requirement IDs from [docs/prerequisites.md](docs/prerequisites.md) (for example `SEC-05`) in the PR description and in the tests that cover them, so every change traces back to what the organizers score.
+- Cite the requirement IDs from [docs/prerequisites.md](docs/prerequisites.md) (for example `SEC-05`) in the PR description and in the tests that cover them, so every change traces back to a requirement.
 - Mirror the package in `tests/`: the tests for `src/faro/<path>/<module>.py` live in `tests/faro/<path>/test_<module>.py`, and fixtures shared by a folder go in its `conftest.py`. The web app's tests mirror `web/src/` in `web/tests/` the same way (`<module>.test.ts`).
 - Add an ADR when the change makes a decision someone could reasonably question later (see [Record decisions](#record-decisions)).
 - Add a line under `Unreleased` in [CHANGELOG.md](CHANGELOG.md) when someone using the prototype, or maintaining it, would notice the change.
@@ -403,7 +403,7 @@ make browser            # Play the chat and the console in Chromium
 make suites             # Both, browser first, as a promotion's full check
 make smoke              # Ask about the smoke user's cards and enter as a guest, as the check after a deploy does
 make probe              # Time the Runtime and check what it stores and traces
-make judges             # Manage the judges' users, kept in data/judges/
+make judges             # Manage the invited users, customers and staff, kept in data/judges/
 make smoke-user         # Create or reset the check's customer, kept in data/smoke/
 make staff WHO=<user>   # Put a staff user on the staff allowlist (WHAT=remove takes one off)
 make label-users        # Once per environment: label the users made before the labels (DRY=1)
@@ -538,9 +538,9 @@ make relabel-agreement          # Score the filled sheet against the labels
 
 A promotion is a release ([ADR-0009](docs/adr/0009-release-checked-deploys.md)): cut on `develop` first, deployed and checked from `main`, and named last.
 
-1. **Cut the release.** When `develop` is in a state you'd be happy for judges to see, add a line under `Unreleased` for anything merged without one, such as Dependabot's PRs, and run `make cut` on a branch from `develop`. It takes the next minor version, or with `BUMP=patch` the next patch, for a promotion that only fixes the last release; it sets `version` in `pyproject.toml` and `uv.lock` with uv and moves `Unreleased`'s entries under `## [x.y.z] - date (Promotion N)`, leaving `Unreleased` empty. Merge it into `develop` through a PR. `make cut` warns when the last version has no release: its check failed, or `make release` never ran.
-2. **Open the promotion** from `develop` into `main`, titled with the version and naming the base, since new PRs target `develop`: `gh pr create --base main --title v1.6.0`. It's final when it opens. **Restrict merges to main** refuses it unless the release is cut: `Unreleased` empty, the changelog's top version the same as `pyproject.toml`'s, and that version not yet tagged. CI builds the zips and the site without credentials, plans `prototype` from them, and posts a sticky **Terraform Plan · `prototype`** comment for reviewers. The comment opens with the plan's totals and every action, then the plan itself. When the plan is longer than a comment, the comment says where it's cut, and the run's `plan` artifact keeps the whole file for 7 days.
-3. **Merge** with **Create a merge commit**: a squash or rebase puts commits on `main` that `develop` never gets, and the next promotion then carries the whole history again. The deploy run builds again, applies, uploads the site, checks that each Lambda and the Runtime run the build's zips (`make verify`), and then signs the smoke user in and asks about its cards (`make smoke`). The deployment links the site's URL, the one the submission gives (SUB-02). A red run gets no release, and nothing rolls back: the fix ships as a patch release, through `develop` like any change.
+1. **Cut the release.** When `develop` is in a state you'd be happy for visitors to use, add a line under `Unreleased` for anything merged without one, such as Dependabot's PRs, and run `make cut` on a branch from `develop`. It takes the next minor version, or with `BUMP=patch` the next patch, for a promotion that only fixes the last release; it sets `version` in `pyproject.toml` and `uv.lock` with uv and moves `Unreleased`'s entries under `## [x.y.z] - date (Promotion N)`, leaving `Unreleased` empty. Merge it into `develop` through a PR. `make cut` warns when the last version has no release: its check failed, or `make release` never ran.
+2. **Open the promotion** from `develop` into `main`, titled with the version and naming the base, since new PRs target `develop`: `gh pr create --base main --title v1.6.0`. It's final when it opens. **Restrict merges to main** refuses it unless the release is cut: `Unreleased` empty, the changelog's top version the same as `pyproject.toml`'s, and that version not yet tagged. CI builds the zips and the site without credentials, plans `prototype` from them, and posts a sticky **Terraform Plan · `prototype`** comment. The comment opens with the plan's totals and every action, then the plan itself. When the plan is longer than a comment, the comment says where it's cut, and the run's `plan` artifact keeps the whole file for 7 days.
+3. **Merge** with **Create a merge commit**: a squash or rebase puts commits on `main` that `develop` never gets, and the next promotion then carries the whole history again. The deploy run builds again, applies, uploads the site, checks that each Lambda and the Runtime run the build's zips (`make verify`), and then signs the smoke user in and asks about its cards (`make smoke`). The deployment links the site's URL (SUB-02). A red run gets no release, and nothing rolls back: the fix ships as a patch release, through `develop` like any change.
 4. **Run the suites, for a promotion that changes the app.** Once the deploy run has passed, run both suites against `prototype`: `AWS_PROFILE=default make suites ENV=prototype`, about 16 minutes and a quarter of a dollar in model calls. They're the full check the deploy's smoke test stands in for ([ADR-0009](docs/adr/0009-release-checked-deploys.md)), and they run as the stack's role for them. Their invited customers spend about 50 of the day's capped turns and are refused while the chat is paused, so check `make cap ENV=prototype` first, and raise the cap for the run if the day is near it. A failure stops the release like a red run: the fix ships as a patch.
 5. **Name the release.** Once the deploy run for `main`'s head has passed, its check included, run `make release` (`DRY=1` previews it). It tags that commit `vx.y.z` and makes the GitHub release, whose notes are the version's section and the build's SHA-256, so anyone can check out the tag, build, and compare. It refuses unless the run passed and the heading, `pyproject.toml`, and the tag agree. No workflow holds a token that can write to the repository, so this step is ours.
 6. **Fast-forward `develop` to `main`.** The merge commit is the only commit `main` has that `develop` lacks, so after this step any commit on `main` and not on `develop` reached `main` some other way:
@@ -636,7 +636,7 @@ Run `make help` for every target.
 | `GITHUB_OIDC_SUBJECT_PREFIX` | Read from GitHub for `origin` | `make bootstrap` |
 | `DATA_DIR` | `data` | The pipeline and evaluation targets, for a worktree whose `data/` is empty |
 | `SLOW` | Unset | Set to `1` to add the tests that wait out a token to `make integration` |
-| `WHAT`, `JUDGE` | `create`, every judge | `make judges`: `create`, `reset`, `sign-out`, `disable`, `enable`, or `delete` |
+| `WHAT`, `JUDGE` | `create`, every invited user | `make judges`: `create`, `reset`, `sign-out`, `disable`, `enable`, or `delete` |
 | `WHO`, `WHAT` | None, `add` | `make staff`: the staff user, and `add` or `remove` |
 | `TURNS` | Unset | `make cap`: the cap on the day's turns to set; 0 pauses the chat |
 | `GUESTS` | Unset | `make cap`: the cap on the guests the guest entry makes in a day, to set |
@@ -719,5 +719,5 @@ Gitignored files worth knowing about:
 - `.envrc`: your local `AWS_PROFILE`
 - `mise.local.toml`: your own changes to `mise.toml`, which mise reads on top of it
 - `.env`, `.env.*`: local secrets, such as the Anthropic API key `make model-key` stores; the tracked `.env.example` lists their variables
-- `data/`: the dataset snapshots, the personas, the pipeline's DuckDB file, the exports, the evaluation's sets and run evidence, and the judges' credentials and private note; nothing under it may ever be committed
+- `data/`: the dataset snapshots, the personas, the pipeline's DuckDB file, the exports, the evaluation's sets and run evidence, and the invited users' credentials and private note; nothing under it may ever be committed
 - `docs/hackathon/`: the organizers' materials, including the dataset keys
