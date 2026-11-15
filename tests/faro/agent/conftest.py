@@ -44,6 +44,7 @@ from faro.agent.models import (
     TransactionChoice,
 )
 from faro.agent.retries import Retries
+from faro.agent.sessions import MemoryBindings
 from faro.agent.texts import fill, render, values
 from faro.tools import handoff
 from faro.tools.cases import MemoryCases, MemoryFlags
@@ -365,12 +366,12 @@ class FileHandoffLambda:
         }
 
 
-class MemoryBindings:
-    def __init__(self) -> None:
-        self.bound: dict[str, str] = {}
+@dataclass
+class RecordedEnding:
+    ended: list[tuple[str, str]] = field(default_factory=list)
 
-    def bind(self, session_id: str, sub: str, at: datetime) -> bool:
-        return self.bound.setdefault(session_id, sub) == sub
+    def end_later(self, token: str, session_id: str) -> None:
+        self.ended.append((token, session_id))
 
 
 @dataclass
@@ -416,6 +417,7 @@ class Harness:
         self.script = Script()
         self.records = MemoryRecords()
         self.bindings = MemoryBindings()
+        self.ending = RecordedEnding()
         self.saver = InMemorySaver()
         self.graph = build(self.saver)
         self.bank = Bank()
@@ -453,6 +455,7 @@ class Harness:
             filing=Filing(SETTINGS.file_handoff_function, self.lambda_client, now),
             now=now,
             retries=Retries(sleep=self.slept),
+            ending=self.ending,
         )
         self.waits: list[float] = []
         monkeypatch.setattr(entrypoint, "services", lambda: self.services)

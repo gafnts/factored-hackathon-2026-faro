@@ -177,7 +177,16 @@ function Thread({
   problem: Problem | null;
 }) {
   const texts = TEXTS[language].chat;
-  const running = useAuiState((state) => state.thread.isRunning);
+  // The sweep leaves as the reply's text lands, not as the run ends a moment later, so the conversation doesn't drop
+  // by the sweep's height under a reply that has just arrived.
+  const working = useAuiState((state) => {
+    if (!state.thread.isRunning) return false;
+    const last = state.thread.messages.at(-1);
+    return !(
+      last?.role === "assistant" &&
+      last.content.some((part) => part.type === "text" && part.text !== "")
+    );
+  });
   const pending = useAgUiInterrupts().length > 0;
   const steerAway = useAgUiSteerAway();
   const aui = useAui();
@@ -207,7 +216,7 @@ function Thread({
                 message.role === "user" ? <UserMessage /> : <AssistantMessage />
               }
             </ThreadPrimitive.Messages>
-            {running && <Working label={texts.working} />}
+            {working && <Working label={texts.working} />}
           </div>
           <ThreadPrimitive.ViewportFooter className="sticky bottom-0 bg-linear-to-t from-night from-60% to-transparent pt-6 pb-8">
             <div className="mx-auto w-full max-w-3xl px-4 sm:max-w-[calc(12*var(--cell)+1px+3rem)] sm:px-6">

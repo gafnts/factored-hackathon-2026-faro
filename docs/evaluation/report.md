@@ -3,13 +3,13 @@
 > [!IMPORTANT]
 > **Every number here is an offline measurement (EVL-13).** We played scripted conversations against the deployed prototype and graded them by code. Nothing here was measured on real customers, and no saving below was observed in production. The ROI section is a projection and says so.
 
-This page reads the numbers in [results.md](results.md), which `make eval-report` writes from the runs' stored grades. The method is [ADR-0005](../adr/0005-offline-scenario-evaluation.md); the metrics are the organizers' M-01 to M-05 as [prerequisites.md](../prerequisites.md#metric-definitions) defines them. The runs themselves are listed in [runs.md](runs.md), and every case the system and the oracle disagree on is triaged in [disagreements.md](disagreements.md). Limitations, production readiness, and remaining risks have [their own page](limitations.md).
+This page reads the numbers in [results.md](results.md), which `make eval-report` writes from the runs' stored grades. The method is [ADR-0005](../adr/0005-offline-scenario-evaluation.md); the metrics are the organizers' M-01 to M-05 as [prerequisites.md](../prerequisites.md#metric-definitions) defines them. The runs themselves are listed in [runs.md](runs.md), and every case the system and the oracle disagree on is triaged in [disagreements.md](disagreements.md). Limitations, production readiness, and remaining risks have [their own page](limitations.md). This is the submission's report; what we found on its cases afterwards is in [its study's record](studies/held-out-1.md#record).
 
 ## In short
 
 - **Safe automated resolution (M-01):** 65% of the 602 conversation cases, in each of the runs, against 43% for the deterministic baseline on the same cases. Paired on the cases, the system resolves 22 points more (interval 18 to 26).
 - **Escalation quality (M-03):** 98% of the 136 cases the policy hands off were transferred with the right reason, queue, priority, and a payload holding the expected facts; 2 were missed, none was unnecessary. The baseline transferred 60% right and missed 51.
-- **Unsafe outcomes (M-04):** no disclosure and no unauthorized action in any run (0 of 608, bound 0.6%). Five cases counted as materially incorrect, all of one kind: a fact written in the other language or in a format the grader doesn't read, never an invented block, a wrong card, or a missed handoff. The hypothesis we stated before the first run held.
+- **Unsafe outcomes (M-04):** no disclosure and no unauthorized action in any run (0 of 608, bound 0.6%). Five cases counted as materially incorrect: a fact written in the other language, or a transaction other than the one the customer meant, never an invented block or a missed handoff. The hypothesis we stated before the first run held.
 - **Efficiency (M-05):** a turn answers in about 4.1 s at the median and under 6 s at the 95th percentile; a run of 608 cases costs about 5 USD in model calls, 0.9 cents per attempted case and 1.3 cents per resolution, AWS charges not included.
 - **The ROI, as a projection:** per 1,000 card contacts that reach the chat, about 650 resolved without a person, 37 hours of a person's time, and 640 to 3,240 USD at 1 to 5 USD per human contact. The data holds no cost per contact, so that parameter is ours ([ROI](#roi-a-projection)).
 - **Repeatability:** the three runs agree within half a point on M-01 (65.1% to 65.5%) and exactly on M-03; 391 of 602 cases pass M-01 in all three runs. The failures are the same cases each time, two single messages aside.
@@ -76,7 +76,7 @@ The access and expired-session cases are decided by the deployed stack's authori
 | Materially incorrect | 5 | 608 | A wrong fact stated as verified, a block reported but not verified, a required handoff missing |
 | Unverified | 0 | 608 | A block reported before the record showed it |
 
-Zero observed in 608 cases bounds the rate at 0.6% (rule of three); it doesn't establish zero risk. The five incorrect cases sit above the line we drew for "unsafe", so read them: in two the facts are right and written in the other language (D-012, D-015); in three the grader reads a transaction or a code's meaning as missing while a figure is read as extra, which is either the same value in another format or a figure the reply invented, and the stored replies settle which (D-015). None of the five blocked a card, named a wrong card, or dropped a handoff.
+Zero observed in 608 cases bounds the rate at 0.6% (the interval's upper end; the rule of three gives 0.5%); it doesn't establish zero risk. The five incorrect cases sit above the line we drew for "unsafe", so read them: in two the facts are right and written in the other language (D-012, D-015); in three the reply shows a transaction other than the one the customer meant, disputed in the charge cases and shown as approved in a decline case. The triage of 2026-11-02 settled that from the stored replies: none is the same value in a format the grader missed (D-015). None of the five blocked a card or dropped a handoff.
 
 **By language (EVL-12).** Spanish 66% and Portuguese 65% on M-01, 97% and 99% on M-03; the five incorrect cases of M-04 are all Spanish. Every difference is inside the intervals. Portuguese rests on messages we wrote, since no customer in the data writes it; the result says the chat handles our Portuguese as well as our Spanish, not more.
 
@@ -95,7 +95,7 @@ Every failed case is counted and classified in results.md, [Failures](results.md
 5. **The tool-failure group, 24 of 40.** Those 24 are the "block that doesn't verify" fault, whose cases hand off by design and so read zero on M-01 and 100% on M-03; the 16 that resolve are the read that recovers. The group's 40% is the definition, not a failure.
 6. **One error each in runs 2 and 3,** a different case each time: the Runtime answered a 502 on the case's first turn, so the case has no model call and no reply. Each counts as failed in the error class; the harness's own retry covers a model call, not the Runtime's gateway.
 
-**M-04 and the unsafe line, in one sentence:** M-04 counts materially incorrect outcomes beside disclosures and actions, so it can sit above zero while no card was blocked wrongly and no data left the customer's own records; the five it holds are facts in the other language or in another format.
+**M-04 and the unsafe line, in one sentence:** M-04 counts materially incorrect outcomes beside disclosures and actions, so it can sit above zero while disclosures and unauthorized actions stay at zero; the five it holds are facts in the other language, or a transaction other than the one the customer meant.
 
 ## Against the baseline
 

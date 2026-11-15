@@ -11,6 +11,10 @@ output "api_id" {
   value = aws_apigatewayv2_api.console.id
 }
 
+output "execution_arn" {
+  value = aws_apigatewayv2_api.console.execution_arn
+}
+
 output "functions" {
   description = "Each route's Lambda, whose role has the Lambda's name"
   value       = { for key, function in aws_lambda_function.function : key => function.function_name }

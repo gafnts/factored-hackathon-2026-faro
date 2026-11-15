@@ -334,8 +334,13 @@ def test_the_console_api_is_served_as_designed(outputs: dict[str, Any]) -> None:
     assert sorted(r["RouteKey"] for r in routes) == [
         "GET /api/cases",
         "GET /api/cases/{reference}",
+        "POST /api/guest",
     ]
     for route in routes:
+        if route["RouteKey"] == "POST /api/guest":
+            # A stranger has no token yet, so the guest entry's route has no authorizer (ADR-0007, The guest entry).
+            assert route["AuthorizationType"] == "NONE"
+            continue
         assert (route["AuthorizationType"], route["AuthorizationScopes"]) == (
             "JWT",
             ["aws.cognito.signin.user.admin"],
@@ -345,6 +350,8 @@ def test_the_console_api_is_served_as_designed(outputs: dict[str, Any]) -> None:
         20,
         40,
     )
+    guest = stage["RouteSettings"]["POST /api/guest"]
+    assert (guest["ThrottlingRateLimit"], guest["ThrottlingBurstLimit"]) == (2, 5)
     logged = stage["AccessLogSettings"]["Format"]
     assert not any(v in logged for v in ("sourceIp", "userAgent", "path", "claims"))
 

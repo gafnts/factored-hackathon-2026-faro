@@ -37,6 +37,7 @@ from faro.agent.gateway import DENIED, Gateway
 from faro.agent.graph import build
 from faro.agent.models import Factory
 from faro.agent.retries import Retries, no_wait
+from faro.agent.sessions import MemoryBindings
 from faro.evaluation import cases
 from faro.evaluation.customer import Customer, ScriptError, Send
 from faro.tools import block, handoff, reads
@@ -111,14 +112,6 @@ class Records:
         return [{k: e[k] for k in attributes if k in e} for e in found]
 
 
-class Bindings:
-    def __init__(self) -> None:
-        self.bound: dict[str, str] = {}
-
-    def bind(self, session_id: str, sub: str, at: datetime) -> bool:
-        return self.bound.setdefault(session_id, sub) == sub
-
-
 class Claimed:
     """
     Cognito's GetUser, answered from the token's own claims.
@@ -172,7 +165,7 @@ class Stack:
         self.services = Services(
             settings=settings,
             graph=build(InMemorySaver()),
-            bindings=Bindings(),
+            bindings=MemoryBindings(),
             records=self.records,
             fetch_key=self.fetch_key,
             models=lambda key: models,

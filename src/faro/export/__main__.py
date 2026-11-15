@@ -1,5 +1,6 @@
 """
-Command line for make personas and make tiny-export. It prints counts, never a customer's ID or values (SEC-03).
+Command line for make personas, make tiny-export, and make guest-list. It prints counts, never a customer's ID or
+values (SEC-03).
 """
 
 import argparse
@@ -13,7 +14,7 @@ import boto3
 import duckdb
 from botocore.exceptions import BotoCoreError, ClientError
 
-from faro import personas
+from faro import guest_list, judges, personas
 from faro.analysis.catalog import CUSTOMERS, PRODUCTS, TRANSACTIONS
 from faro.analysis.source import (
     AnalysisError,
@@ -25,6 +26,7 @@ from faro.analysis.source import (
 from faro.dataset.lock import Lock, LockError, read_lock
 from faro.dataset.snapshot import SnapshotError, data_bucket_name, snapshot_dir
 from faro.export import items, tiny
+from faro.guest.customers import ListError
 
 
 def open_snapshot(
@@ -62,12 +64,37 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Then upload it to this account's data bucket",
     )
+    guests_parser = commands.add_parser(
+        "guests",
+        help="Choose the guest entry's customers from the pinned snapshot and write them to a stack",
+    )
+    guests_parser.add_argument("--stack", type=Path, required=True)
+    guests_parser.add_argument(
+        "--dry-run", action="store_true", help="Print the counts and write nothing"
+    )
     args = parser.parse_args(argv)
 
     try:
         lock = read_lock(args.lock)
         snapshot = lock.snapshot_id
         business_date, as_of = tiny.clock_from_profile(args.profile, snapshot)
+        if args.command == "guests":
+            prefix = judges.stack_outputs(args.stack)["prefix"]
+            with open_snapshot(lock, args.data_dir, as_of) as con:
+                guests = guest_list.select(con, snapshot, business_date, as_of)
+            for cell, count in guests.qualifying.items():
+                print(
+                    f"{cell}: {guest_list.PER_CELL} chosen among {count} development customers"
+                )
+            if args.dry_run:
+                print(f"Would write {len(guests.customers)} customers; wrote nothing")
+                return 0
+            region = os.environ.get("AWS_REGION", "us-east-1")
+            name = guest_list.write(
+                boto3.client("ssm", region_name=region), prefix, guests
+            )
+            print(f"Wrote {len(guests.customers)} customers to {name}")
+            return 0
         path = personas.path_for(args.data_dir, snapshot)
         if args.command == "personas":
             with open_snapshot(lock, args.data_dir, as_of) as con:
@@ -121,6 +148,9 @@ def main(argv: list[str] | None = None) -> int:
         LockError,
         SnapshotError,
         personas.PersonaError,
+        guest_list.GuestListError,
+        ListError,
+        judges.JudgesError,
         tiny.TinyExportError,
         items.ExportError,
     ) as error:

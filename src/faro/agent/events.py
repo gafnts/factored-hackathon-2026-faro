@@ -30,7 +30,7 @@ from faro.contracts import validator
 
 ERRORS = {
     "invalid_request": "The request doesn't fit the chat's contract.",
-    "session_refused": "The runtime session belongs to another user.",
+    "session_refused": "The runtime session belongs to another user, or is past its sign-in's limit.",
     "no_customer": "The token doesn't name a customer.",
     "rate_limited": "The sign-in sent more turns this minute than the limit allows.",
     "daily_limit": "The user sent more turns today than the limit allows.",

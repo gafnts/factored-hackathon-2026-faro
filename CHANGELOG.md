@@ -6,6 +6,46 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+## [1.13.0] - 2026-11-15 (Promotion 19)
+
+### Security
+
+- opentelemetry-api's denial of service through slow `traceparent` parsing ([GHSA-mf5v-w3w3-f6cg], moderate) is accepted until 2026-12-15: the slow path needs a newline inside the header's value, which the Runtime's HTTP parser refuses, and no fixed version fits ADOT 0.22.0, the latest, which requires the API at exactly 1.45.1 ([ADR-0010](docs/adr/0010-gate-merges-on-advisories.md), [#213]).
+
+### Added
+
+- A limit of three runtime sessions per sign-in. The chat keeps one, and each holds a microVM of about 1 GB until its 15-minute idle timeout whether or not a turn runs in it, so a client that drew new session IDs could keep thousands idle on one token while no limit on turns saw it. A new session's binding and its count go in one transaction; a fourth gets `session_refused`, and the entrypoint ends it at once through the caller's own token, reading the Runtime's ARN from a Parameter Store entry Terraform writes once the Runtime exists ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-08, [#207]).
+- An alarm, `sessions-refused`, for ten or more runtime sessions refused in five minutes, past their sign-in's limit or because another user holds them. It counts every source, since an honest chat meets neither; the integration suite refuses two on purpose and stays under it ([#207]).
+- The guest entry: anyone can enter Faro with one click, as one of the bank's synthetic customers. The customers' sign-in opens on the guest entry's tab, with the form on a second, "Con usuario". Each click makes a user of its own in the `customer` and `visitor` groups, as one of 24 development customers chosen by a committed rule, signs it in through the customers' client, and hands the tab its tokens; it reads nothing from the request, and the staff client refuses its users. It is `POST /api/guest` on the console API, with no authorizer, a throttle of its own, a reserved concurrency of 2, and a CloudFront behavior of its own, since the one for `/api` passes reads alone ([ADR-0007](docs/adr/0007-role-gated-web-app.md)'s amendment of 2026-11-08, [#208], [#211]).
+- A cap of 100 guests a UTC day on the cap's item, beside the turns: past it, or while the chat is paused, the guest entry makes no user and the sign-in says so, the day's end in the visitor's own time. `make cap GUESTS=` sets it, and a stack whose cap was written before it needs it once ([ADR-0004](docs/adr/0004-agent-architecture-on-agentcore.md)'s amendment of 2026-11-08, [#208]).
+- `make guest-list`, which chooses the guest entry's customers from the snapshot, four from each country by one active card or two or more, each able to play the opening's three suggestions, and writes their IDs and synthetic names to a Parameter Store entry of the stack; the repository holds the rule alone. Each environment needs it once before its guest entry works ([#208]).
+- The welcome: the rail names the customer a guest entered as, and its menu lists each card's type and last four digits beside the sign-out, which the guest entry reads through the Gateway with the visitor's own token; no status, since a block changes it during the visit ([#208], [#211]).
+- A cleanup that deletes visitors' users every hour, a day after each was made; a visitor's records and cases keep their retention ([#208]).
+- Two alarms from the guest entry's line per click, which names its outcome alone: `guests-full`, when the day's guests are reached, and `guest-entry-failing`, when a click fails, since a visitor who can't enter has no other way to tell us ([#208]).
+- The device board, `web/devices.html`: with `make web-dev` running, the app at phone, tablet and laptop sizes side by side, each frame the viewport a browser leaves the page with its toolbar shown. Vite builds `index.html` alone, so the board never ships ([#211]).
+- A browser test at an iPhone's size in Safari: neither the sign-in nor the chat scrolls sideways, the conditions' link is a whole tap target, and the newest reply of a conversation longer than the screen ends above the composer ([#211]).
+
+### Changed
+
+- `session_refused`'s message, and the chat contract's description of it, name the sign-in's limit beside another user's session; the chat's text for it is unchanged ([#207]).
+- The deploy's check also enters as a guest: it reads the visitor's cards through the Gateway, requires the welcome to name each one, and deletes the visitor with its own token, so the check still holds no AWS credentials; while the chat is paused it expects the paused answer ([ADR-0009](docs/adr/0009-release-checked-deploys.md)'s amendment of 2026-11-08, [#208]).
+- The suites' role may read the guest entry's log and run the cleanup once, for the tests that check them ([#208]).
+- The README's first lines say how to enter ([#208]).
+- The pages a reader opens first describe the open prototype: the README, the docs index, the architecture, the brief, the limitations, the identity guide, the folders' READMEs, and CONTRIBUTING say what ships since the guest entry, address visitors where they addressed the hackathon's judges, and state no count that nothing checks. CONTRIBUTING's reproduce table names the sets today's code draws and plays ([#216]).
+- The report and the limitations say what the triage of 2026-11-02 found in M-04's five cases: a fact in the other language, or a transaction other than the one the customer meant, and none a format the grader missed ([#216]).
+- The record on visitors' text is due before anyone reads a visitor's conversation, no longer before Faro opens ([ADR-0011](docs/adr/0011-pre-registered-studies.md), [#216]).
+- The bar at the foot of the customers' sign-in says only that the data is synthetic and that entering accepts these conditions, whose words open the full list. The warning not to type real data and how long conversations are kept moved to the list. On a phone its two sentences take a line each, and the conditions' words are a 44 px tap target ([#211]).
+- The conditions' dialog speaks in the bar's impersonal voice. It arrives as the page behind it blurs and darkens, and leaves faster as the page clears; a click on the backdrop closes it, as Escape and its button do, and it opens on its title with nothing pressed ([#211]).
+- The rail's sign-out moved into a menu behind the account at the rail's foot, which names a guest and is the account alone for an invited customer ([#211]).
+- The rail eases open and closed, its labels fading in once it has mostly opened, and a line of sea slides under the bar's chosen language ([#211]).
+- On phones and tablets the grid's lit cells keep to the screen: beside the block where the page holds them, above and below it where the page is narrower (a phone's sign-in, an upright tablet, or a page the open rail narrows), and off where neither fits, fading as the rail opens and closes. A phone's sign-in card is tighter, so the cells fit the page a phone's Safari leaves. The grid's lines are a little brighter ([#211]).
+- The test and build tools: globals 17.14.0 in the web app's tooling ([#210]).
+- A promotion's plan comment opens with the plan's totals and every action, leaves out the lines Terraform prints while it refreshes, and, when the plan is longer than a comment, says where it's cut and which run keeps the whole file. Before, it was the plan's first 60,000 bytes, and Promotion 18's lost its `Plan:` line. The comment job shapes it with a script of ours and installs nothing ([ADR-0009](docs/adr/0009-release-checked-deploys.md)'s amendment of 2026-11-14, [#214]).
+
+### Fixed
+
+- The working line leaves as a reply lands rather than when the run ends a moment later, so the conversation no longer drops by the line's height under a reply that has just arrived; while Faro works, the line sits where the reply will appear ([#211]).
+
 ## [1.12.0] - 2026-11-07 (Promotion 18)
 
 ### Added
@@ -200,6 +240,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judged.
 
+[1.13.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.13.0
 [1.12.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.12.0
 [1.11.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.11.0
 [1.10.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.10.0
@@ -263,6 +304,13 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#201]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/201
 [#202]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/202
 [#203]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/203
+[#207]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/207
+[#208]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/208
+[#210]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/210
+[#211]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/211
+[#213]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/213
+[#214]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/214
+[#216]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/216
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
@@ -271,3 +319,4 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [GHSA-xhq7-xmqj-769h]: https://github.com/advisories/GHSA-xhq7-xmqj-769h
 [GHSA-333x-w4r6-6crp]: https://github.com/advisories/GHSA-333x-w4r6-6crp
 [GHSA-g3hv-75wg-m249]: https://github.com/advisories/GHSA-g3hv-75wg-m249
+[GHSA-mf5v-w3w3-f6cg]: https://github.com/advisories/GHSA-mf5v-w3w3-f6cg

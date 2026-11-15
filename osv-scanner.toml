@@ -4,3 +4,8 @@
 id = "GHSA-g3hv-75wg-m249"
 ignoreUntil = 2027-01-15
 reason = "minimatch's globparts denial of service needs a pattern an attacker writes; ESLint matches only our config's, and no fix fits ESLint's ^10.2.5 or jsx-a11y's ^3.1.2"
+
+[[IgnoredVulns]]
+id = "GHSA-mf5v-w3w3-f6cg"
+ignoreUntil = 2026-12-15
+reason = "opentelemetry-api's slow traceparent parsing needs a newline inside the header's value, which the Runtime's HTTP parser refuses; ADOT 0.22.0, the latest, pins the API at 1.45.1"

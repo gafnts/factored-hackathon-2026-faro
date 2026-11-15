@@ -98,7 +98,7 @@ output "runtime_log_group" {
 }
 
 output "alarms" {
-  description = "The topic the alarms notify, the namespace of their metrics, and the metric filters on the Runtime's log group"
+  description = "The topic the alarms notify, the namespace of their metrics, and the metric filters on the Runtime's and the guest entry's log groups"
   value = {
     topic_arn      = module.alarms.topic_arn
     namespace      = module.alarms.namespace
@@ -135,5 +135,15 @@ output "site" {
     domain_records   = module.site.domain_records
     access_log_group = module.site.access_log_group
     access_delivery  = module.site.access_delivery.id
+  }
+}
+
+output "guest" {
+  description = "The guest entry's and the cleanup's Lambdas, their log groups, and the curated list's Parameter Store entry"
+  value = {
+    functions  = module.guest.functions
+    cleanup    = module.guest.cleanup.name
+    log_groups = module.guest.log_groups
+    guest_list = module.guest.guest_list
   }
 }

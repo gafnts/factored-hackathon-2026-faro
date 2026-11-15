@@ -59,7 +59,9 @@ function List({ node, children, ...props }: ComponentProps<"ul"> & ExtraProps) {
   return <ul {...props}>{children}</ul>;
 }
 
+// Nothing until the text lands, so the reply waiting for it hides and takes no place in the column.
 export function Reply({ text }: { text: string }) {
+  if (!text) return null;
   return (
     <div className="reply space-y-3">
       <Markdown

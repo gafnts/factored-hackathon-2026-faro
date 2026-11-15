@@ -167,6 +167,40 @@ describe("a turn", () => {
     expect(warmup?.body.threadId).toBe(message?.body.threadId);
   });
 
+  test("takes the working line away as the reply lands, before the run ends, so nothing drops under the reply", async () => {
+    let end: (() => void) | undefined;
+    runtime((request) => {
+      const events = turn(request, "Quais cartões eu tenho?");
+      const encoder = new TextEncoder();
+      const line = (event: Event) =>
+        encoder.encode(`data: ${JSON.stringify(event)}\n\n`);
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (const event of events.slice(0, -1))
+            controller.enqueue(line(event));
+          end = () => {
+            const finished = events.at(-1);
+            if (finished) controller.enqueue(line(finished));
+            controller.close();
+          };
+        },
+      });
+      return new Response(body, {
+        headers: { "Content-Type": "text/event-stream" },
+      });
+    });
+    chat();
+
+    await send("Quais cartões eu tenho?");
+
+    expect(await screen.findByText(REPLY.delta)).toBeInTheDocument();
+    expect(end).toBeDefined();
+    await waitFor(() => {
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
+    end?.();
+  });
+
   test("waits for the warm-up to answer, since a runtime session still starting turns a message away", async () => {
     let answerWarmUp: (() => void) | undefined;
     const calls = runtime(

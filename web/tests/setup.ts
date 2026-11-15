@@ -18,6 +18,8 @@ HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
 HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
   this.open = false;
 };
+// Nor does it run animations, so a dialog that waits for its own closes at once.
+Element.prototype.getAnimations = () => [];
 // Nor does it load fonts.
 Object.defineProperty(document, "fonts", {
   value: Object.assign(new EventTarget(), { load: () => Promise.resolve([]) }),

@@ -1,8 +1,8 @@
 """
-The Runtime's own tables: a runtime session stays bound to the user who opened it until its binding expires, and the
-execution record is only appended to, each entry checked against its contract first and named by kind and path when
-it fails, never by value (ADR-0004, Threads and runtime sessions, Stores, and the amendment on the entrypoint's checks;
-SEC-05, OPS-02, OPS-10, POL-11).
+The Runtime's own tables: a runtime session stays bound to the user who opened it until its binding expires, a sign-in
+opens three runtime sessions at most, and the execution record is only appended to, each entry checked against its contract first and named by kind and path when
+it fails, never by value (ADR-0004, Threads and runtime sessions, Stores, and the amendments on the entrypoint's checks and on sessions
+per sign-in; SEC-05, OPS-02, OPS-08, OPS-10, POL-11).
 """
 
 import asyncio
@@ -17,11 +17,17 @@ from botocore.exceptions import ClientError
 from moto import mock_aws
 
 from faro.agent.records import DynamoRecords, RecordError, Turn
-from faro.agent.sessions import LIFETIME, DynamoBindings
+from faro.agent.sessions import (
+    COUNTED_FOR,
+    LIFETIME,
+    SESSIONS_PER_SIGN_IN,
+    DynamoBindings,
+)
 
 AT = datetime(2026, 9, 29, 18, 0, tzinfo=UTC)
 A, B = "0b4a9c3e-5d2f-4e8a-9c71-2f6d8e1a7b50", "7c1e2a94-3b5d-4f08-a6e2-9d4b0c8f1e37"
 SIGN_IN = "5f0d6c1e-8a3b-4f27-b9d4-7e2c1a9f3b68"
+ANOTHER_SIGN_IN = "e2a7c9d1-4b6f-4a83-9e05-1c8d3f7b2a64"
 
 
 @pytest.fixture
@@ -34,6 +40,18 @@ def dynamodb() -> Iterator[Any]:
             KeySchema=[{"AttributeName": "runtime_session_id", "KeyType": "HASH"}],
             AttributeDefinitions=[
                 {"AttributeName": "runtime_session_id", "AttributeType": "S"}
+            ],
+        )
+        client.create_table(
+            TableName="counters",
+            BillingMode="PAY_PER_REQUEST",
+            KeySchema=[
+                {"AttributeName": "counter", "KeyType": "HASH"},
+                {"AttributeName": "window", "KeyType": "RANGE"},
+            ],
+            AttributeDefinitions=[
+                {"AttributeName": "counter", "AttributeType": "S"},
+                {"AttributeName": "window", "AttributeType": "S"},
             ],
         )
         client.create_table(
@@ -51,31 +69,111 @@ def dynamodb() -> Iterator[Any]:
         yield client
 
 
-def test_a_session_stays_with_the_user_who_opened_it(dynamodb: Any) -> None:
-    bindings = DynamoBindings(dynamodb, "bindings")
+def opened(dynamodb: Any, sign_in: str) -> dict[str, Any] | None:
+    item: dict[str, Any] | None = dynamodb.get_item(
+        TableName="counters",
+        Key={"counter": {"S": f"sign_in#{sign_in}"}, "window": {"S": "sessions"}},
+    ).get("Item")
+    return item
 
-    assert bindings.bind("session-1", A, AT)
-    assert bindings.bind("session-1", A, AT + timedelta(minutes=5))
-    assert not bindings.bind("session-1", B, AT + timedelta(minutes=5))
+
+def test_a_session_stays_with_the_user_who_opened_it(dynamodb: Any) -> None:
+    bindings = DynamoBindings(dynamodb, "bindings", "counters")
+
+    assert bindings.bind("session-1", A, SIGN_IN, AT) == "bound"
+    assert bindings.bind("session-1", A, SIGN_IN, AT + timedelta(minutes=5)) == "bound"
+    assert (
+        bindings.bind("session-1", B, ANOTHER_SIGN_IN, AT + timedelta(minutes=5))
+        == "held"
+    )
 
     item = dynamodb.get_item(
         TableName="bindings", Key={"runtime_session_id": {"S": "session-1"}}
     )["Item"]
     assert item["sub"]["S"] == A
     assert int(item["expires_at"]["N"]) == int((AT + LIFETIME).timestamp())
+    count = opened(dynamodb, SIGN_IN)
+    assert count is not None and count["sessions"]["N"] == "1"
+    assert opened(dynamodb, ANOTHER_SIGN_IN) is None
+
+
+def test_a_sign_in_past_its_sessions_is_refused_and_its_bound_ones_still_served(
+    dynamodb: Any,
+) -> None:
+    bindings = DynamoBindings(dynamodb, "bindings", "counters")
+    for n in range(SESSIONS_PER_SIGN_IN):
+        assert bindings.bind(f"session-{n}", A, SIGN_IN, AT) == "bound"
+
+    assert bindings.bind("session-past", A, SIGN_IN, AT) == "full"
+    assert "Item" not in dynamodb.get_item(
+        TableName="bindings", Key={"runtime_session_id": {"S": "session-past"}}
+    )
+    count = opened(dynamodb, SIGN_IN)
+    assert count is not None
+    assert count["sessions"]["N"] == str(SESSIONS_PER_SIGN_IN)
+    assert int(count["expires_at"]["N"]) == int((AT + COUNTED_FOR).timestamp())
+    assert bindings.bind("session-0", A, SIGN_IN, AT) == "bound"
+    assert bindings.bind("session-past", A, ANOTHER_SIGN_IN, AT) == "bound"
 
 
 def test_an_expired_binding_can_be_bound_again(dynamodb: Any) -> None:
-    bindings = DynamoBindings(dynamodb, "bindings")
-    bindings.bind("session-1", A, AT)
+    bindings = DynamoBindings(dynamodb, "bindings", "counters")
+    bindings.bind("session-1", A, SIGN_IN, AT)
 
-    assert bindings.bind("session-1", B, AT + LIFETIME + timedelta(seconds=1))
-    assert not bindings.bind("session-1", A, AT + LIFETIME + timedelta(minutes=1))
+    later = AT + LIFETIME + timedelta(seconds=1)
+    assert bindings.bind("session-1", B, ANOTHER_SIGN_IN, later) == "bound"
+    assert bindings.bind("session-1", A, SIGN_IN, later) == "held"
 
 
-def test_a_binding_failure_other_than_the_condition_is_raised(dynamodb: Any) -> None:
+def test_a_binding_failure_other_than_a_condition_is_raised(dynamodb: Any) -> None:
     with pytest.raises(ClientError):
-        DynamoBindings(dynamodb, "missing").bind("session-1", A, AT)
+        DynamoBindings(dynamodb, "missing", "counters").bind(
+            "session-1", A, SIGN_IN, AT
+        )
+
+
+def cancelled(*codes: str) -> ClientError:
+    return ClientError(
+        {
+            "Error": {"Code": "TransactionCanceledException", "Message": "x"},
+            "CancellationReasons": [{"Code": c} for c in codes],
+        },
+        "TransactWriteItems",
+    )
+
+
+class Conflicting:
+    """
+    DynamoDB's client, its transactions cancelled with the reasons given, one per call, then written.
+    """
+
+    def __init__(self, *cancellations: ClientError) -> None:
+        self.cancellations = list(cancellations)
+        self.writes = 0
+
+    def transact_write_items(self, **_: Any) -> None:
+        self.writes += 1
+        if self.cancellations:
+            raise self.cancellations.pop(0)
+
+
+def test_a_binding_another_transaction_conflicts_with_is_tried_twice_more() -> None:
+    conflict = cancelled("TransactionConflict", "None")
+    waits: list[float] = []
+
+    def binding(client: Conflicting) -> str:
+        return DynamoBindings(client, "bindings", "counters", sleep=waits.append).bind(
+            "session-1", A, SIGN_IN, AT
+        )
+
+    client = Conflicting(conflict, conflict)
+    assert binding(client) == "bound"
+    assert client.writes == 3
+    assert len(waits) == 2 and all(0 <= w <= 0.1 for w in waits)
+    with pytest.raises(ClientError):
+        binding(Conflicting(conflict, conflict, conflict))
+    with pytest.raises(ClientError):
+        binding(Conflicting(cancelled("None", "ThrottlingError")))
 
 
 def turn(table: Any) -> Turn:

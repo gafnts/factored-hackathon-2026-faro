@@ -83,3 +83,8 @@ variable "turns_cap" {
   description = "Invited users' and visitors' turns a UTC day before the entrypoint refuses one, written once (decision 21)"
   type        = number
 }
+
+variable "guests_cap" {
+  description = "Guests the guest entry makes a UTC day, written once beside turns_cap (ADR-0007, The guest entry)"
+  type        = number
+}

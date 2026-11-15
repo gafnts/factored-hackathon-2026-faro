@@ -1,0 +1,22 @@
+[
+  {
+    "access_token": "the-access-token",
+    "id_token": "the-id-token",
+    "refresh_token": "the-refresh-token",
+    "welcome": {
+      "name": "Team Customer",
+      "cards": [
+        { "product_type": "Tarjeta Crédito", "last_four": "4821" },
+        { "product_type": "Tarjeta Débito", "last_four": "1177" }
+      ]
+    }
+  },
+  {
+    "access_token": "the-access-token",
+    "id_token": "the-id-token",
+    "refresh_token": "the-refresh-token",
+    "welcome": { "name": "Team Customer", "cards": null }
+  },
+  { "refused": "full" },
+  { "refused": "paused" }
+]

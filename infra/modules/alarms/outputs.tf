@@ -10,5 +10,8 @@ output "namespace" {
 
 output "metric_filters" {
   description = "Each metric filter's name, by its metric"
-  value       = { for metric, filter in aws_cloudwatch_log_metric_filter.this : metric => filter.name }
+  value = merge(
+    { for metric, filter in aws_cloudwatch_log_metric_filter.this : metric => filter.name },
+    { for metric, filter in aws_cloudwatch_log_metric_filter.guest : metric => filter.name },
+  )
 }

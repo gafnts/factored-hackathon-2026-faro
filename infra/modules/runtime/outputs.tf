@@ -27,6 +27,14 @@ output "execution_records_table" {
   }
 }
 
+output "usage_counters_table" {
+  description = "The usage counters, which the guest entry reads the cap from and counts the day's guests in"
+  value = {
+    name = aws_dynamodb_table.usage_counters.name
+    arn  = aws_dynamodb_table.usage_counters.arn
+  }
+}
+
 output "tables" {
   description = "The Runtime's own tables"
   value = {

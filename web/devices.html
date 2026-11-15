@@ -1,0 +1,172 @@
+<!doctype html>
+<!-- The device board: the running app at phone, tablet and laptop sizes side by side, for `make web-dev` only. A frame
+     is its page's viewport, so the page lays out as on the device. Vite builds index.html alone, so this never ships. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="dark" />
+    <title>Device board</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px 32px 48px;
+        background: #161616;
+        color: #9c9c92;
+        font:
+          12px/1.4 ui-monospace,
+          "SF Mono",
+          monospace;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 16px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 500;
+        color: #e7e7dd;
+      }
+      input,
+      button,
+      select {
+        font: inherit;
+        color: #e7e7dd;
+        background: #262626;
+        border: 1px solid #3a3a3a;
+        padding: 4px 10px;
+      }
+      h2 {
+        margin: 28px 0 12px;
+        font-size: 12px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #e7e7dd;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 28px;
+        align-items: flex-start;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        margin-bottom: 8px;
+      }
+      figcaption b {
+        color: #e7e7dd;
+        font-weight: 500;
+      }
+      .screen {
+        overflow: hidden;
+        outline: 1px solid #3a3a3a;
+        background: #000;
+      }
+      iframe {
+        display: block;
+        border: 0;
+        transform-origin: 0 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Device board</h1>
+      <form id="path">
+        <input name="path" aria-label="Path" size="16" />
+      </form>
+      <button id="reload" type="button">Reload all</button>
+      <label>
+        Larger screens at
+        <select id="scale">
+          <option value="0.5">50%</option>
+          <option value="0.6" selected>60%</option>
+          <option value="0.75">75%</option>
+          <option value="1">100%</option>
+        </select>
+      </label>
+      <span
+        >Each frame is the viewport a browser leaves the page, its toolbar
+        shown.</span
+      >
+    </header>
+    <main id="board"></main>
+    <script type="module">
+      const GROUPS = [
+        [
+          "Phones",
+          [
+            ["iPhone SE", 375, 553],
+            ["iPhone 15", 393, 660],
+            ["iPhone 15 Pro Max", 430, 740],
+          ],
+        ],
+        [
+          "Tablets, upright",
+          [
+            ["iPad mini", 744, 1068],
+            ["iPad Air 11", 820, 1110],
+            ["iPad Pro 13", 1024, 1296],
+          ],
+        ],
+        [
+          "Tablets, sideways",
+          [
+            ["iPad mini", 1133, 680],
+            ["iPad Air 11", 1180, 750],
+          ],
+        ],
+        ["Small laptop", [["1366 × 768", 1366, 657]]],
+      ];
+
+      const params = new URLSearchParams(location.search);
+      // Only a path on this site: one naming another site, or a script, gives way to /chat.
+      const asked = params.get("path") ?? "/chat";
+      const path = /^\/(?![\/\\])/.test(asked) ? asked : "/chat";
+      document.querySelector("#path [name=path]").value = path;
+
+      function render() {
+        const scale = Number(document.getElementById("scale").value);
+        const board = document.getElementById("board");
+        board.replaceChildren();
+        for (const [title, devices] of GROUPS) {
+          const heading = document.createElement("h2");
+          heading.textContent = title;
+          const row = document.createElement("div");
+          row.className = "row";
+          const s = title === "Phones" ? 1 : scale;
+          for (const [name, width, height] of devices) {
+            const figure = document.createElement("figure");
+            const caption = document.createElement("figcaption");
+            caption.innerHTML = `<b></b> ${width}×${height}`;
+            caption.querySelector("b").textContent = name;
+            const screen = document.createElement("div");
+            screen.className = "screen";
+            screen.style.width = `${width * s}px`;
+            screen.style.height = `${height * s}px`;
+            const frame = document.createElement("iframe");
+            frame.title = name;
+            frame.src = `${location.origin}${path}`;
+            frame.width = width;
+            frame.height = height;
+            frame.style.transform = `scale(${s})`;
+            screen.append(frame);
+            figure.append(caption, screen);
+            row.append(figure);
+          }
+          board.append(heading, row);
+        }
+      }
+
+      document.getElementById("scale").addEventListener("change", render);
+      document.getElementById("reload").addEventListener("click", render);
+      render();
+    </script>
+  </body>
+</html>

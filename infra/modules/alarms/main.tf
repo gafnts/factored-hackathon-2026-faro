@@ -1,6 +1,6 @@
-# The alarms (ADR-0004, Operations, and its amendments of 2026-10-01, 2026-11-03 and 2026-11-07; OPS-03), over metric
-# filters on the Runtime's log group, which count the JSON lines the Runtime writes by source (EVL-13). A planned failure
-# counts in none.
+# The alarms (ADR-0004, Operations, and its amendments of 2026-10-01, 2026-11-03, 2026-11-07 and 2026-11-08; OPS-03), over metric
+# filters on the Runtime's log group, which count the JSON lines the Runtime writes by source (EVL-13), and on the guest
+# entry's, which count its clicks by outcome. A planned failure counts in none.
 
 locals {
   namespace = var.prefix
@@ -16,6 +16,12 @@ locals {
     ToolCallsFailed   = "{ $.metric = \"tool_call\" && $.outcome = \"failed\" && $.last IS TRUE && $.planned IS FALSE }"
     ModelCallsFailing = "{ $.metric = \"model_call\" && ($.outcome = \"spend_limit\" || $.outcome = \"key_rejected\" || $.outcome = \"model_not_found\" || $.outcome = \"invalid_request\") }"
     CapRefusals       = "{ $.metric = \"request_refused\" && $.code = \"global_limit\" }"
+    SessionRefusals   = "{ $.metric = \"request_refused\" && $.code = \"session_refused\" }"
+  }
+  # The guest entry's line has no source: every click is a stranger's.
+  guest_filters = {
+    GuestsFull       = "{ $.metric = \"guest_entry\" && $.outcome = \"full\" }"
+    GuestEntryFailed = "{ $.metric = \"guest_entry\" && $.outcome = \"failed\" }"
   }
 }
 
@@ -146,6 +152,21 @@ resource "aws_cloudwatch_metric_alarm" "action_not_verified" {
 }
 
 # A pause refuses turns too, and alarms on nothing, since an administrator set it.
+resource "aws_cloudwatch_log_metric_filter" "guest" {
+  for_each = local.guest_filters
+
+  name           = "${var.prefix}-${each.key}"
+  log_group_name = var.guest_log_group
+  pattern        = each.value
+
+  metric_transformation {
+    name      = each.key
+    namespace = local.namespace
+    value     = "1"
+    unit      = "Count"
+  }
+}
+
 resource "aws_cloudwatch_metric_alarm" "cap_reached" {
   alarm_name          = "${var.prefix}-cap-reached"
   alarm_description   = "The cap on the day's turns refused an invited user's or a visitor's turn; make cap prints the day's count."
@@ -271,4 +292,77 @@ resource "aws_cloudwatch_metric_alarm" "fallback_share" {
   }
 
   depends_on = [aws_cloudwatch_log_metric_filter.this]
+}
+
+# Neither cause meets an honest chat, which keeps one runtime session per sign-in, so many refusals mean a client opening
+# sessions past its sign-in's limit, each holding a microVM until it is ended, or naming another user's. Ten, since the
+# integration suite refuses two on purpose, and a client opening sessions at a rate that costs anything passes ten
+# within seconds.
+resource "aws_cloudwatch_metric_alarm" "sessions_refused" {
+  alarm_name          = "${var.prefix}-sessions-refused"
+  alarm_description   = "Ten or more runtime sessions refused in five minutes, past their sign-in's limit or bound to another user, from any source; the request_refused entries name the sign-ins."
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 10
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+
+  metric_query {
+    id          = "refused"
+    expression  = join(" + ", [for source in local.sources : "FILL(${source}, 0)"])
+    label       = "Runtime sessions refused"
+    return_data = true
+  }
+
+  dynamic "metric_query" {
+    for_each = toset(local.sources)
+    content {
+      id = metric_query.value
+      metric {
+        metric_name = "SessionRefusals"
+        namespace   = local.namespace
+        period      = 300
+        stat        = "Sum"
+        dimensions  = { source = metric_query.value }
+      }
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_metric_filter.this]
+}
+
+resource "aws_cloudwatch_metric_alarm" "guests_full" {
+  alarm_name          = "${var.prefix}-guests-full"
+  alarm_description   = "The guest entry turned a click away with the day's guests reached; make cap prints the day's count and sets the cap with GUESTS=."
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 1
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+  namespace           = local.namespace
+  metric_name         = "GuestsFull"
+  period              = 3600
+  statistic           = "Sum"
+
+  depends_on = [aws_cloudwatch_log_metric_filter.guest]
+}
+
+# A visitor who can't enter has no way to tell us.
+resource "aws_cloudwatch_metric_alarm" "guest_entry_failing" {
+  alarm_name          = "${var.prefix}-guest-entry-failing"
+  alarm_description   = "The guest entry failed a click; its log line names the error's kind, and make guest-list and make cap say whether the list or the guests' cap is missing."
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 1
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alarms.arn]
+  namespace           = local.namespace
+  metric_name         = "GuestEntryFailed"
+  period              = 300
+  statistic           = "Sum"
+
+  depends_on = [aws_cloudwatch_log_metric_filter.guest]
 }

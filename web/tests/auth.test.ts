@@ -7,12 +7,14 @@ import {
   accessToken,
   configureAuth,
   currentSignIn,
+  enterAsGuest,
   SIGN_IN_LASTS_MS,
   SignInEndedError,
   signInWith,
   signOutHere,
 } from "../src/auth";
 import { drawRuntimeSession } from "../src/session";
+import { keepWelcome, readWelcome } from "../src/welcome";
 
 vi.mock("@aws-amplify/auth", () => ({
   fetchAuthSession: vi.fn(),
@@ -161,11 +163,90 @@ test.each([
   expect(await signInWith("persona", "secret")).toBe(outcome);
 });
 
-test("signs out this sign-in only, and drops its runtime session", async () => {
+test("signs out this sign-in only, and drops its runtime session and a guest's welcome", async () => {
   drawRuntimeSession();
+  keepWelcome({ name: "Team Customer", cards: null });
 
   await signOutHere();
 
   expect(signOut).toHaveBeenCalledWith();
   expect(window.sessionStorage.length).toBe(0);
+});
+
+// A token as Cognito shapes one, which decodeJWT reads without checking its signature.
+function jwt(payload: Record<string, unknown>): string {
+  const part = (value: unknown) =>
+    btoa(JSON.stringify(value))
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replace(/=+$/, "");
+  return `${part({ alg: "RS256" })}.${part(payload)}.signature`;
+}
+
+function answer(status: number, body: unknown) {
+  const fetch = vi.fn(() =>
+    Promise.resolve(new Response(JSON.stringify(body), { status })),
+  );
+  vi.stubGlobal("fetch", fetch);
+  return fetch;
+}
+
+test("a guest's tokens go where a form's sign-in puts them (ADR-0007, The guest entry)", async () => {
+  const setTokens = vi
+    .spyOn(cognitoUserPoolsTokenProvider.tokenOrchestrator, "setTokens")
+    .mockResolvedValue();
+  const access = jwt({ sub: SUB, username: "visitor-1", iat: AUTH_TIME });
+  const id = jwt({ sub: SUB, aud: "customers-client" });
+  const fetch = answer(200, {
+    access_token: access,
+    id_token: id,
+    refresh_token: "the-refresh-token",
+    welcome: { name: "Team Customer", cards: null },
+  });
+
+  expect(await enterAsGuest()).toBe("signed_in");
+
+  expect(fetch).toHaveBeenCalledWith("/api/guest", { method: "POST" });
+  const [call] = setTokens.mock.calls;
+  if (!call) throw new Error("no tokens were set");
+  const { tokens } = call[0];
+  expect(tokens.accessToken.toString()).toBe(access);
+  expect(tokens.accessToken.payload.sub).toBe(SUB);
+  expect(tokens.idToken?.toString()).toBe(id);
+  expect(tokens.refreshToken).toBe("the-refresh-token");
+  expect(tokens.username).toBe("visitor-1");
+  expect(readWelcome()).toEqual({ name: "Team Customer", cards: null });
+  vi.unstubAllGlobals();
+});
+
+test.each([
+  ["full", 200, { refused: "full" }],
+  ["paused", 200, { refused: "paused" }],
+  ["unreachable", 429, { message: "Too Many Requests" }],
+  ["unreachable", 500, { message: "Internal Server Error" }],
+  ["unreachable", 200, { access_token: "x" }],
+  ["unreachable", 200, { refused: "closed" }],
+])(
+  "a guest entry answered as %s, status %i, makes no sign-in",
+  async (outcome, status, body) => {
+    const setTokens = vi.spyOn(
+      cognitoUserPoolsTokenProvider.tokenOrchestrator,
+      "setTokens",
+    );
+    answer(status, body);
+
+    expect(await enterAsGuest()).toBe(outcome);
+    expect(setTokens).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  },
+);
+
+test("a guest entry that can't be reached makes no sign-in", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))),
+  );
+
+  expect(await enterAsGuest()).toBe("unreachable");
+  vi.unstubAllGlobals();
 });

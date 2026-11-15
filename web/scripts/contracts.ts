@@ -25,6 +25,11 @@ export const CONTRACTS: readonly Contract[] = [
     name: "Console",
     types: resolve(here, "../src/contracts/console.ts"),
   },
+  {
+    schema: "guest.schema.json",
+    name: "Guest",
+    types: resolve(here, "../src/contracts/guest.ts"),
+  },
 ];
 
 // The words a reply states recorded values in, which the agent's code and the oracle read too.
