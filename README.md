@@ -121,14 +121,7 @@ Since late October 2026, the organizers' dataset can no longer be downloaded, an
 
 ## Self-hosting
 
-A fork stands up in an AWS account you control, with Terraform and nothing tied to our accounts:
-
-| You want to | You need |
-|---|---|
-| Change code, tests, or docs | Only the toolchain |
-| Explore or process the organizers' dataset | A copy of it, since it [can no longer be downloaded](CONTRIBUTING.md#2-restore-the-dataset) |
-| Run the whole stack in your own AWS account | Admin access to an AWS account, and your own fork |
-| [Check our reported numbers](CONTRIBUTING.md#reproduce-the-results) | The toolchain to start; a copy of the dataset and your own stack for the later checks |
+A fork stands up in an AWS account you control, with Terraform and nothing tied to our accounts. Changing code, tests, or docs needs only the toolchain; [Pick your path](CONTRIBUTING.md#pick-your-path) says what the dataset, a stack of your own, and [checking our numbers](CONTRIBUTING.md#reproduce-the-results) need beyond it.
 
 With the [toolchain](CONTRIBUTING.md#1-install-the-toolchain) installed:
 
