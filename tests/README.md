@@ -4,20 +4,18 @@ The tests check what must hold on every turn: who may read what, what only a con
 
 ## The suites
 
-Counts as of 2026-10-04.
-
 | Suite | Where | Runs | Checks |
 |---|---|---|---|
-| Unit: 1,852 | `faro/`, mirroring `src/` | On every push and in CI, with an 80% coverage floor | Each module with every outside service replaced: a scripted model, a clock the tests move, in-memory stores, a mocked Gateway, and AWS mocked by moto. The graph's branches, the reply check, the confirmation, the handoff, the tools, the contracts against the policy, the pipeline on team-written [fixtures](fixtures/team-generated/README.md), and the evaluation's oracle and grader |
-| Web: 125 | [`web/tests/`](../web/tests/), mirroring `web/src/` | On every push and in CI, with an 80% coverage floor | The chat with its frames and controls, the console, sign-in per role, the AG-UI client, and the generated contract types against their source |
-| Regression set: 71 cases | `faro/evaluation/test_regression.py` | In CI | The regression set played in process with scripted models on a team-written bank, and graded; any safety finding fails it |
-| Pipeline checks: 287 | [`pipeline/`](../pipeline/README.md), its models and `tests/` | In every build | Nulls, keys, references, dictionary values, the delivery against its lock, and the 90-day window. On the build `prototype` serves, every blocking check passed, and 19 warnings count what the delivered data holds, such as cards active past their expiration, which silver flags and never corrects ([manifest](../docs/pipeline/)) |
-| Integration: 104 | `integration/` | `make integration`, against a deployed stack | The boundaries on the real services (Cognito, the Runtime, the Gateway and Cedar, the Lambdas, DynamoDB, the site), with throwaway users |
-| Browser: 13 | `integration/test_browser.py` | `make browser`, against a deployed site | The chat and the console in Chromium, as a customer and a human agent use them in two tabs, the README's journey included |
-| Smoke: 1 | `smoke/` | `make smoke`, against a deployed site; in CI after each deploy to `prototype` | The smoke user signs in through the form, reads its cards through the Gateway, and gets a reply that names each one, with no AWS credentials ([ADR-0009](../docs/adr/0009-release-checked-deploys.md)) |
+| Unit | `faro/`, mirroring `src/`, and the repository's own checks beside it (`test_advisories.py`, `test_dependabot.py`, `test_toolchain.py`) | On every push and in CI, with an 80% coverage floor | Each module with every outside service replaced: a scripted model, a clock the tests move, in-memory stores, a mocked Gateway, and AWS mocked by moto. The graph's branches, the reply check, the confirmation, the handoff, the tools, the contracts against the policy, the pipeline on team-written [fixtures](fixtures/team-generated/README.md), and the evaluation's oracle and grader |
+| Web | [`web/tests/`](../web/tests/), mirroring `web/src/` | On every push and in CI, with an 80% coverage floor | The chat with its frames and controls, the console, sign-in per role, the AG-UI client, and the generated contract types against their source |
+| Regression set | `faro/evaluation/test_regression.py` | In CI | The regression set played in process with scripted models on a team-written bank, and graded; any safety finding fails it |
+| Pipeline checks | [`pipeline/`](../pipeline/README.md), its models and `tests/` | In every build | Nulls, keys, references, dictionary values, the delivery against its lock, and the 90-day window. On the build `prototype` serves, every blocking check passed, and 19 warnings count what the delivered data holds, such as cards active past their expiration, which silver flags and never corrects ([manifest](../docs/pipeline/)) |
+| Integration | `integration/` | `make integration`, against a deployed stack | The boundaries on the real services (Cognito, the Runtime, the Gateway and Cedar, the Lambdas, DynamoDB, the site), with throwaway users |
+| Browser | `integration/test_browser.py` | `make browser`, against a deployed site | The chat and the console in Chromium, as a customer and a human agent use them in two tabs, the README's journey included |
+| Smoke | `smoke/` | `make smoke`, against a deployed site; in CI after each deploy to `prototype` | The smoke user signs in through the form, reads its cards through the Gateway, and gets a reply that names each one; then a guest enters through the button, and the welcome must name each of its cards. No AWS credentials, and no model call for the guest ([ADR-0009](../docs/adr/0009-release-checked-deploys.md)) |
 | Live language check | `make language-check` | By hand; it calls the model, so it costs money | The model's reading of each message's language and of a block's reason, on every development paraphrase ([results](../docs/evaluation/language.md)) |
 
-## What a judge might try
+## What a visitor might try
 
 Each row is an integration test against a deployed stack, with real tokens; none relies on the model behaving.
 
