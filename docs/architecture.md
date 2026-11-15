@@ -3,7 +3,7 @@
 Faro on one page: what runs where, how a turn flows, what the graph decides, where each rule is enforced, how the data reaches the tools, and how we measure the result. Each section names the record that holds the full reasoning. The requirement IDs are from [prerequisites.md](prerequisites.md), and the terms are in the [glossary](glossary.md).
 
 > [!NOTE]
-> **As built.** This page describes the deployed prototype. The evaluation's numbers were measured on app stamp `8aa77fa`; the prototype runs the code after the one post-freeze fix the [report](evaluation/report.md#what-failed-and-why) describes. Three pieces are designed and not built, each a stated limitation: a handoff filed after a confirmation's deadline when the customer has left ([ADR-0004](adr/0004-agent-architecture-on-agentcore.md#the-confirmation), decision 7); claim and resolve in the console, so every case stays `filed` ([ADR-0007](adr/0007-role-gated-web-app.md#the-console-api)); and the AI team's page, whose report lives in [docs/evaluation/](evaluation/report.md) instead.
+> **As built.** This page describes the deployed prototype. The evaluation's numbers were measured on app stamp `8aa77fa`; the prototype runs that agent with the one post-freeze fix the [report](evaluation/report.md#what-failed-and-why) describes, and with the fixed replies of the limits that bound visitors. Three pieces are designed and not built, each a stated limitation: a handoff filed after a confirmation's deadline when the customer has left ([ADR-0004](adr/0004-agent-architecture-on-agentcore.md#the-confirmation), decision 7); claim and resolve in the console, so every case stays `filed` ([ADR-0007](adr/0007-role-gated-web-app.md#the-console-api)); and the AI team's page, whose report lives in [docs/evaluation/](evaluation/report.md) instead.
 
 ## The system
 
@@ -22,11 +22,14 @@ flowchart LR
   BLOCK["Lambda: block_card"]
   FILE["Lambda: file_handoff"]
   API["Console API: API Gateway and two reading Lambdas, under /api"]
+  GUEST["Guest entry: a Lambda under /api/guest, no token"]
   DB[("DynamoDB: tools' data, sandbox overlay, confirmations, session bindings, checkpoints, execution records, handoff cases, usage counters")]
   LLM["Claude Haiku 4.5 (Anthropic API, key in Secrets Manager)"]
   PIPE["Pipeline: dbt-duckdb, stamped gold export"]
-  ALM["CloudWatch: metric filters, five alarms, SNS"]
+  ALM["CloudWatch: metric filters, alarms, SNS"]
   COG -.->|"tokens"| Browser
+  CHAT -->|"enter as a guest"| GUEST
+  GUEST -->|"makes the visitor's user and signs it in"| COG
   CHAT -->|"AG-UI, customer token"| RT
   AGT -->|"polls, staff token"| API
   RT -->|"the customer's own token"| GW
@@ -35,6 +38,7 @@ flowchart LR
   RT -->|"IAM, off the Gateway"| FILE
   RT -->|"route, extract, write"| LLM
   RT -.->|"JSON log lines"| ALM
+  GUEST -.->|"JSON log lines"| ALM
   READS --> DB
   BLOCK --> DB
   FILE --> DB
@@ -45,7 +49,7 @@ flowchart LR
 
 Two layers decide access and actions, and neither trusts the one above it (CTL-04, SEC-05). Cedar checks that every tool call names the customer and the sign-in in the token; each tool checks the rest: the card's status, the confirmation, the window. So the graph can route wrongly without a customer seeing another's records, and the model can answer wrongly without a card being blocked unconfirmed. `file_handoff` stays off the Gateway, since a customer's own token could otherwise file a forged case: the Runtime invokes it with a role no customer holds, and the Lambda checks the token with Cognito and the payload against the execution record before filing.
 
-The site is one static app with a route per role. Customers sign in through one app client and staff through another, and a pre-token trigger refuses a token when the client doesn't match the user's group. The console API, under `/api` on the site's own origin, accepts the staff client only and reads cases and the tool calls their evidence names; no console route changes a card ([ADR-0007](adr/0007-role-gated-web-app.md)).
+The site is one static app with a route per role. Customers sign in through one app client and staff through another, and a pre-token trigger refuses a token when the client doesn't match the user's group, and issues a staff token only to a user on the staff allowlist. The console API, under `/api` on the site's own origin, accepts the staff client only and reads cases and the tool calls their evidence names; no console route changes a card. One route beside it takes no token, the guest entry: each click makes a user as a customer drawn from a curated list, counts it against the day's cap on guests, and signs it in through the customers' client; nothing in the request chooses the customer, and a Lambda deletes guests' users a day later ([ADR-0007](adr/0007-role-gated-web-app.md)).
 
 ## A turn
 
@@ -61,8 +65,8 @@ sequenceDiagram
   C->>A: message, access token, thread ID, runtime session ID
   A-->>C: 401 RUN_ERROR when the token is missing, expired, or not a customer's (SEC-04)
   A->>E: verified claims (sub, customer_id, origin_jti)
-  E->>E: bind the runtime session to sub, derive the thread key from sub, count the turn against the limits, mask card numbers, turn text sent during a control into a resume
-  E-->>C: RUN_ERROR when the sign-in is past 10 turns a minute, the user past 40 a day, or the day past its cap (0 pauses the chat)
+  E->>E: bind the runtime session to sub and count it against the sign-in's three, derive the thread key from sub, count the turn against the limits, mask card numbers, turn text sent during a control into a resume
+  E-->>C: RUN_ERROR when the sign-in is past its three sessions or 10 turns a minute, the user past 40 a day, or the day past its cap (0 pauses the chat)
   E->>R: turn opened
   E->>G: run
   G->>W: tool call with the token's customer_id and origin_jti
@@ -201,9 +205,9 @@ The handoff is a structured case, not a transcript (CTL-05): the request, each v
 
 | Layer | Decides | Holds even if |
 |---|---|---|
-| Cognito and the pre-token trigger | Who the customer is; customers get tokens from the customers' app client only, staff from the staff client only | The browser is not ours |
+| Cognito and the pre-token trigger | Who the customer is; customers get tokens from the customers' app client only, staff from the staff client only and only when on the staff allowlist | The browser is not ours |
 | The Runtime's and the Gateway's JWT authorizers | Only a customer's valid token reaches the agent or a tool | The model is fully compromised |
-| The entrypoint | The runtime session belongs to the caller; the thread key derives from the verified `sub`; card numbers are masked before anything reads them; turns are limited per sign-in, per user, and for the day | The client sends another customer's IDs |
+| The entrypoint | The runtime session belongs to the caller; the thread key derives from the verified `sub`; card numbers are masked before anything reads them; turns are limited per sign-in, per user, and for the day, and runtime sessions per sign-in | The client sends another customer's IDs |
 | Cedar | Every call names the token's `customer_id` and `origin_jti` | The graph routes wrongly |
 | The tools | A read returns the customer's partition and never `is_fraud`; a block needs a confirmed, unexpired confirmation for that card and reason; a handoff's facts must be in the execution record | The graph is wrong |
 | The graph | Which card, when to ask, when to abstain, decline, or hand off; the queue, the retries, and the question limit | The model mislabels or misextracts |
@@ -230,7 +234,7 @@ flowchart LR
 
 The state the tools read is a frozen master snapshot with an event cutoff: customers and cards as delivered, transactions dated at or before the as-of instant (business date 2026-06-17, read as of 2026-06-18 06:00). Rows updated after that instant are flagged, never corrected, and results are reported with and without them. `prototype` serves export `4a1bc9e15462b739` of snapshot `b3b8b248f604ef9a`; its manifest, with every check's result, is in [docs/pipeline/](pipeline/), and [the pipeline's README](../pipeline/README.md) says how to rebuild it.
 
-Writes never touch the export. A block lands in a sandbox keyed by the sign-in, so each judge and each evaluation case starts clean. The sandbox also carries the evaluation's fixtures (a record the snapshot lacks) and fault plans (a tool made to fail), honored only in the sign-in that wrote them.
+Writes never touch the export. A block lands in a sandbox keyed by the sign-in, so each visitor and each evaluation case starts clean. The sandbox also carries the evaluation's fixtures (a record the snapshot lacks) and fault plans (a tool made to fail), honored only in the sign-in that wrote them.
 
 ## How we know it works
 
@@ -257,12 +261,12 @@ flowchart LR
 
 - **The families** ([families.md](evaluation/families.md)): seeds we wrote and paraphrases a model wrote, checked for slots, digits, language, and closeness; team-generated (SEC-02).
 - **The split** holds by customer, by the wording's source (ours for development, another model family's held out), and by time (DML-09), with tests that no development artifact holds a held-out customer or message ([ADR-0011](adr/0011-pre-registered-studies.md)).
-- **Three sets**, with their manifests in [sets/](evaluation/sets/): a regression set of 93 cases that CI plays in process on a team-generated bank, a selection set of 179, and a held-out set of 608 drawn once at the freeze.
+- **The sets**, with their manifests in [sets/](evaluation/sets/): a regression set of 93 cases that CI plays in process on a team-generated bank, a selection set of 179, the held-out set of 608 drawn once at the freeze, and a second held-out set of 603, sealed for the next agent ([its study](evaluation/studies/held-out-2.md)).
 - **The harness** plays a case end to end against the deployed stack: a test user of its own, the chat's own client paced to the usage limits, fixtures and fault plans written under its sign-in, write-once evidence in the evaluation bucket. The unauthorized-access cases call the Gateway's tools directly and expect Cedar to deny them.
-- **The grader** is a function of the case and its stored evidence, so a later version regrades without running the system. Where it and the oracle disagree, the question goes to the [disagreement log](evaluation/disagreements.md), and CI's regression gate lets a finding through only while an open entry matches it.
+- **The grader** is a function of the case and its stored evidence, so a later version regrades without running the system. Where Faro and the oracle disagree, the question goes to the [disagreement log](evaluation/disagreements.md), and CI's regression gate lets a finding through only while an open entry matches it.
 - **The baseline** is the same graph with a keyword router, pattern extraction, and templated replies, so no model runs; it played the same held-out cases once (EVL-01).
 - **No model judges.** The submission's measurement had a judge, Claude Opus 5.5, for wording, validated against our blind hand grades on 136 replies; one question of nine met the bar (EVL-10). It was dropped after the submission, and code now checks the form of address and the words a reply may not use ([ADR-0011](adr/0011-pre-registered-studies.md)).
-- **The tests** ([tests/README.md](../tests/README.md)) check what must hold on every turn, apart from how well the agent does: each thing we expect a judge to try, from another customer's number to a typed yes, has an integration test against a deployed stack.
+- **The tests** ([tests/README.md](../tests/README.md)) check what must hold on every turn, apart from how well the agent does: each thing we expect a visitor to try, from another customer's number to a typed yes, has an integration test against a deployed stack.
 - **The result**, three runs of the frozen agent: 65% of 602 conversation cases resolved without a person, against the baseline's 43%; 133 of 136 required handoffs right; no disclosure and no unauthorized action in 608 cases, which bounds the rate at 0.6% without proving it zero (M-04); about 4 seconds a turn and 1.3 cents a resolution. The runs agree within half a point. One misread accounted for 56 of the 80 failing cases and was fixed in code after the freeze; the numbers stand as measured. Every reported run's manifest is indexed in [runs.md](evaluation/runs.md).
 
 ## Where the reasoning lives
