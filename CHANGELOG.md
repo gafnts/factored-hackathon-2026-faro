@@ -6,6 +6,8 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 ## Unreleased
 
+## [1.13.0] - 2026-11-15 (Promotion 19)
+
 ### Security
 
 - opentelemetry-api's denial of service through slow `traceparent` parsing ([GHSA-mf5v-w3w3-f6cg], moderate) is accepted until 2026-12-15: the slow path needs a newline inside the header's value, which the Runtime's HTTP parser refuses, and no fixed version fits ADOT 0.22.0, the latest, which requires the API at exactly 1.45.1 ([ADR-0010](docs/adr/0010-gate-merges-on-advisories.md), [#213]).
@@ -238,6 +240,7 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 
 The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judged.
 
+[1.13.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.13.0
 [1.12.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.12.0
 [1.11.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.11.0
 [1.10.0]: https://github.com/gafnts/factored-hackathon-2026-faro/releases/tag/v1.10.0
