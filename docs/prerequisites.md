@@ -2,6 +2,9 @@
 
 What the organizers evaluate, distilled from the problem statement (`PS p.N`, by page) and the kickoff slides (`SL N`, by slide), both under `docs/hackathon/` and gitignored. Every requirement carries a stable ID, and the docs, the tests, and the evaluation reports cite the ID instead of paraphrasing the source.
 
+> [!NOTE]
+> **The submission's record.** The hackathon is over, and Faro won first place. This page stays as we wrote it during the build, present tense included, because the docs, the tests, and the reports still cite its IDs.
+
 ## Contents
 
 - [Key dates](#key-dates)
