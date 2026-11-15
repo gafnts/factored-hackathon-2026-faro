@@ -1,6 +1,6 @@
 # Contributing
 
-This guide takes you from a fresh clone to a working setup for whichever part of the project you're touching. The repo holds the Python package, the web app, and the Terraform infrastructure for Faro, which runs on AWS in two environments: `local`, for iterating from a laptop, and `prototype`, the hosted environment behind the hackathon submission.
+This guide takes you from a fresh clone to a working setup for whichever part of the project you're touching. The repo holds the Python package, the web app, and the Terraform infrastructure for Faro, which runs on AWS in two environments: `local`, for iterating from a laptop, and `prototype`, the hosted environment anyone can open at [faro.gabriel.com.gt](https://faro.gabriel.com.gt).
 
 Setup commands are idempotent, so re-running one after a failure is always safe, and `make doctor` tells you at any point which steps are done and which are left.
 
@@ -43,7 +43,7 @@ Most contributions need no AWS access at all. Find the row that matches what you
 | Run the whole stack in your own AWS account | Admin access to an AWS account, and your own fork of this repository | [Steps 1 and 3](#3-deploy-your-own-copy), plus step 2 when you need the data |
 | Check our reported numbers | The toolchain to start; a copy of the dataset and your own stack for the later checks | [Reproduce the results](#reproduce-the-results) |
 
-No path depends on the maintainers' AWS account or credentials. Resource names are derived from the account you sign in to, so a second copy of the project never collides with the first.
+No path depends on our AWS account or credentials. Resource names are derived from the account you sign in to, so a second copy of the project never collides with the first.
 
 Found a vulnerability? Don't open an issue or a pull request: report it privately, as [SECURITY.md](SECURITY.md) says.
 
@@ -56,7 +56,7 @@ Found a vulnerability? Don't open an issue or a pull request: report it privatel
 | Environment | Deployed by | When | Purpose |
 |---|---|---|---|
 | `local` | You, from your laptop | When you run `make apply` | Iterating on infrastructure |
-| `prototype` | GitHub Actions | On every promotion, a merge to `main` | The hosted prototype linked from the submission |
+| `prototype` | GitHub Actions | On every promotion, a merge to `main` | The hosted prototype, open to visitors |
 
 Both live in the same AWS account. Each has its own Terraform state file, its own deploy role, and its own `Environment=<env>` tag, and a deploy role is denied any resource tagged for the other environment. `prototype` runs on synthetic data and mock banking tools, and is deliberately not called production.
 
@@ -109,7 +109,7 @@ The operations that can hurt are hard to trigger by mistake:
 
 ### 1. Install the toolchain
 
-[mise](https://mise.jdx.dev/getting-started.html) installs the tools that build and check Faro (Python, uv, Node.js, pnpm, Terraform, tflint, and trivy) at the versions `mise.toml` pins, and checks each download against `mise.lock`. Install mise 2026.10.19 or later, activate it in your shell, and trust the repository's config once:
+[mise](https://mise.jdx.dev/getting-started.html) installs the tools that build and check Faro (Python, uv, Node.js, pnpm, Terraform, tflint, trivy, and osv-scanner) at the versions `mise.toml` pins, and checks each download against `mise.lock`. Install mise 2026.10.19 or later, activate it in your shell, and trust the repository's config once:
 
 ```bash
 echo 'eval "$(mise activate zsh)"' >> ~/.zshrc   # For another shell, see mise's guide
@@ -193,7 +193,7 @@ make bootstrap
 
 This creates the state bucket (private, versioned, encrypted, with S3 native locking, so no DynamoDB table), regenerates the backend files, writes `infra/iam/iam.tfvars` with your principal ARN and your repository's OIDC subject prefix, and writes a `.envrc` that sets `AWS_PROFILE=banking-agent-local`. Hold off on `direnv allow` until step 3.4 creates that profile.
 
-The bucket is named `banking-agent-tfstate-<account-id>-us-east-1-an`, in your account's [regional namespace](https://docs.aws.amazon.com/AmazonS3/latest/userguide/gpbucketnamespaces.html): only your account can own that name. The script always runs as the admin profile, whatever `AWS_PROFILE` says, and refuses the organizers' account.
+The bucket is named `banking-agent-tfstate-<account-id>-us-east-1-an`, in your account's [regional namespace](https://docs.aws.amazon.com/AmazonS3/latest/userguide/gpbucketnamespaces.html): only your account can own that name. The script always runs as the admin profile, whatever `AWS_PROFILE` says.
 
 The OIDC subject prefix is what the CI roles trust. The script reads it from GitHub for the repository `origin` points at, and prints it; check that it names your repository. Repositories created after 2026-07-15 carry the owner and repository IDs in it (`repo:<owner>@<owner-id>/<repo>@<repo-id>`), so it can't be written from the name alone. The names in it still follow a rename, and the roles match the whole prefix, so after renaming the repository run `make doctor`, write the prefix it prints into `iam.tfvars`, and run `make iam-apply`; until then CI can't reach AWS. To set it without the GitHub CLI, export `GITHUB_OIDC_SUBJECT_PREFIX` before running the script.
 
@@ -230,7 +230,7 @@ Use your `AWS_ADMIN_PROFILE` as `source_profile` if it isn't `default`. Then act
 
 #### 3.5 Connect GitHub
 
-The deploy workflow needs a `prototype` environment, two repository variables, and the smoke user's secret and variable. Until the variables exist, its jobs are skipped rather than failed, so CI stays green before AWS is ready.
+The deploy workflow needs a `prototype` environment, two repository variables, and the smoke user's secret and variable. Until the variables exist, its plan and apply jobs are skipped rather than failed, so CI stays green before AWS is ready.
 
 1. In **Settings → Environments → New environment**, create `prototype`. Under **Deployment branches and tags**, choose **Selected branches and tags** and add `main`. The prototype deploy role only trusts jobs in this environment, which makes a merge to `main` the only path to a prototype apply. Leave required reviewers off: merges deploy straight away.
 2. Store the plan and deploy role ARNs from `make iam-output` as repository variables. They're variables, not secrets, because role ARNs aren't sensitive on their own:
@@ -251,7 +251,7 @@ The deploy workflow needs a `prototype` environment, two repository variables, a
 
    Without them, the check is skipped with a notice, and `make release` refuses the deploy. To rotate the password, run the three commands again. The smoke user is in the `evaluation` group, so its turns are counted apart from visitors' and the check runs while the chat is paused.
 
-The deploy runs on merges to `main` that touch the stack's code (`infra/`, `src/`, `web/`) or the changelog, which every promotion changes. A build job without credentials makes the zips and the site; the apply job deploys them, uploads the site once Terraform has applied, and checks that AWS runs the build's zips; and the check job asks about the smoke user's cards. The deployment then links the site's URL from the `prototype` environment, on your fork's own CloudFront domain. Store `prototype`'s model key before its first deploy ([step 3.7](#37-verify-and-deploy-local)), or the apply fails. If `main` already has the infrastructure when you set the variables, trigger the first deploy by hand: **Actions → Deploy · Prototype → Run workflow** on `main`, or `gh workflow run deploy-prototype.yml --ref main`.
+The deploy runs on merges to `main` that touch the stack's code (`infra/`, `src/`, `web/`), its lockfiles and toolchain pins, or the changelog, which every promotion changes. A build job without credentials makes the zips and the site; the apply job deploys them, uploads the site once Terraform has applied, and checks that AWS runs the build's zips; and the check job asks about the smoke user's cards and enters as a guest. The deployment then links the site's URL from the `prototype` environment, on your fork's own CloudFront domain. Store `prototype`'s model key before its first deploy ([step 3.7](#37-verify-and-deploy-local)), or the apply fails. If `main` already has the infrastructure when you set the variables, trigger the first deploy by hand: **Actions → Deploy · Prototype → Run workflow** on `main`, or `gh workflow run deploy-prototype.yml --ref main`.
 
 #### 3.6 Copy the dataset snapshot and the tools' data
 
@@ -309,9 +309,13 @@ GitHub repository: <owner>/<repo> (CI runs here; the CI roles trust it)
 Local deploy profile: banking-agent-local (make plan/apply)
   ok    arn:aws:sts::<account-id>:assumed-role/banking-agent-local-deploy/<session>
 
+Model keys (make model-key stores them from .env, before each env's first apply)
+  ok    banking-agent-local-anthropic-api-key holds a key
+  ok    banking-agent-prototype-anthropic-api-key holds a key
+
 Dataset snapshot: dataset.lock (make data, make snapshot)
   ok    dataset.lock pins snapshot <snapshot-id> (7671 files)
-  ok    data/snapshots/<snapshot-id> holds every file (make data re-verifies them)
+  ok    data/snapshots/<snapshot-id> holds every file (make data checks them)
   ok    s3://banking-agent-data-<account-id>-us-east-1-an/snapshots/<snapshot-id>/ is complete
 
 AWS_PROFILE in this shell: banking-agent-local
@@ -323,19 +327,17 @@ No failures.
 
 ## Reproduce the results
 
-These checks rerun what our reports rest on (OPS-07). Each needs a little more than the one before it: the first runs on the toolchain alone, the next five on the snapshot from [step 2](#2-restore-the-dataset), and the last on your own stack from [step 3](#3-deploy-your-own-copy), with a model key. Since the dataset can no longer be downloaded, only the first runs without a copy of it. The rest still says exactly what our numbers rest on: `dataset.lock` pins every file by its SHA-256, and each run's manifest names its commit, snapshot, and pipeline version.
+These checks rerun what our reports rest on (OPS-07). Each needs a little more than the one before it: the first runs on the toolchain alone, the last on your own stack from [step 3](#3-deploy-your-own-copy) with a model key, and the ones between on the snapshot from [step 2](#2-restore-the-dataset). Since the dataset can no longer be downloaded, only the first runs without a copy of it. The rest still says exactly what our numbers rest on: `dataset.lock` pins every file by its SHA-256, and each run's manifest names its commit, snapshot, and pipeline version.
 
 | What you check | Run | What you should see |
 |---|---|---|
 | The control logic, as CI checks it | `make regression` | It passes: no safety check fails, and every finding has an open entry in the [disagreement log](docs/evaluation/disagreements.md) |
 | The four analysis reports | `make data FROM=<folder>`, then `make analysis` | The same bytes: `git status` shows no change under `docs/analysis/` |
 | The development sets | `make pipeline`, then `make eval-sets` | The same cases: each manifest under `docs/evaluation/sets/` keeps its `sha256`, and only `versions.generator`, your commit, changes. `git restore docs/evaluation/sets/` puts ours back |
-| The held-out set | `make eval-sets HELD_OUT=600` | The 608 cases its committed manifest describes; the manifest stays as it is |
-| The deterministic baseline | `make eval-play SET=selection MODELS=baseline` | 139 of 151 cases passed, on every rerun, in about 15 seconds |
-| The baseline on the held-out set | `make eval-play SET=held_out MODELS=baseline` | The counts of our baseline run, 339 of 602 cases passed, in the [results](docs/evaluation/results.md); we play the held-out set once, so we haven't rerun it |
-| The system, end to end | `make eval-run SET=selection` | Counts near our two reported selection runs (147 and 146 of 157, in [runs.md](docs/evaluation/runs.md)), not equal to them, since the model's answers vary between runs. A run costs about 0.80 USD |
+| The deterministic baseline | `make eval-play SET=selection MODELS=baseline` | The same counts on every rerun, since no model runs, in about 15 seconds |
+| The system, end to end | `make eval-run SET=selection` | Rates near our reported selection runs' (in [runs.md](docs/evaluation/runs.md)), not their counts: those played an earlier draw of the set, and the model's answers vary between runs. A run costs about a dollar |
 
-Every number in the [results](docs/evaluation/results.md) comes from the held-out set. It is drawn once ([ADR-0005](docs/adr/0005-offline-scenario-evaluation.md#the-split)), and once a run names it, `make eval-sets HELD_OUT=600` only rebuilds it: the draw is kept when it matches the committed manifest's hash, and refused otherwise, so no one can change the set under its name. Like every set's cases, its cases stay out of the repository, and so does the runs' evidence, since both hold the snapshot's row-level values (SEC-03); each reported run's manifest under [docs/evaluation/runs/](docs/evaluation/runs/) names the commit, the snapshot, the pipeline version, and each prompt's hash. A held-out run end to end, `make eval-run SET=held_out`, costs about 5 USD. Ours measured the frozen agent; today's carries the one change to the agent's code made after the freeze, so the 56 block cases it fixed now pass ([limitations](docs/evaluation/limitations.md)).
+Every number in the [results](docs/evaluation/results.md) comes from the submission's held-out set, `held_out`, which today's code no longer draws or plays. Its [manifest](docs/evaluation/sets/held_out.json) names the commit that drew it, and each reported run's manifest under [docs/evaluation/runs/](docs/evaluation/runs/) names the commit, the snapshot, the pipeline version, and each prompt's hash, so rerunning one starts from checking out its commit. Today `make eval-sets HELD_OUT=600` draws `held_out_2`, the next agent's set, from wording that stays sealed and out of the repository ([its study](docs/evaluation/studies/held-out-2.md)), so a fork can't rebuild it. Once a run names it, the draw is kept when it matches the committed manifest's hash and refused otherwise, so no one can change the set under its name. Like every set's cases, its cases stay out of the repository, and so does the runs' evidence, since both hold the snapshot's row-level values (SEC-03).
 
 ---
 
@@ -356,7 +358,7 @@ CI runs the quality gates, and the PR merges once they pass. Nothing deploys fro
 A few habits keep PRs quick to review:
 
 - Write commit subjects in the imperative mood, as the history does ("Add IAM bootstrap module for deploy roles").
-- Cite the requirement IDs from [docs/prerequisites.md](docs/prerequisites.md) (for example `SEC-05`) in the PR description and in the tests that cover them, so every change traces back to what the organizers score.
+- Cite the requirement IDs from [docs/prerequisites.md](docs/prerequisites.md) (for example `SEC-05`) in the PR description and in the tests that cover them, so every change traces back to a requirement.
 - Mirror the package in `tests/`: the tests for `src/faro/<path>/<module>.py` live in `tests/faro/<path>/test_<module>.py`, and fixtures shared by a folder go in its `conftest.py`. The web app's tests mirror `web/src/` in `web/tests/` the same way (`<module>.test.ts`).
 - Add an ADR when the change makes a decision someone could reasonably question later (see [Record decisions](#record-decisions)).
 - Add a line under `Unreleased` in [CHANGELOG.md](CHANGELOG.md) when someone using the prototype, or maintaining it, would notice the change.
@@ -403,7 +405,7 @@ make browser            # Play the chat and the console in Chromium
 make suites             # Both, browser first, as a promotion's full check
 make smoke              # Ask about the smoke user's cards and enter as a guest, as the check after a deploy does
 make probe              # Time the Runtime and check what it stores and traces
-make judges             # Manage the judges' users, kept in data/judges/
+make judges             # Manage the invited users, customers and staff, kept in data/judges/
 make smoke-user         # Create or reset the check's customer, kept in data/smoke/
 make staff WHO=<user>   # Put a staff user on the staff allowlist (WHAT=remove takes one off)
 make label-users        # Once per environment: label the users made before the labels (DRY=1)
@@ -538,9 +540,9 @@ make relabel-agreement          # Score the filled sheet against the labels
 
 A promotion is a release ([ADR-0009](docs/adr/0009-release-checked-deploys.md)): cut on `develop` first, deployed and checked from `main`, and named last.
 
-1. **Cut the release.** When `develop` is in a state you'd be happy for judges to see, add a line under `Unreleased` for anything merged without one, such as Dependabot's PRs, and run `make cut` on a branch from `develop`. It takes the next minor version, or with `BUMP=patch` the next patch, for a promotion that only fixes the last release; it sets `version` in `pyproject.toml` and `uv.lock` with uv and moves `Unreleased`'s entries under `## [x.y.z] - date (Promotion N)`, leaving `Unreleased` empty. Merge it into `develop` through a PR. `make cut` warns when the last version has no release: its check failed, or `make release` never ran.
-2. **Open the promotion** from `develop` into `main`, titled with the version and naming the base, since new PRs target `develop`: `gh pr create --base main --title v1.6.0`. It's final when it opens. **Restrict merges to main** refuses it unless the release is cut: `Unreleased` empty, the changelog's top version the same as `pyproject.toml`'s, and that version not yet tagged. CI builds the zips and the site without credentials, plans `prototype` from them, and posts a sticky **Terraform Plan · `prototype`** comment for reviewers. The comment opens with the plan's totals and every action, then the plan itself. When the plan is longer than a comment, the comment says where it's cut, and the run's `plan` artifact keeps the whole file for 7 days.
-3. **Merge** with **Create a merge commit**: a squash or rebase puts commits on `main` that `develop` never gets, and the next promotion then carries the whole history again. The deploy run builds again, applies, uploads the site, checks that each Lambda and the Runtime run the build's zips (`make verify`), and then signs the smoke user in and asks about its cards (`make smoke`). The deployment links the site's URL, the one the submission gives (SUB-02). A red run gets no release, and nothing rolls back: the fix ships as a patch release, through `develop` like any change.
+1. **Cut the release.** When `develop` is in a state you'd be happy for visitors to use, add a line under `Unreleased` for anything merged without one, such as Dependabot's PRs, and run `make cut` on a branch from `develop`. It takes the next minor version, or with `BUMP=patch` the next patch, for a promotion that only fixes the last release; it sets `version` in `pyproject.toml` and `uv.lock` with uv and moves `Unreleased`'s entries under `## [x.y.z] - date (Promotion N)`, leaving `Unreleased` empty. Merge it into `develop` through a PR. `make cut` warns when the last version has no release: its check failed, or `make release` never ran.
+2. **Open the promotion** from `develop` into `main`, titled with the version and naming the base, since new PRs target `develop`: `gh pr create --base main --title v1.6.0`. It's final when it opens. **Restrict merges to main** refuses it unless the release is cut: `Unreleased` empty, the changelog's top version the same as `pyproject.toml`'s, and that version not yet tagged. CI builds the zips and the site without credentials, plans `prototype` from them, and posts a sticky **Terraform Plan · `prototype`** comment. The comment opens with the plan's totals and every action, then the plan itself. When the plan is longer than a comment, the comment says where it's cut, and the run's `plan` artifact keeps the whole file for 7 days.
+3. **Merge** with **Create a merge commit**: a squash or rebase puts commits on `main` that `develop` never gets, and the next promotion then carries the whole history again. The deploy run builds again, applies, uploads the site, checks that each Lambda and the Runtime run the build's zips (`make verify`), and then signs the smoke user in, asks about its cards, and enters as a guest (`make smoke`). The deployment links the site's URL (SUB-02). A red run gets no release, and nothing rolls back: the fix ships as a patch release, through `develop` like any change.
 4. **Run the suites, for a promotion that changes the app.** Once the deploy run has passed, run both suites against `prototype`: `AWS_PROFILE=default make suites ENV=prototype`, about 16 minutes and a quarter of a dollar in model calls. They're the full check the deploy's smoke test stands in for ([ADR-0009](docs/adr/0009-release-checked-deploys.md)), and they run as the stack's role for them. Their invited customers spend about 50 of the day's capped turns and are refused while the chat is paused, so check `make cap ENV=prototype` first, and raise the cap for the run if the day is near it. A failure stops the release like a red run: the fix ships as a patch.
 5. **Name the release.** Once the deploy run for `main`'s head has passed, its check included, run `make release` (`DRY=1` previews it). It tags that commit `vx.y.z` and makes the GitHub release, whose notes are the version's section and the build's SHA-256, so anyone can check out the tag, build, and compare. It refuses unless the run passed and the heading, `pyproject.toml`, and the tag agree. No workflow holds a token that can write to the repository, so this step is ours.
 6. **Fast-forward `develop` to `main`.** The merge commit is the only commit `main` has that `develop` lacks, so after this step any commit on `main` and not on `develop` reached `main` some other way:
@@ -576,7 +578,7 @@ Run `make doctor` first; most setup problems show up there.
 | `Terraform not initialized for <env>` | Run `make init ENV=<env>`. A checkout initialized before each environment had a working directory of its own needs it once, for `local` too. |
 | Expired credentials | Your sign-in session ended. Run `aws login` again. |
 | `make bootstrap` can't read the OIDC subject prefix | The GitHub CLI isn't signed in, or `origin` isn't a repository you can read. Run `gh auth login`; `make doctor` shows which repository `origin` points at. |
-| Deploy workflow jobs show as skipped | The repository variables from [step 3.5](#35-connect-github) aren't set yet. |
+| The deploy workflow's plan and apply jobs show as skipped | The repository variables from [step 3.5](#35-connect-github) aren't set yet. |
 | CI fails with `Not authorized to perform sts:AssumeRoleWithWebIdentity` | The roles trust another repository's OIDC subject, or the repository was renamed since the last `make iam-apply`. `make doctor` compares `iam.tfvars` with your repository; fix the value, then `make iam-apply`. |
 | CI's `terraform init` fails on provider checksums | The lock files lack hashes for linux/amd64. Run `make lock` and commit them. |
 | A hook passes on commit but fails in CI | Commit hooks only see changed files. Run `make check`, which runs both stages on every file, as CI does. |
@@ -627,7 +629,7 @@ Run `make help` for every target.
 | Variable | Default | Used by |
 |---|---|---|
 | `ENV` | `local` | The Terraform targets (`local` or `prototype`) |
-| `I_KNOW` | Unset | Set to `1` to allow `prototype` apply or destroy, `iam-destroy`, and `dataset-destroy` |
+| `I_KNOW` | Unset | Set to `1` to allow `prototype` apply, destroy, or site upload, `iam-destroy`, and `dataset-destroy` |
 | `FROM` | Unset | The folder `make data` restores the snapshot from ([step 2](#2-restore-the-dataset)) |
 | `AWS_PROFILE` | `banking-agent-local` (from `.envrc`) | Terraform for `local`, `make model-key`, `make integration`, `make snapshot`, and ad hoc AWS CLI calls; the `local` targets refuse to run without it |
 | `AWS_ADMIN_PROFILE` | `default` | `make bootstrap`, the `iam-*` and `dataset-*` targets, `make teardown`, `make doctor` |
@@ -636,7 +638,7 @@ Run `make help` for every target.
 | `GITHUB_OIDC_SUBJECT_PREFIX` | Read from GitHub for `origin` | `make bootstrap` |
 | `DATA_DIR` | `data` | The pipeline and evaluation targets, for a worktree whose `data/` is empty |
 | `SLOW` | Unset | Set to `1` to add the tests that wait out a token to `make integration` |
-| `WHAT`, `JUDGE` | `create`, every judge | `make judges`: `create`, `reset`, `sign-out`, `disable`, `enable`, or `delete` |
+| `WHAT`, `JUDGE` | `create`, every invited user | `make judges`: `create`, `reset`, `sign-out`, `disable`, `enable`, or `delete` |
 | `WHO`, `WHAT` | None, `add` | `make staff`: the staff user, and `add` or `remove` |
 | `TURNS` | Unset | `make cap`: the cap on the day's turns to set; 0 pauses the chat |
 | `GUESTS` | Unset | `make cap`: the cap on the guests the guest entry makes in a day, to set |
@@ -650,13 +652,13 @@ The evaluation targets ([Evaluate](#evaluate)) take their own:
 | Variable | Default | Used by |
 |---|---|---|
 | `STACK_OUTPUTS` | `build/<env>.outputs.json` | `make eval-run`, `make eval-cleanup` |
-| `SET`, `SITUATIONS`, `LANGUAGES`, `LIMIT`, `PARALLEL` | `regression`, all, all, none, `2` | `make eval-play` (`SET` only) and `make eval-run` |
+| `SET`, `SITUATIONS`, `LANGUAGES`, `LIMIT`, `PARALLEL` | `regression`, all, all, none, `2` | `make eval-play` (`SET` only) and `make eval-run`; `make language-check` and `make router-compare` read `PARALLEL` too |
 | `MODELS` | `scripted` | `make eval-play`: `baseline` plays the deterministic baseline, the only models the held-out set plays in process |
 | `HELD_OUT` | Unset: no held-out draw | `make eval-sets`: the held-out set's size, `600`, `400`, or `240` by the scope rule (ADR-0005); its manifest is committed before its first run, and after one, a draw is kept only when it rebuilds the committed set |
 | `RUN` | Unset: every stopped run | `make eval-cleanup` |
 | `RUNS`, `BASELINE`, `LABELS` | Unset | `make eval-report`: the runs, the baseline run, and the relabel sample it reads |
 | `FIRST`, `SECOND`, `LEFT_OUT`, `UNIT` | Unset, unset, none, `family` | `make eval-compare`: each system's runs, the situations its study leaves out, and what the interval resamples within each language (`family` or `case`) |
-| `ENV_FILE`, `ESTIMATE` | `.env`, unset | `make language-check`, `make router-compare`: the file holding the model key, and `1` to price a run without making it |
+| `ENV_FILE`, `ESTIMATE` | `.env`, unset | `make language-check`, `make router-compare`: the file holding the model key; `1` prices a `make router-compare` or `make outside-write` run without making it |
 | `FAMILIES` | All | `make language-check`: a few families, for cents |
 | `SOURCE`, `SAMPLE`, `ROWS`, `SEED` | `outside`, none, `50`, fixed | `make relabel-sample` (the source it draws from), `make relabel-agreement` (the filled sample) |
 | `ROUTERS`, `SIDE`, `FOLDS` | `keyword haiku sonnet`, `development`, unset: no folds | `make router-compare` |
@@ -676,14 +678,14 @@ Each layer of the toolchain is pinned in one file, which whatever installs that 
 | mise | `version` in `.github/actions/toolchain/action.yml` for CI, and `min_version` in `mise.toml` for yours |
 | Python dependencies | `uv.lock`, and only releases a week old (`exclude-newer` in `pyproject.toml`) |
 | Web dependencies | Exact versions in `web/package.json`, locked in `web/pnpm-lock.yaml`, and only releases a week old (`web/pnpm-workspace.yaml`) |
-| AWS provider | An exact version in `infra/terraform.tf`, which Dependabot bumps, and `.terraform.lock.hcl` in each root (linux/amd64, darwin/amd64, darwin/arm64) |
+| AWS provider | An exact version in `infra/terraform.tf`, which Dependabot bumps (the `iam` and `dataset` roots take `~> 6.0`), and `.terraform.lock.hcl` in each root (linux/amd64, darwin/amd64, darwin/arm64) |
 | tflint's AWS ruleset | `.tflint.hcl` |
 | What the Runtime and the Lambdas run | The `agent` and `tools` dependency groups in `uv.lock`, built for Linux arm64 by `make build` |
 | Dataset snapshot | `dataset.lock` |
 | Hook versions | Commit SHAs in `.pre-commit-config.yaml`, with the release in a `# frozen:` comment |
 | GitHub Actions | Commit SHAs in `.github/workflows/` and `.github/actions/`, with the release in a trailing comment |
 
-Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into `develop`. Version updates come quarterly and skip releases younger than a week; security updates don't wait for the schedule. Any change to `.github/dependabot.yml` on `develop` makes Dependabot check every ecosystem straight away, whatever the schedule, so config changes are best made together. They're grouped by what a merge touches, so each PR is taken one way, and one failing update never holds up another group:
+Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into `develop`. Version updates come quarterly and skip releases younger than a week, or two for a major of a Python or web package; security updates don't wait for the schedule. Any change to `.github/dependabot.yml` on `develop` makes Dependabot check every ecosystem straight away, whatever the schedule, so config changes are best made together. They're grouped by what a merge touches, so each PR is taken one way, and one failing update never holds up another group:
 
 | PR | What it moves | How to take it |
 |---|---|---|
@@ -696,7 +698,7 @@ Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens its PRs into
 | Terraform | The AWS provider | Read the plan when it's promoted |
 | Python and web majors | Every major version but the unversioned group's, one PR per ecosystem | Upgrade on purpose from a feature branch, or comment `@dependabot ignore <dependency> major version` |
 
-DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. The analysis libraries (polars, pyarrow, matplotlib, plotnine, scikit-learn) get no majors: only `src/faro/analysis/` uses them, for the published reports, and a major can change their results. `@types/node` stays on the Node major in `mise.toml`. TypeScript stays on 6: 7 replaces the compiler, and we don't plan to move.
+DuckDB and dbt get no version updates: they define the pipeline's version, which the published exports record, so they move only on purpose. The analysis libraries (polars, pyarrow, matplotlib, plotnine, scikit-learn) get no majors: only `src/faro/analysis/` uses them, for the published reports, and a major can change their results. `@types/node` stays on the Node major in `mise.toml`. TypeScript stays on 6: 7 replaces the compiler, and we don't plan to move. `anthropic` gets no majors: its 2.x sends an API version that refuses the temperature every call sends.
 
 Security updates come as soon as an advisory covers a version we lock, one PR each for Python and the web app. Dependabot doesn't hold those back, but uv and pnpm still refuse a release under a week old (`exclude-newer` in `pyproject.toml`, `minimumReleaseAge` in `web/pnpm-workspace.yaml`), so a fix that new waits until it ages. One that can't wait gets an exception for that package alone (`exclude-newer-package`, `minimumReleaseAgeExclude`), removed once the release is a week old. If a fix that new holds up the rest of its group, upgrade the others by hand from a feature branch.
 
@@ -719,5 +721,5 @@ Gitignored files worth knowing about:
 - `.envrc`: your local `AWS_PROFILE`
 - `mise.local.toml`: your own changes to `mise.toml`, which mise reads on top of it
 - `.env`, `.env.*`: local secrets, such as the Anthropic API key `make model-key` stores; the tracked `.env.example` lists their variables
-- `data/`: the dataset snapshots, the personas, the pipeline's DuckDB file, the exports, the evaluation's sets and run evidence, and the judges' credentials and private note; nothing under it may ever be committed
+- `data/`: the dataset snapshots, the personas, the pipeline's DuckDB file, the exports, the evaluation's sets and run evidence, and the invited users' credentials and private note; nothing under it may ever be committed
 - `docs/hackathon/`: the organizers' materials, including the dataset keys

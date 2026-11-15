@@ -17,14 +17,12 @@
   <a href="https://github.com/gafnts/factored-hackathon-2026-faro/actions/workflows/quality-gates.yml"><img src="https://github.com/gafnts/factored-hackathon-2026-faro/actions/workflows/quality-gates.yml/badge.svg" alt="Quality gates"></a>
   <a href="https://github.com/gafnts/factored-hackathon-2026-faro/actions/workflows/advisories.yml"><img src="https://github.com/gafnts/factored-hackathon-2026-faro/actions/workflows/advisories.yml/badge.svg" alt="Advisories"></a>
   <a href="https://github.com/gafnts/factored-hackathon-2026-faro/actions/workflows/deploy-prototype.yml"><img src="https://github.com/gafnts/factored-hackathon-2026-faro/actions/workflows/deploy-prototype.yml/badge.svg" alt="Deploy prototype"></a>
-  <a href="https://faro.gabriel.com.gt"><img src="https://img.shields.io/website?url=https%3A%2F%2Ffaro.gabriel.com.gt&label=prototype&up_message=live&down_message=down" alt="Prototype"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
+  <a href="https://faro.gabriel.com.gt"><img src="https://img.shields.io/website?url=https%3A%2F%2Ffaro.gabriel.com.gt&label=prototype&labelColor=2f373f&up_message=live&up_color=29c64d&down_message=down" alt="Prototype"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?labelColor=2f373f" alt="License"></a>
 </p>
 
 > [!NOTE]
-> **Try it.** Open [faro.gabriel.com.gt](https://faro.gabriel.com.gt/chat) and press *Entrar como invitado* (*Entrar como convidado* in Portuguese): you enter as one of the bank's synthetic customers, with no account and nothing to give. The page says what we keep of a visit before you enter ([ADR-0007](docs/adr/0007-role-gated-web-app.md#the-guest-entry)).
->
-> **For the judges.** The prototype runs at [faro.gabriel.com.gt](https://faro.gabriel.com.gt). The credentials for its customer personas and the human agent reached the organizers with the submission and are in no file here. The [slides](docs/slides.pdf) are in this repository and the [video pitch](https://www.youtube.com/watch?v=3lSxTLhZ7FY) is unlisted on YouTube. Anyone else can deploy their own copy: see [Self-hosting](#self-hosting).
+> **Faro won first place** at the Factored AI &amp; Data Hackathon 2026, with [this pitch](docs/slides.pdf). Now anyone can try it: open [faro.gabriel.com.gt](https://faro.gabriel.com.gt/chat) and press *Entrar como invitado* to enter as one of the bank's synthetic customers, with no account.
 
 ---
 
@@ -45,7 +43,7 @@ In the [console](https://faro.gabriel.com.gt/cases), a human agent sees the case
 </p>
 
 > [!IMPORTANT]
-> LATAM Bank and every customer in it are synthetic, from the organizers' dataset. This journey runs end to end on the prototype, and the browser suite replays it as a test, in Portuguese, against each deployed stack before we promote it ([ADR-0007](docs/adr/0007-role-gated-web-app.md#judges-access)).
+> LATAM Bank and every customer in it are synthetic, from the organizers' dataset. This journey runs end to end on the prototype, and the browser suite replays it as a test, in Portuguese, against each deployed stack ([tests](tests/README.md)).
 
 ### Why Faro exists
 
@@ -77,7 +75,7 @@ The stack: AgentCore Runtime and Gateway, LangGraph, Cognito, Cedar, DynamoDB, C
 
 ## Evaluation
 
-Offline: scripted conversations played against the deployed stack and graded by code against an oracle, our own code that applies the policy to the frozen bank and shares nothing with Faro's tools. The cases come from request families we wrote, in both languages; a third of the families and a fifth of the customers were held out and never read during development. Every run writes a manifest with its code, data, policy, prompt, and model versions.
+Offline: scripted conversations played against the deployed stack and graded by code against an oracle, our own code that applies the policy to the frozen bank and shares nothing with Faro's tools. The cases come from request families, in both languages. A fifth of the customers, and wording kept out of development, are held out, and the reported numbers come from them. Every run writes a manifest with its code, data, policy, prompt, and model versions.
 
 <p align="center">
   <img src="docs/images/evaluation.png" alt="The evaluation" width="100%">
@@ -121,14 +119,7 @@ Since late October 2026, the organizers' dataset can no longer be downloaded, an
 
 ## Self-hosting
 
-A fork stands up in an AWS account you control, with Terraform and nothing tied to our accounts:
-
-| You want to | You need |
-|---|---|
-| Change code, tests, or docs | Only the toolchain |
-| Explore or process the organizers' dataset | A copy of it, since it [can no longer be downloaded](CONTRIBUTING.md#2-restore-the-dataset) |
-| Run the whole stack in your own AWS account | Admin access to an AWS account, and your own fork |
-| [Check our reported numbers](CONTRIBUTING.md#reproduce-the-results) | The toolchain to start; a copy of the dataset and your own stack for the later checks |
+A fork stands up in an AWS account you control, with Terraform and nothing tied to our accounts. Changing code, tests, or docs needs only the toolchain; [Pick your path](CONTRIBUTING.md#pick-your-path) says what the dataset, a stack of your own, and [checking our numbers](CONTRIBUTING.md#reproduce-the-results) need beyond it.
 
 With the [toolchain](CONTRIBUTING.md#1-install-the-toolchain) installed:
 

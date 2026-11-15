@@ -23,7 +23,7 @@ The words this repository uses in its own way, in plain terms. The policy's rule
 | Reply check | Code that inspects every reply before it is sent; a reply that fails is replaced by a fixed one, and the replacement is counted |
 | Execution record | The append-only log of a conversation: every model call, tool call, and control, and a decision entry per request served with its outcome class (answered, clarified, abstained, declined, blocked, handed off). The audit log and the evaluation's evidence in one; each turn's first entry names its trace |
 | Snapshot, as-of instant | A pinned, verified copy of the dataset, read as of one moment: business date 2026-06-17, as of 2026-06-18 06:00. No tool reads the wall clock |
-| App stamp | The commit of the code the deployed Runtime runs, carried by every execution record |
+| App stamp | The last commit that changed the code the deployed Runtime runs, carried by every execution record |
 
 ## In the evaluation
 

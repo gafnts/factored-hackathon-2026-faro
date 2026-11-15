@@ -29,6 +29,9 @@ History before 2026-10-27 is in the [merged pull requests](https://github.com/ga
 - The deploy's check also enters as a guest: it reads the visitor's cards through the Gateway, requires the welcome to name each one, and deletes the visitor with its own token, so the check still holds no AWS credentials; while the chat is paused it expects the paused answer ([ADR-0009](docs/adr/0009-release-checked-deploys.md)'s amendment of 2026-11-08, [#208]).
 - The suites' role may read the guest entry's log and run the cleanup once, for the tests that check them ([#208]).
 - The README's first lines say how to enter ([#208]).
+- The pages a reader opens first describe the open prototype: the README, the docs index, the architecture, the brief, the limitations, the identity guide, the folders' READMEs, and CONTRIBUTING say what ships since the guest entry, address visitors where they addressed the hackathon's judges, and state no count that nothing checks. CONTRIBUTING's reproduce table names the sets today's code draws and plays ([#216]).
+- The report and the limitations say what the triage of 2026-11-02 found in M-04's five cases: a fact in the other language, or a transaction other than the one the customer meant, and none a format the grader missed ([#216]).
+- The record on visitors' text is due before anyone reads a visitor's conversation, no longer before Faro opens ([ADR-0011](docs/adr/0011-pre-registered-studies.md), [#216]).
 - The bar at the foot of the customers' sign-in says only that the data is synthetic and that entering accepts these conditions, whose words open the full list. The warning not to type real data and how long conversations are kept moved to the list. On a phone its two sentences take a line each, and the conditions' words are a 44 px tap target ([#211]).
 - The conditions' dialog speaks in the bar's impersonal voice. It arrives as the page behind it blurs and darkens, and leaves faster as the page clears; a click on the backdrop closes it, as Escape and its button do, and it opens on its title with nothing pressed ([#211]).
 - The rail's sign-out moved into a menu behind the account at the rail's foot, which names a guest and is the account alone for an invited customer ([#211]).
@@ -304,6 +307,7 @@ The prototype as submitted to the Factored AI & Data Hackathon 2026, and as judg
 [#211]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/211
 [#213]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/213
 [#214]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/214
+[#216]: https://github.com/gafnts/factored-hackathon-2026-faro/pull/216
 [GHSA-6q48-6c7w-9gw2]: https://github.com/advisories/GHSA-6q48-6c7w-9gw2
 [GHSA-3fx2-cqw9-xr3c]: https://github.com/advisories/GHSA-3fx2-cqw9-xr3c
 [GHSA-68fv-2mgg-jv7q]: https://github.com/advisories/GHSA-68fv-2mgg-jv7q
